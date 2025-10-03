@@ -179,7 +179,7 @@ export default function LandingPage() {
         <Container>
           <SectionTitle
             eyebrow="Features"
-            title="Everything you need to think like a clinician"
+            title="Everything you need to think like an EMT"
             subtitle="Built for EMTs in training with adaptive practice, explanations, and analytics."
            
           />
