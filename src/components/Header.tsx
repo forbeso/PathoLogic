@@ -29,7 +29,7 @@ export default function Header() {
             <Ambulance size={18} />
             </div>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-            PathoLogic
+            PathoLogix
             </h1>
             {/* <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
             Beta

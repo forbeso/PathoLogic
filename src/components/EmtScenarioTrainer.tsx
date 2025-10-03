@@ -470,7 +470,7 @@ export default function EMTScenarioTrainer() {
 
         {/* Footer */}
         <footer className="pt-2 text-xs text-gray-500">
-          PathoLogic 2025 &copy; — Practice scenarios for EMTs. Not a substitute for formal training or protocols.
+          PathoLogix 2025 &copy; — Practice scenarios for EMTs. Not a substitute for formal training or protocols.
         </footer>
       </div>
    

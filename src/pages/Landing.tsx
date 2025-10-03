@@ -123,7 +123,7 @@ export default function LandingPage() {
                 transition={{ duration: 0.5, delay: 0.05 }}
                 className="mt-4 max-w-xl text-lg "
               >
-                PathoLogic generates NREMT‑style scenarios, highlights critical cues, and walks you through step‑by‑step differentials so you master the <em>why</em> behind each answer.
+                PathoLogix generates NREMT‑style scenarios, highlights critical cues, and walks you through step‑by‑step differentials so you master the <em>why</em> behind each answer.
               </motion.p>
 
               <div className="mt-6 flex flex-wrap items-center gap-3">
@@ -314,7 +314,7 @@ export default function LandingPage() {
           <div className="mx-auto mt-8 max-w-3xl divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200/70 bg-white/70 shadow-sm backdrop-blur dark:divide-slate-800">
             {[
               {
-                q: "Is PathoLogic aligned with the NREMT?",
+                q: "Is PathoLogix aligned with the NREMT?",
                 a: "Yes. Scenarios, distractors, and rationale style are designed to reflect NREMT conventions while focusing on clinical reasoning.",
               },
               {
@@ -342,7 +342,7 @@ export default function LandingPage() {
       <footer className="border-t border-slate-200/60 py-8 text-center text-xs  dark:border-slate-800 ">
         <Container>
           <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
-            <div>© {new Date().getFullYear()} PathoLogic — Practice scenarios for EMTs.</div>
+            <div>© {new Date().getFullYear()} PathoLogix — Practice scenarios for EMTs.</div>
             <div className="flex items-center gap-4">
               <a href="#" className="hover:text-slate-700 dark:hover:text-emerald-400">Privacy</a>
               <a href="#" className="hover:text-slate-700 dark:hover:text-emerald-400">Terms</a>
