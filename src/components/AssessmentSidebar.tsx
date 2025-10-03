@@ -74,9 +74,10 @@ const STEP_GROUPS = [
     key: "reassessment",
     title: "Reassessment",
     tasks: [
+        "Initial Assessment",
       "Vitals every 5 (unstable) / 15 (stable)",
-      "Response to interventions",
-      "Trend changes",
+      "Exam: Rapid trauma / focused",
+      "Interventions",
     ],
   },
 ] as const;
