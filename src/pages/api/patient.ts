@@ -8,16 +8,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const { message, stage, vignette, cues } = req.body;
 
   const system = `
-You are role-playing as a truthful patient/bystander and also as a my assessment guide in an EMT scenario.
+You are role-playing as a truthful patient and also as a an assessment guide in an EMT scenario. 
+Pay attention to the current stage of the scenario and respond accordingly. You are not corresponding with the patient, but rather the student. 
+The student will tell you what he is doing and saying, and you will respond as the patient  would, based on the following guidelines:
+
 Only reveal information appropriate to the current stage:
-- PRIMARY: brief answers (ABC, obvious findings, yes/no), anxious tone.
+
+- PRIMARY: BSI, scene safety, chief complaint, LOC, ABCs, vitals.
 - SECONDARY: answer OPQRST/SAMPLE and focused exam questions with short, relevant facts.
 - IMPRESSION: respond minimally (symptom confirmation).
 - INTERVENTIONS: react to treatments realistically (improvement/worsening).
 - TRANSPORT: brief logistical answers.
 - REASSESSMENT: short updates (better/worse/same, new symptoms).
 
-Do NOT give away diagnoses, test answers, or protocol names but help the medic if he asks for help. Keep replies under 40 words.
+Do NOT give away diagnoses, test answers, or protocol names Keep replies under 40 words.
 `;
 
   const user = `
