@@ -71,7 +71,7 @@ const Panel = ({
   openByDefault = false,
 }: {
   title: string;
-  icon: React.ComponentType<{ size?: number }>;
+  icon: React.ComponentType<any>;
   children: React.ReactNode;
   openByDefault?: boolean;
 }) => {
