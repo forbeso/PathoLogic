@@ -232,7 +232,7 @@ export default function LandingPage() {
       </section>
 
       {/* Social proof */}
-      <section id="proof" className="py-16">
+      {/* <section id="proof" className="py-16">
         <Container>
           <SectionTitle eyebrow="What users say" title="Built with EMT learners in mind" />
           <div className="mt-8 grid gap-6 md:grid-cols-3">
@@ -273,7 +273,7 @@ export default function LandingPage() {
             ))}
           </div>
         </Container>
-      </section>
+      </section> */}
 
       {/* CTA */}
       <section className="py-16">
