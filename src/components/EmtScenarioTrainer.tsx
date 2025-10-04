@@ -221,6 +221,7 @@ export default function EMTScenarioTrainer() {
   if (loading) {
     return (
       <div className="min-h-screen grid place-items-center bg-[radial-gradient(1200px_600px_at_50%_-100px,rgba(16,185,129,0.10),transparent)]">
+        
         <div className="flex items-center gap-2 rounded-xl border border-slate-200/80 bg-white/80 px-4 py-2 text-slate-700 shadow-sm backdrop-blur">
           <motion.span
             className="inline-block h-2 w-2 rounded-full bg-emerald-500"
