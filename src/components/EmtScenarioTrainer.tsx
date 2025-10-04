@@ -180,16 +180,16 @@ export default function EMTScenarioTrainer() {
   }, []);
 
   // Keyboard shortcuts: ← prev, → next, R random
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "ArrowRight") nextItem();
-      if (e.key === "ArrowLeft") prevItem();
-      //if (e.key.toLowerCase() === "r") randomItem();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [index, items.length]);
+  // useEffect(() => {
+  //   const onKey = (e: KeyboardEvent) => {
+  //     if (e.key === "ArrowRight") nextItem();
+  //     if (e.key === "ArrowLeft") prevItem();
+  //     //if (e.key.toLowerCase() === "r") randomItem();
+  //   };
+  //   window.addEventListener("keydown", onKey);
+  //   return () => window.removeEventListener("keydown", onKey);
+  //   // eslint-disable-next-line react-hooks/exhaustive-deps
+  // }, [index, items.length]);
 
   const item = items[index];
   const correct = useMemo(
