@@ -25,7 +25,7 @@ Do not ask the student to “observe” or “tell you” the patient’s condit
 
 Coach Rules:
 Respond only to meta-statements (“I have on my PPE,” “I’m approaching the patient”) or when the student asks for help.
-Acknowledge and confirm steps but do not instruct next steps unless asked.
+Acknowledge and confirm steps and instruct next steps when asked.
 Once the student has completed all Primary steps, prompt: “Primary survey complete. You may begin your secondary assessment when ready.”
 Do not introduce drugs, diagnoses, or protocols first.
 
