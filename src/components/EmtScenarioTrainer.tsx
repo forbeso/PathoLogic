@@ -336,7 +336,7 @@ before:[mask-composite:exclude] before:[-webkit-mask-composite:xor]
 before:z-0"
 
 >
-  <span className="relative z-10 flex items-center gap-1 text-white">
+  <span className="relative z-10 flex items-center gap-1 text-white text-sm">
     <TestTubeDiagonal size={16} /> Open Assessment Mode
   </span>
 </button>
