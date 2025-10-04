@@ -14,7 +14,9 @@ import {
   ChevronRight,
   Shuffle,
   Sparkles,
-  Ambulance
+  Ambulance,
+  LightbulbIcon,
+  TestTubeDiagonal
 } from "lucide-react";
 import AssessmentSidebar from "./AssessmentSidebar";
 
@@ -157,7 +159,7 @@ export default function EMTScenarioTrainer() {
   const [loading, setLoading] = useState(true);
   const [index, setIndex] = useState(0);
   const [selected, setSelected] = useState<null | string>(null);
-  const [showCues, setShowCues] = useState(false);
+  const [showCues, setShowCues] = useState(true);
   const [showRationale, setShowRationale] = useState(false);
   const [showElims, setShowElims] = useState(false);
   const [assessmentOpen, setAssessmentOpen] = useState(false);
@@ -200,7 +202,7 @@ export default function EMTScenarioTrainer() {
 
   const goto = (i: number) => {
     setSelected(null);
-    setShowCues(false);
+    setShowCues(true);
     setShowRationale(false);
     setShowElims(false);
     if (items.length > 0) {
@@ -313,19 +315,32 @@ export default function EMTScenarioTrainer() {
             >
               {showRationale ? "Hide" : "Show"} rationales
             </button>
-            <button
+            {/* <button
               type="button"
               onClick={() => setShowElims((s) => !s)}
               className="rounded-xl border border-slate-200/80 bg-white/80 px-3 py-1 text-sm text-slate-800 shadow-sm hover:bg-slate-50 backdrop-blur"
             >
               {showElims ? "Hide" : "Show"} elimination tips
-            </button>
+            </button> */}
             <button
-                onClick={() => setAssessmentOpen(true)}
-                className="inline-flex items-center gap-2 rounded-xl border bg-white px-3 py-1 text-xs font-medium shadow-sm hover:bg-slate-50"
-              >
-                  Open Assessment Mode
-            </button>
+  onClick={() => setAssessmentOpen(true)}
+  className="
+relative inline-flex items-center gap-2 rounded-xl px-3 py-1 text-xs font-medium shadow-sm
+bg-white hover:bg-slate-50 transition-all
+before:absolute before:inset-0 before:rounded-xl before:p-[2px]
+before:bg-gradient-to-r before:from-purple-500 before:via-fuchsia-500 before:to-teal-400
+before:animate-[pulse_4s_ease-in-out_infinite]
+before:[mask:linear-gradient(#fff_0_0)_content-box,linear-gradient(#fff_0_0)]
+before:[-webkit-mask:linear-gradient(#fff_0_0)_content-box,linear-gradient(#fff_0_0)]
+before:[mask-composite:exclude] before:[-webkit-mask-composite:xor]
+before:z-0"
+
+>
+  <span className="relative z-10 flex items-center gap-1 text-white">
+    <TestTubeDiagonal size={16} /> Open Assessment Mode
+  </span>
+</button>
+
           </div>
  
         </section>
