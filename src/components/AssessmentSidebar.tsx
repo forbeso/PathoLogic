@@ -263,15 +263,16 @@ export default function AssessmentSidebar({ item, open, onClose }: Props) {
 
           {/* Input row */}
           <div className="mb-4 flex items-center gap-2">
-            <button
+            {/* <button
               onClick={recording ? stopRec : startRec}
               className={`rounded-xl border px-3 py-2 text-sm shadow-sm ${
                 recording ? "bg-rose-600 text-white border-rose-600" : "bg-white hover:bg-slate-50"
               }`}
               title={recording ? "Stop recording" : "Hold a conversation (Whisper)"}
+              disabled={true}
             >
-              {recording ? <MicOff size={16} /> : <Mic size={16} />}
-            </button>
+              {recording ? <MicOff size={16}/> : <Mic size={16} />}
+            </button> */}
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
