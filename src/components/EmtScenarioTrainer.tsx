@@ -360,7 +360,10 @@ before:z-0"
                   key={c.id}
                   whileTap={{ scale: 0.98 }}
                   type="button"
-                  onClick={() => setSelected(c.id)}
+                  onClick={() => {
+                        setSelected(c.id);
+                        setShowRationale(true); // 👈 reveal rationales on first selection
+                }}
                   className={`flex w-full items-start gap-3 rounded-2xl border border-slate-200/80 bg-white/80 p-4 text-left shadow-sm hover:bg-slate-50 backdrop-blur ${
                     chosen
                       ? correctChoice
@@ -384,6 +387,7 @@ before:z-0"
                           {correctChoice ? (
                             <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700">
                               <Check size={16} /> Correct
+                              
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-rose-700">

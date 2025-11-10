@@ -11,7 +11,10 @@
   "dependencies": {
     "@headlessui/react": "^2.2.0",
     "@heroicons/react": "^2.1.5",
-    "@supabase/supabase-js": "^2.58.0",
+    "@supabase/auth-helpers-nextjs": "^0.10.0",
+    "@supabase/auth-ui-react": "^0.4.7",
+    "@supabase/auth-ui-shared": "^0.1.8",
+    "@supabase/supabase-js": "^2.80.0",
     "@vercel/analytics": "^1.5.0",
     "autoprefixer": "^10.4.19",
     "formidable": "^3.5.4",
@@ -23,6 +26,7 @@
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "tailwindcss": "^3.4.3",
+    "three": "^0.180.0",
     "typescript": "^5.4.5"
   },
   "devDependencies": {
