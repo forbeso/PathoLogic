@@ -12,21 +12,21 @@ export default function UserMenu({ email, avatarUrl }: Props) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    function onDocClick(e: MouseEvent) {
-      if (!menuRef.current) return;
-      if (!menuRef.current.contains(e.target as Node)) setOpen(false);
-    }
-    function onEsc(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("mousedown", onDocClick);
-    document.addEventListener("keydown", onEsc);
-    return () => {
-      document.removeEventListener("mousedown", onDocClick);
-      document.removeEventListener("keydown", onEsc);
-    };
-  }, []);
+  // useEffect(() => {
+  //   function onDocClick(e: MouseEvent) {
+  //     if (!menuRef.current) return;
+  //     if (!menuRef.current.contains(e.target as Node)) setOpen(false);
+  //   }
+  //   function onEsc(e: KeyboardEvent) {
+  //     if (e.key === "Escape") setOpen(false);
+  //   }
+  //   document.addEventListener("mousedown", onDocClick);
+  //   document.addEventListener("keydown", onEsc);
+  //   return () => {
+  //     document.removeEventListener("mousedown", onDocClick);
+  //     document.removeEventListener("keydown", onEsc);
+  //   };
+  // }, []);
 
   const initials = useMemo(() => {
     if (!email) return "U";
@@ -87,6 +87,16 @@ export default function UserMenu({ email, avatarUrl }: Props) {
           >
             <BarChart2 size={16} className="text-slate-600" />
             My progress
+          </Link>
+
+          <Link
+            href="/my-scenarios"
+            role="menuitem"
+            className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50"
+            onClick={() => setOpen(false)}
+          >
+            <BarChart2 size={16} className="text-slate-600" />
+            My Scenarios
           </Link>
           <div className="h-px bg-slate-100" />
           <button

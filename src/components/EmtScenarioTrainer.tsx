@@ -19,6 +19,9 @@ import {
   TestTubeDiagonal
 } from "lucide-react";
 import AssessmentSidebar from "./AssessmentSidebar";
+import { recordResult, getWeakestTopic, getCachedGeneratedScenario  } from "@/lib/adaptive";
+import { supabase } from "@/lib/supabase";
+
 
 /* ---------- Types ---------- */
 type Cue = { text: string; rationale: string };
@@ -163,6 +166,7 @@ export default function EMTScenarioTrainer() {
   const [showRationale, setShowRationale] = useState(false);
   const [showElims, setShowElims] = useState(false);
   const [assessmentOpen, setAssessmentOpen] = useState(false);
+  const [adaptiveLoading, setAdaptiveLoading] = useState(false);
 
 
   useEffect(() => {
@@ -181,17 +185,66 @@ export default function EMTScenarioTrainer() {
     fetchItems();
   }, []);
 
-  // Keyboard shortcuts: ← prev, → next, R random
-  // useEffect(() => {
-  //   const onKey = (e: KeyboardEvent) => {
-  //     if (e.key === "ArrowRight") nextItem();
-  //     if (e.key === "ArrowLeft") prevItem();
-  //     //if (e.key.toLowerCase() === "r") randomItem();
-  //   };
-  //   window.addEventListener("keydown", onKey);
-  //   return () => window.removeEventListener("keydown", onKey);
-  //   // eslint-disable-next-line react-hooks/exhaustive-deps
-  // }, [index, items.length]);
+//   // inside pages/emtrainer.tsx (or your trainer component)
+// useEffect(() => {
+//   try {
+//     const raw = localStorage.getItem("pathologix:last_scenario");
+//     if (!raw) return;
+//     const cached = JSON.parse(raw);
+//     // Append & jump to it
+//     setItems((prev: any[]) => {
+//       const next = [...prev, cached];
+//       setIndex(next.length - 1);
+//       return next;
+//     });
+//     localStorage.removeItem("pathologix:last_scenario");
+//   } catch {}
+//   // eslint-disable-next-line react-hooks/exhaustive-deps
+// }, []);
+  
+async function startAdaptive() {
+  setAdaptiveLoading(true);
+  try {
+    const topic = await getWeakestTopic();
+
+    // 1) call the generator
+    const res = await fetch("/api/generateScenario", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ topic }),
+    });
+    if (!res.ok) throw new Error("generation failed");
+    const scenario = await res.json();
+
+    // 2) cache it client-side (respects RLS)
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { error: insErr } = await supabase.from("generated_scenarios").insert({
+        user_id: user.id,
+        topic,
+        vignette: scenario.vignette,
+        cues: scenario.cues,                     // jsonb OK
+        question: scenario.question,
+        choices: scenario.choices,               // jsonb OK
+        reasoning_steps: scenario.reasoning_steps
+      });
+      if (insErr) console.error("cache insert failed:", insErr);
+    }
+
+    // 3) show it in UI
+    setItems(prev => {
+      const next = [...prev, scenario];
+      setIndex(next.length - 1);
+      return next;
+    });
+    setSelected(null); setShowCues(true); setShowRationale(false); setShowElims(false);
+  } catch (e) {
+    console.error(e);
+  } finally {
+    setAdaptiveLoading(false);
+  }
+}
+
 
   const item = items[index];
   const correct = useMemo(
@@ -284,6 +337,8 @@ export default function EMTScenarioTrainer() {
             >
               Next <ChevronRight size={16} />
             </button>
+
+            
             <span className="rounded-full bg-emerald-100 px-3 py-1 text-emerald-700">
                 {index + 1}/{items.length}
               </span>
@@ -315,6 +370,17 @@ export default function EMTScenarioTrainer() {
               className="rounded-xl border border-slate-200/80 bg-white/80 px-3 py-1 text-sm text-slate-800 shadow-sm hover:bg-slate-50 backdrop-blur"
             >
               {showRationale ? "Hide" : "Show"} rationales
+            </button>
+
+            {/* NEW: Adaptive */}
+            <button
+              onClick={startAdaptive}
+              disabled={adaptiveLoading}
+              className="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 px-3 py-1 text-sm font-semibold text-white shadow hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-70"
+              title="Serve a scenario targeting your weakest topic"
+            >
+              <Sparkles size={16} />
+              {adaptiveLoading ? "Finding scenario…" : "Train on similar questions"}
             </button>
             {/* <button
               type="button"
@@ -360,9 +426,21 @@ before:z-0"
                   key={c.id}
                   whileTap={{ scale: 0.98 }}
                   type="button"
-                  onClick={() => {
+                  onClick={async () => {
                         setSelected(c.id);
                         setShowRationale(true); // 👈 reveal rationales on first selection
+                        // persist performance
+  try {
+    await recordResult({
+      itemId: item.id,
+      topic: item.topic,
+      correct: c.correct,
+      selectedChoice: c.id,
+    });
+  } catch (e) {
+    // optional: toast error
+    console.error("Failed to record result", e);
+  }
                 }}
                   className={`flex w-full items-start gap-3 rounded-2xl border border-slate-200/80 bg-white/80 p-4 text-left shadow-sm hover:bg-slate-50 backdrop-blur ${
                     chosen

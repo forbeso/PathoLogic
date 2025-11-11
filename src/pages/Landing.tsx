@@ -162,11 +162,11 @@ export default function LandingPage() {
     <HeroScreenshot/>
 
     {/* Your floating mini-card stays */}
-    <div className="-mt-10 ml-6 w-2/3 rounded-xl border border-slate-200/80 bg-white/90 p-3 shadow-xl dark:border-slate-700/70 dark:bg-slate-900/80 relative z-10">
+    {/* <div className="-mt-10 ml-6 w-2/3 rounded-xl border border-slate-200/80 bg-white/90 p-3 shadow-xl dark:border-slate-700/70 dark:bg-slate-900/80 relative z-10">
       <div className="text-xs font-semibold text-slate-700 dark:text-slate-200">Cue Highlighter</div>
       <div className="mt-1 h-2 w-2/3 rounded bg-emerald-200" />
       <div className="mt-2 h-2 w-1/2 rounded bg-amber-200" />
-    </div>
+    </div> */}
   </div>
 </motion.div>
 
@@ -289,7 +289,7 @@ export default function LandingPage() {
               </div>
               <div className="flex items-center gap-3 md:justify-end">
                 <Link
-                  href="/app"
+                  href="/emtrainer"
                   className="inline-flex items-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-emerald-700 shadow hover:bg-white/90"
                 >
                   Try it free <ArrowRight size={16} />
