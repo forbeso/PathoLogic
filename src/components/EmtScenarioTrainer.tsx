@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Check,
@@ -14,14 +14,11 @@ import {
   ChevronRight,
   Shuffle,
   Sparkles,
-  Ambulance,
-  LightbulbIcon,
-  TestTubeDiagonal
+  TestTubeDiagonal,
 } from "lucide-react";
 import AssessmentSidebar from "./AssessmentSidebar";
-import { recordResult, getWeakestTopic, getCachedGeneratedScenario  } from "@/lib/adaptive";
+import { recordResult, getWeakestTopic, getCachedGeneratedScenario } from "@/lib/adaptive";
 import { supabase } from "@/lib/supabase";
-
 
 /* ---------- Types ---------- */
 type Cue = { text: string; rationale: string };
@@ -116,15 +113,10 @@ function escapeRegExp(str: string) {
 
 function renderHighlighted(text: string, cues: Cue[], show: boolean) {
   if (!show || !cues?.length) return [text];
-  const pattern = new RegExp(
-    `(${cues.map((c) => escapeRegExp(c.text)).join("|")})`,
-    "gi"
-  );
+  const pattern = new RegExp(`(${cues.map((c) => escapeRegExp(c.text)).join("|")})`, "gi");
   const parts = text.split(pattern);
   return parts.map((chunk, idx) => {
-    const cue = cues.find(
-      (c) => c.text.toLowerCase() === chunk.toLowerCase()
-    );
+    const cue = cues.find((c) => c.text.toLowerCase() === chunk.toLowerCase());
     if (cue) {
       return (
         <motion.mark
@@ -156,6 +148,30 @@ function ProgressBar({ value, max }: { value: number; max: number }) {
   );
 }
 
+/* ---------- Normalizers ---------- */
+function topicToDomain(topic: string) {
+  const t = (topic || "").toLowerCase();
+  if (/(trauma|burn|spine|head|chest|abd|orth|bleed)/.test(t)) return "Trauma";
+  return "Medical";
+}
+
+function normalizeItem(raw: any): Item {
+  return {
+    id: String(raw.id ?? `itm-${Date.now()}`),
+    domain: raw.domain ?? topicToDomain(raw.topic ?? "General"),
+    topic: raw.topic ?? "General",
+    vignette: raw.vignette ?? "",
+    cues: Array.isArray(raw.cues) ? raw.cues : [],
+    question: raw.question ?? "",
+    choices: Array.isArray(raw.choices) ? raw.choices : [],
+    reasoning_steps: Array.isArray(raw.reasoning_steps) ? raw.reasoning_steps : [],
+    tags:
+      Array.isArray(raw.tags) && raw.tags.length
+        ? raw.tags
+        : [raw.topic ?? "General", "NREMT"],
+  };
+}
+
 /* ---------- Main ---------- */
 export default function EMTScenarioTrainer() {
   const [items, setItems] = useState<Item[]>([]);
@@ -168,7 +184,7 @@ export default function EMTScenarioTrainer() {
   const [assessmentOpen, setAssessmentOpen] = useState(false);
   const [adaptiveLoading, setAdaptiveLoading] = useState(false);
 
-
+  // Initial fetch + normalize to guarantee tags/domain/etc
   useEffect(() => {
     async function fetchItems() {
       setLoading(true);
@@ -176,7 +192,8 @@ export default function EMTScenarioTrainer() {
         const res = await fetch("/api/test");
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        setItems(Array.isArray(data) ? data : []);
+        const normalized = (Array.isArray(data) ? data : []).map(normalizeItem);
+        setItems(normalized);
       } catch {
         setItems([]);
       }
@@ -185,73 +202,113 @@ export default function EMTScenarioTrainer() {
     fetchItems();
   }, []);
 
-//   // inside pages/emtrainer.tsx (or your trainer component)
-// useEffect(() => {
-//   try {
-//     const raw = localStorage.getItem("pathologix:last_scenario");
-//     if (!raw) return;
-//     const cached = JSON.parse(raw);
-//     // Append & jump to it
-//     setItems((prev: any[]) => {
-//       const next = [...prev, cached];
-//       setIndex(next.length - 1);
-//       return next;
-//     });
-//     localStorage.removeItem("pathologix:last_scenario");
-//   } catch {}
-//   // eslint-disable-next-line react-hooks/exhaustive-deps
-// }, []);
-  
-async function startAdaptive() {
-  setAdaptiveLoading(true);
-  try {
-    const topic = await getWeakestTopic();
+  // After-login handoff: run startAdaptive once after initial load if flagged
+  const handoffRanRef = useRef(false);
+  useEffect(() => {
+    if (loading || handoffRanRef.current) return;
 
-    // 1) call the generator
-    const res = await fetch("/api/generateScenario", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ topic }),
-    });
-    if (!res.ok) throw new Error("generation failed");
-    const scenario = await res.json();
+    const run = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
 
-    // 2) cache it client-side (respects RLS)
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { error: insErr } = await supabase.from("generated_scenarios").insert({
-        user_id: user.id,
+      const action = localStorage.getItem("pathologix:post_login_action");
+      const to = localStorage.getItem("pathologix:redirect_after_login");
+
+      if (action === "startAdaptive" && (!to || to === "/emtrainer")) {
+        localStorage.removeItem("pathologix:post_login_action");
+        localStorage.removeItem("pathologix:redirect_after_login");
+        handoffRanRef.current = true;
+        startAdaptive();
+      }
+    };
+
+    run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
+
+  async function startAdaptive() {
+    try {
+      setAdaptiveLoading(true);
+
+      // 1) Auth gate
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        localStorage.setItem("pathologix:redirect_after_login", "/emtrainer");
+        localStorage.setItem("pathologix:post_login_action", "startAdaptive");
+        window.location.href = "/login";
+        return;
+      }
+
+      // 2) Find weakest topic
+      const topic = await getWeakestTopic();
+
+      // 3) Load from cache or generate
+      let scenario = await getCachedGeneratedScenario(topic);
+      if (!scenario) {
+        const res = await fetch("/api/generateScenario", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ topic }),
+        });
+        if (!res.ok) throw new Error("Generation failed");
+        scenario = await res.json();
+
+        // 4) Cache it for this user (jsonb columns + RLS)
+        const ins = await supabase.from("generated_scenarios").insert({
+          user_id: user.id,
+          topic,
+          vignette: scenario.vignette,
+          cues: scenario.cues,
+          question: scenario.question,
+          choices: scenario.choices,
+          reasoning_steps: scenario.reasoning_steps,
+        });
+        if (ins.error) console.error("Cache insert failed:", ins.error);
+      }
+
+      // 5) Normalize and show in UI
+      const normalized = normalizeItem({
+        ...scenario,
+        domain: topicToDomain(topic),
         topic,
-        vignette: scenario.vignette,
-        cues: scenario.cues,                     // jsonb OK
-        question: scenario.question,
-        choices: scenario.choices,               // jsonb OK
-        reasoning_steps: scenario.reasoning_steps
+        id: `gen-${Date.now()}`,
+        tags:
+          Array.isArray(scenario.tags) && scenario.tags.length
+            ? scenario.tags
+            : [topic, "Adaptive", "NREMT"],
       });
-      if (insErr) console.error("cache insert failed:", insErr);
+
+      setItems((prev: Item[]) => {
+        const next = [...prev, normalized];
+        setIndex(next.length - 1);
+        return next;
+      });
+      setSelected(null);
+      setShowCues(true);
+      setShowRationale(false);
+      setShowElims(false);
+    } catch (e) {
+      console.error("Adaptive load failed:", e);
+    } finally {
+      setAdaptiveLoading(false);
     }
-
-    // 3) show it in UI
-    setItems(prev => {
-      const next = [...prev, scenario];
-      setIndex(next.length - 1);
-      return next;
-    });
-    setSelected(null); setShowCues(true); setShowRationale(false); setShowElims(false);
-  } catch (e) {
-    console.error(e);
-  } finally {
-    setAdaptiveLoading(false);
   }
-}
-
 
   const item = items[index];
-  const correct = useMemo(
-    () => item?.choices.find((c) => c.correct)?.id,
-    [item]
-  );
-  const isCorrect = selected && selected === correct;
+
+  const correct = useMemo(() => item?.choices.find((c) => c.correct)?.id, [item]);
+  const isCorrect = Boolean(selected && selected === correct);
+
+  const safeTags = useMemo(() => {
+    if (!item) return [];
+    return (Array.isArray(item.tags) && item.tags.length ? item.tags : [item.topic])
+      .filter(Boolean)
+      .slice(0, 3);
+  }, [item]);
 
   const goto = (i: number) => {
     setSelected(null);
@@ -262,6 +319,7 @@ async function startAdaptive() {
       setIndex(((i % items.length) + items.length) % items.length);
     }
   };
+
   const nextItem = () => goto(index + 1);
   const prevItem = () => goto(index - 1);
   const randomItem = () => {
@@ -274,7 +332,6 @@ async function startAdaptive() {
   if (loading) {
     return (
       <div className="min-h-screen grid place-items-center bg-[radial-gradient(1200px_600px_at_50%_-100px,rgba(16,185,129,0.10),transparent)]">
-        
         <div className="flex items-center gap-2 rounded-xl border border-slate-200/80 bg-white/80 px-4 py-2 text-slate-700 shadow-sm backdrop-blur">
           <motion.span
             className="inline-block h-2 w-2 rounded-full bg-emerald-500"
@@ -286,6 +343,7 @@ async function startAdaptive() {
       </div>
     );
   }
+
   if (!items.length) {
     return (
       <div className="min-h-screen grid place-items-center px-4">
@@ -297,120 +355,106 @@ async function startAdaptive() {
   }
 
   return (
+    <div className="mx-auto max-w-3xl space-y-6 mt-4">
+      {/* Sidebar */}
+      <AssessmentSidebar item={item} open={assessmentOpen} onClose={() => setAssessmentOpen(false)} />
 
-      <div className="mx-auto max-w-3xl space-y-6 mt-4">
-        {/* Header */}
-        <AssessmentSidebar
-    item={item}
-    open={assessmentOpen}
-    onClose={() => setAssessmentOpen(false)}
-/>
-        {/* Scenario metadata + nav */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap gap-2">
-            {item.tags.slice(0, 3).map((t: string) => (
-              <Badge key={t}>{t}</Badge>
-            ))}
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={prevItem}
-              className="inline-flex items-center gap-1 rounded-xl border border-slate-200/80 bg-white/80 px-3 py-1 text-sm text-slate-800 shadow-sm hover:bg-slate-50 backdrop-blur"
-              aria-label="Previous"
-            >
-              <ChevronLeft size={16} /> Prev
-            </button>
-            <button
-              type="button"
-              onClick={randomItem}
-              className="inline-flex items-center gap-1 rounded-xl border border-slate-200/80 bg-white/80 px-3 py-1 text-sm text-slate-800 shadow-sm hover:bg-slate-50 backdrop-blur"
-              aria-label="Random"
-            >
-              <Shuffle size={16} /> Random
-            </button>
-            <button
-              type="button"
-              onClick={nextItem}
-              className="inline-flex items-center gap-1 rounded-xl border border-slate-200/80 bg-white/80 px-3 py-1 text-sm text-slate-800 shadow-sm hover:bg-slate-50 backdrop-blur"
-              aria-label="Next"
-            >
-              Next <ChevronRight size={16} />
-            </button>
-
-            
-            <span className="rounded-full bg-emerald-100 px-3 py-1 text-emerald-700">
-                {index + 1}/{items.length}
-              </span>
-          </div>
-           <ProgressBar value={index + 1} max={items.length} />
-
+      {/* Scenario metadata + nav */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap gap-2">
+          {safeTags.map((t) => (
+            <Badge key={t}>{t}</Badge>
+          ))}
         </div>
 
-        {/* Vignette */}
-        <section className="rounded-2xl border border-slate-200/80 bg-white/80 p-4 shadow-sm backdrop-blur">
-          <div className="mb-2 flex items-center gap-2 text-sm text-gray-600">
-            <Brain size={16} /> Scenario
-          </div>
-          <p className="leading-relaxed text-gray-900">
-            {renderHighlighted(item.vignette, item.cues, showCues)}
-          </p>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={prevItem}
+            className="inline-flex items-center gap-1 rounded-xl border border-slate-200/80 bg-white/80 px-3 py-1 text-sm text-slate-800 shadow-sm hover:bg-slate-50 backdrop-blur"
+            aria-label="Previous"
+          >
+            <ChevronLeft size={16} /> Prev
+          </button>
+          <button
+            type="button"
+            onClick={randomItem}
+            className="inline-flex items-center gap-1 rounded-xl border border-slate-200/80 bg-white/80 px-3 py-1 text-sm text-slate-800 shadow-sm hover:bg-slate-50 backdrop-blur"
+            aria-label="Random"
+          >
+            <Shuffle size={16} /> Random
+          </button>
+          <button
+            type="button"
+            onClick={nextItem}
+            className="inline-flex items-center gap-1 rounded-xl border border-slate-200/80 bg-white/80 px-3 py-1 text-sm text-slate-800 shadow-sm hover:bg-slate-50 backdrop-blur"
+            aria-label="Next"
+          >
+            Next <ChevronRight size={16} />
+          </button>
 
-          <div className="mt-4 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => setShowCues((s) => !s)}
-              className="rounded-xl border border-slate-200/80 bg-white/80 px-3 py-1 text-sm text-slate-800 shadow-sm hover:bg-slate-50 backdrop-blur"
-            >
-              {showCues ? "Hide" : "Show"} cues
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowRationale((s) => !s)}
-              className="rounded-xl border border-slate-200/80 bg-white/80 px-3 py-1 text-sm text-slate-800 shadow-sm hover:bg-slate-50 backdrop-blur"
-            >
-              {showRationale ? "Hide" : "Show"} rationales
-            </button>
+          <span className="rounded-full bg-emerald-100 px-3 py-1 text-emerald-700">
+            {index + 1}/{items.length}
+          </span>
+        </div>
 
-            {/* NEW: Adaptive */}
-            <button
-              onClick={startAdaptive}
-              disabled={adaptiveLoading}
-              className="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 px-3 py-1 text-sm font-semibold text-white shadow hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-70"
-              title="Serve a scenario targeting your weakest topic"
-            >
-              <Sparkles size={16} />
-              {adaptiveLoading ? "Finding scenario…" : "Train on similar questions"}
-            </button>
-            {/* <button
-              type="button"
-              onClick={() => setShowElims((s) => !s)}
-              className="rounded-xl border border-slate-200/80 bg-white/80 px-3 py-1 text-sm text-slate-800 shadow-sm hover:bg-slate-50 backdrop-blur"
-            >
-              {showElims ? "Hide" : "Show"} elimination tips
-            </button> */}
-            <button
-  onClick={() => setAssessmentOpen(true)}
-  className="
-relative inline-flex items-center gap-2 rounded-xl px-3 py-1 text-xs font-medium shadow-sm
-bg-white hover:bg-slate-50 transition-all
-before:absolute before:inset-0 before:rounded-xl before:p-[2px]
-before:bg-gradient-to-r before:from-purple-500 before:via-fuchsia-500 before:to-teal-400
-before:animate-[pulse_4s_ease-in-out_infinite]
-before:[mask:linear-gradient(#fff_0_0)_content-box,linear-gradient(#fff_0_0)]
-before:[-webkit-mask:linear-gradient(#fff_0_0)_content-box,linear-gradient(#fff_0_0)]
-before:[mask-composite:exclude] before:[-webkit-mask-composite:xor]
-before:z-0"
+        <ProgressBar value={index + 1} max={items.length} />
+      </div>
 
->
-  <span className="relative z-10 flex items-center gap-1 text-white text-sm">
-    <TestTubeDiagonal size={16} /> Open Assessment Mode
-  </span>
-</button>
+      {/* Vignette */}
+      <section className="rounded-2xl border border-slate-200/80 bg-white/80 p-4 shadow-sm backdrop-blur">
+        <div className="mb-2 flex items-center gap-2 text-sm text-gray-600">
+          <Brain size={16} /> Scenario
+        </div>
+        <p className="leading-relaxed text-gray-900">
+          {renderHighlighted(item.vignette, item.cues, showCues)}
+        </p>
 
-          </div>
- 
-        </section>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setShowCues((s) => !s)}
+            className="rounded-xl border border-slate-200/80 bg-white/80 px-3 py-1 text-sm text-slate-800 shadow-sm hover:bg-slate-50 backdrop-blur"
+          >
+            {showCues ? "Hide" : "Show"} cues
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowRationale((s) => !s)}
+            className="rounded-xl border border-slate-200/80 bg-white/80 px-3 py-1 text-sm text-slate-800 shadow-sm hover:bg-slate-50 backdrop-blur"
+          >
+            {showRationale ? "Hide" : "Show"} rationales
+          </button>
+
+          {/* Adaptive */}
+          <button
+            onClick={startAdaptive}
+            disabled={adaptiveLoading}
+            className="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 px-3 py-1 text-sm font-semibold text-white shadow hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-70"
+            title="Serve a scenario targeting your weakest topic"
+          >
+            <Sparkles size={16} />
+            {adaptiveLoading ? "Finding scenario…" : "Train on similar questions"}
+          </button>
+
+          {/* Assessment Mode */}
+          <button
+            onClick={() => setAssessmentOpen(true)}
+            className="relative inline-flex items-center gap-2 rounded-xl px-3 py-1 text-xs font-medium shadow-sm bg-white hover:bg-slate-50 transition-all
+                       before:absolute before:inset-0 before:rounded-xl before:p-[2px]
+                       before:bg-gradient-to-r before:from-purple-500 before:via-fuchsia-500 before:to-teal-400
+                       before:animate-[pulse_4s_ease-in-out_infinite]
+                       before:[mask:linear-gradient(#fff_0_0)_content-box,linear-gradient(#fff_0_0)]
+                       before:[-webkit-mask:linear-gradient(#fff_0_0)_content-box,linear-gradient(#fff_0_0)]
+                       before:[mask-composite:exclude] before:[-webkit-mask-composite:xor]
+                       before:z-0"
+          >
+            <span className="relative z-10 flex items-center gap-1 text-slate-900 text-sm">
+              <TestTubeDiagonal size={16} /> Open Assessment Mode
+            </span>
+          </button>
+        </div>
+      </section>
 
         {/* Question & Choices */}
         <section className="space-y-3">
