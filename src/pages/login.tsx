@@ -38,7 +38,7 @@ export default function LoginPage() {
   function continueAfterLogin() {
     // read intent
     const to =
-      localStorage.getItem("pathologix:redirect_after_login") || "/progress";
+      localStorage.getItem("pathologix:redirect_after_login") || "/emtrainer";
     const action =
       localStorage.getItem("pathologix:post_login_action") || null;
 
