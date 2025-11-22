@@ -17,6 +17,7 @@ import {
   TestTubeDiagonal,
 } from "lucide-react";
 import AssessmentSidebar from "./AssessmentSidebar";
+import ExamModeDialog from "./ExamModeDialog";
 import { recordResult, getWeakestTopic, getCachedGeneratedScenario } from "@/lib/adaptive";
 import { supabase } from "@/lib/supabase";
 
@@ -183,6 +184,8 @@ export default function EMTScenarioTrainer() {
   const [showElims, setShowElims] = useState(false);
   const [assessmentOpen, setAssessmentOpen] = useState(false);
   const [adaptiveLoading, setAdaptiveLoading] = useState(false);
+  const [examOpen, setExamOpen] = useState(false);
+
 
   // Initial fetch + normalize to guarantee tags/domain/etc
   useEffect(() => {
@@ -453,9 +456,21 @@ export default function EMTScenarioTrainer() {
               <TestTubeDiagonal size={16} /> Open Assessment Mode
             </span>
           </button>
+
+          <button
+            onClick={() => setExamOpen(true)}
+            className="inline-flex items-center gap-2 rounded-2xl border border-slate-200/80 bg-white/80 px-3 py-1 text-sm text-slate-800 shadow-sm hover:bg-slate-50"
+            title="Full exam-style run-through"
+          >
+              Exam Mode
+          </button>
+
+
         </div>
       </section>
 
+
+        <ExamModeDialog open={examOpen} onClose={() => setExamOpen(false)} item={item}/>
         {/* Question & Choices */}
         <section className="space-y-3">
           <div className="text-sm text-gray-600">Question</div>
