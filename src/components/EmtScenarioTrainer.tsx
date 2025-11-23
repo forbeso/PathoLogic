@@ -542,10 +542,10 @@ export default function EMTScenarioTrainer() {
           >
             Next <ChevronRight size={16} />
           </button>
-
+{/* 
           <span className="rounded-full bg-emerald-100 px-3 py-1 text-emerald-700">
             {index + 1}/{items.length}
-          </span>
+          </span> */}
         </div>
 
         <ProgressBar value={index + 1} max={items.length} />

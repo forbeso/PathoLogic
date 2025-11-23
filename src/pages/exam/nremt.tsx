@@ -158,7 +158,7 @@ export default function NremtExamPage() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 w-full">
+    <div className="min-h-screen bg-slate-50 w-full">
       <Header />
       <div className="mx-auto max-w-3xl">
         <h1 className="text-2xl font-semibold text-slate-900">
