@@ -160,7 +160,7 @@ export default function NremtExamPage() {
   return (
     <div className="min-h-screen bg-slate-50 w-full">
       <Header />
-      <div className="mx-auto max-w-3xl">
+      <div className="mx-auto max-w-4xl px-4 py-8">
         <h1 className="text-2xl font-semibold text-slate-900">
           NREMT Exam Mode
         </h1>
