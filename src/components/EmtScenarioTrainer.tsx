@@ -17,7 +17,7 @@ import {
   TestTubeDiagonal,
 } from "lucide-react";
 import AssessmentSidebar from "./AssessmentSidebar";
-import ExamModeDialog from "./ExamModeDialog";
+import ExamModeDialog, {ExamAnswerPayload} from "./ExamModeDialog";
 import { recordResult, getWeakestTopic, getCachedGeneratedScenario } from "@/lib/adaptive";
 import { supabase } from "@/lib/supabase";
 
@@ -41,6 +41,12 @@ type Item = {
   choices: Choice[];
   reasoning_steps: Step[];
   tags: string[];
+};
+
+type SeededItem = {
+  orderIndex: number;
+  itemId: string;
+  item: any; // same shape as Item in ExamModeDialog
 };
 
 /* ---------- UI Helpers ---------- */
@@ -185,6 +191,14 @@ export default function EMTScenarioTrainer() {
   const [assessmentOpen, setAssessmentOpen] = useState(false);
   const [adaptiveLoading, setAdaptiveLoading] = useState(false);
   const [examOpen, setExamOpen] = useState(false);
+  const [examSessionId, setExamSessionId] = useState<string | null>(null);
+  const [examItems, setExamItems] = useState<SeededItem[]>([]);
+  const [examIndex, setExamIndex] = useState(0);
+  const [examStarting, setExamStarting] = useState(false);
+  const [examError, setExamError] = useState<string | null>(null);
+  const [examCorrectCount, setExamCorrectCount] = useState(0);
+
+  const examCurrent = examItems[examIndex] ?? null;
 
 
   // Initial fetch + normalize to guarantee tags/domain/etc
@@ -357,6 +371,86 @@ export default function EMTScenarioTrainer() {
     );
   }
 
+
+  const startDialogExam = async () => {
+  setExamError(null);
+  setExamStarting(true);
+  setExamCorrectCount(0);
+  setExamIndex(0);
+  setExamItems([]);
+  setExamSessionId(null);
+
+  try {
+    const res = await fetch("/api/exam/seed", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ itemCount: 40 }), // or whatever length you want
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      throw new Error(data?.error ?? "Failed to start exam");
+    }
+
+    const data = await res.json();
+    setExamSessionId(data.sessionId); // currently null in our stub, fine
+    setExamItems(data.items ?? []);
+    setExamOpen(true); // open dialog AFTER items are loaded
+  } catch (err: any) {
+    setExamError(err.message ?? "Something went wrong");
+  } finally {
+    setExamStarting(false);
+  }
+};
+
+const handleDialogSubmitAnswer = async (payload: ExamAnswerPayload) => {
+  if (!examCurrent) return;
+
+  try {
+    await fetch("/api/exam/answer", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessionId: examSessionId,
+        itemId: payload.itemId,
+        orderIndex: examCurrent.orderIndex,
+        selectedChoiceId: payload.selectedChoiceId,
+        timeSpentSeconds: payload.timeSpentSeconds,
+      }),
+    });
+
+    if (payload.correct) {
+      setExamCorrectCount((prev) => prev + 1);
+    }
+  } catch {
+    // optional: toast, log, whatever
+  }
+};
+
+const handleDialogAdvance = () => {
+  if (!examCurrent) return;
+
+  const nextIndex = examIndex + 1;
+  if (nextIndex < examItems.length) {
+    setExamIndex(nextIndex);
+    return;
+  }
+
+  // finished dialog exam
+  setExamOpen(false);
+  setExamItems([]);
+  setExamSessionId(null);
+};
+
+const handleDialogExit = () => {
+  // user hit X: bail out immediately
+  setExamOpen(false);
+  setExamItems([]);
+  setExamSessionId(null);
+};
+
+
+
   return (
     <div className="mx-auto max-w-3xl space-y-6 mt-4">
       {/* Sidebar */}
@@ -458,19 +552,35 @@ export default function EMTScenarioTrainer() {
           </button>
 
           <button
-            onClick={() => setExamOpen(true)}
-            className="inline-flex items-center gap-2 rounded-2xl border border-slate-200/80 bg-white/80 px-3 py-1 text-sm text-slate-800 shadow-sm hover:bg-slate-50"
-            title="Full exam-style run-through"
-          >
-              Exam Mode
+              onClick={startDialogExam}
+              disabled={examStarting}
+              className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-800"
+            >
+              {examStarting ? "Starting..." : "NREMT Exam Mode"}
           </button>
+
+{examError && (
+  <p className="mt-2 text-xs text-rose-600">
+    {examError}
+  </p>
+)}
+
 
 
         </div>
       </section>
 
 
-        <ExamModeDialog open={examOpen} onClose={() => setExamOpen(false)} item={item}/>
+{examOpen && examCurrent && (
+  <ExamModeDialog
+    open={examOpen}
+    onClose={handleDialogExit}             // X = exit exam
+    onAdvance={handleDialogAdvance}        // "Next / Finish" = advance
+    item={examCurrent.item}
+    onSubmitAnswer={handleDialogSubmitAnswer}
+    hasNext={examIndex + 1 < examItems.length}
+  />
+)}
         {/* Question & Choices */}
         <section className="space-y-3">
           <div className="text-sm text-gray-600">Question</div>

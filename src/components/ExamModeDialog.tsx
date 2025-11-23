@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { X, ExternalLink, Clock3, CheckCircle2 } from "lucide-react";
 
 type Cue = { text: string; rationale: string };
@@ -16,13 +16,25 @@ type Item = {
   tags: string[];
 };
 
-type Props = {
-  open: boolean;
-  onClose: () => void;
-  item: Item;
+export type ExamAnswerPayload = {
+  itemId: string;
+  selectedChoiceId: string | null;
+  correct: boolean;
+  timeSpentSeconds: number;
+  expired: boolean;
 };
 
-const QUESTION_DURATION_SECONDS = 90; // per-question timer (NREMT-style pressure)
+type Props = {
+  open: boolean;
+  onClose: () => void;             // X button / escape = EXIT exam
+  onAdvance?: () => void;          // "Next question" / "Finish exam"
+  item: Item;
+  onSubmitAnswer?: (payload: ExamAnswerPayload) => void;
+  hasNext?: boolean;
+};
+
+// seconds per question
+const QUESTION_DURATION_SECONDS = 90;
 
 function formatTime(totalSeconds: number) {
   const m = Math.floor(totalSeconds / 60);
@@ -30,49 +42,24 @@ function formatTime(totalSeconds: number) {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-export default function ExamModeDialog({ open, onClose, item }: Props) {
-  const storageKey = useMemo(() => `pathologix:exam:${item?.id ?? "current"}`, [item?.id]);
-
+export default function ExamModeDialog({ open, onClose, item, onSubmitAnswer, hasNext, onAdvance }: Props) {
   const [selectedChoiceId, setSelectedChoiceId] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [expired, setExpired] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState<number>(QUESTION_DURATION_SECONDS);
+  const [hasReported, setHasReported] = useState(false);
 
-  // Reset state when dialog opens or item changes
+  // Reset every time you open or the item changes
   useEffect(() => {
     if (!open) return;
-
     setSelectedChoiceId(null);
     setSubmitted(false);
     setExpired(false);
     setTimeRemaining(QUESTION_DURATION_SECONDS);
+    setHasReported(false);
+  }, [open, item.id]);
 
-    // optional: restore last selection if you ever want persistence later
-    try {
-      const raw = sessionStorage.getItem(storageKey);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed.itemId === item.id) {
-          if (typeof parsed.selectedChoiceId === "string") {
-            setSelectedChoiceId(parsed.selectedChoiceId);
-          }
-          if (typeof parsed.submitted === "boolean") {
-            setSubmitted(parsed.submitted);
-          }
-          if (typeof parsed.expired === "boolean") {
-            setExpired(parsed.expired);
-          }
-          if (typeof parsed.timeRemaining === "number" && !parsed.submitted && !parsed.expired) {
-            setTimeRemaining(parsed.timeRemaining);
-          }
-        }
-      }
-    } catch {
-      // ignore
-    }
-  }, [open, item.id, storageKey]);
-
-  // Timer logic
+  // Timer
   useEffect(() => {
     if (!open) return;
     if (submitted || expired) return;
@@ -81,9 +68,21 @@ export default function ExamModeDialog({ open, onClose, item }: Props) {
       setTimeRemaining((prev) => {
         if (prev <= 1) {
           window.clearInterval(id);
-          // Auto-submit on expiration
           setExpired(true);
           setSubmitted(true);
+          // auto-report on timeout
+          if (!hasReported) {
+            const selected = item.choices.find((c) => c.id === selectedChoiceId) || null;
+            const correct = !!selected && selected.correct;
+            setHasReported(true);
+            onSubmitAnswer?.({
+              itemId: item.id,
+              selectedChoiceId,
+              correct,
+              timeSpentSeconds: QUESTION_DURATION_SECONDS,
+              expired: true,
+            });
+          }
           return 0;
         }
         return prev - 1;
@@ -91,50 +90,50 @@ export default function ExamModeDialog({ open, onClose, item }: Props) {
     }, 1000);
 
     return () => window.clearInterval(id);
-  }, [open, submitted, expired]);
+  }, [open, submitted, expired, selectedChoiceId, hasReported, item, onSubmitAnswer]);
 
-  // Persist minimal state for this item (mainly so new-tab exam is consistent if needed)
-  useEffect(() => {
-    if (!open) return;
-    try {
-      sessionStorage.setItem(
-        storageKey,
-        JSON.stringify({
-          itemId: item.id,
-          topic: item.topic,
-          selectedChoiceId,
-          submitted,
-          expired,
-          timeRemaining,
-        })
-      );
-    } catch {
-      // ignore
-    }
-  }, [open, storageKey, item.id, item.topic, selectedChoiceId, submitted, expired, timeRemaining]);
+  const fireReportIfNeeded = (expiredFlag: boolean) => {
+    if (hasReported) return;
+    const selected = item.choices.find((c) => c.id === selectedChoiceId) || null;
+    const correct = !!selected && selected.correct;
+    const timeSpentSeconds = expiredFlag
+      ? QUESTION_DURATION_SECONDS
+      : Math.max(0, QUESTION_DURATION_SECONDS - timeRemaining);
+
+    setHasReported(true);
+    onSubmitAnswer?.({
+      itemId: item.id,
+      selectedChoiceId,
+      correct,
+      timeSpentSeconds,
+      expired: expiredFlag,
+    });
+  };
+
+const handleAdvance = () => {
+  if (onAdvance) onAdvance();
+  else onClose();
+};
+
+
+  const handleSubmit = () => {
+    if (!selectedChoiceId || submitted) return;
+    setSubmitted(true);
+    fireReportIfNeeded(false);
+  };
 
   const closeOnEsc = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === "Escape") onClose();
   };
 
   const openInNewTab = () => {
-    // stash the full item so the /exam page can render instantly
-    sessionStorage.setItem(
-      "pathologix:exam:handoff",
-      JSON.stringify({ item, from: window.location.pathname })
-    );
-    window.open(`/exam?i=${encodeURIComponent(item.id)}`, "_blank", "noopener,noreferrer");
-  };
+  window.open("/exam/nremt", "_blank", "noopener,noreferrer");
+};
 
   if (!open) return null;
 
   const selectedChoice = item.choices.find((c) => c.id === selectedChoiceId) || null;
   const isCorrect = submitted && !!selectedChoice && selectedChoice.correct;
-
-  const handleSubmit = () => {
-    if (!selectedChoiceId || submitted) return;
-    setSubmitted(true);
-  };
 
   const renderChoice = (choice: Choice, index: number) => {
     const isSelected = selectedChoiceId === choice.id;
@@ -153,7 +152,7 @@ export default function ExamModeDialog({ open, onClose, item }: Props) {
       borderClasses = "border-emerald-500 bg-emerald-50 shadow-sm";
     }
 
-    const letter = String.fromCharCode(65 + index); // A, B, C, ...
+    const letter = String.fromCharCode(65 + index); // A/B/C/D
 
     return (
       <button
@@ -214,6 +213,7 @@ export default function ExamModeDialog({ open, onClose, item }: Props) {
               <span>{formatTime(timeRemaining)}</span>
               {expired && <span className="ml-1">Time&apos;s up</span>}
             </div>
+
             <button
               onClick={openInNewTab}
               className="inline-flex items-center gap-2 rounded-lg border border-slate-200/80 bg-white px-3 py-1.5 text-sm font-medium text-slate-800 shadow-sm hover:bg-slate-50"
@@ -232,19 +232,17 @@ export default function ExamModeDialog({ open, onClose, item }: Props) {
 
         {/* Body */}
         <div className="grid flex-1 gap-4 p-5 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
-          {/* Main exam content */}
+          {/* Left: scenario, question, choices */}
           <div className="space-y-4">
-            {/* Scenario */}
             <div className="rounded-xl border border-slate-200/80 bg-white/95 p-4 shadow-sm">
               <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Scenario
               </h3>
-              <p className="text-[15px] leading-relaxed text-slate-900 whitespace-pre-line">
+              <p className="whitespace-pre-line text-[15px] leading-relaxed text-slate-900">
                 {item.vignette}
               </p>
             </div>
 
-            {/* Question */}
             <div className="rounded-xl border border-slate-200/80 bg-white/95 p-4 shadow-sm">
               <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Question
@@ -252,7 +250,6 @@ export default function ExamModeDialog({ open, onClose, item }: Props) {
               <p className="text-[15px] font-medium text-slate-900">{item.question}</p>
             </div>
 
-            {/* Choices */}
             <div className="rounded-xl border border-slate-200/80 bg-white/95 p-4 shadow-sm">
               <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Select one answer
@@ -261,19 +258,14 @@ export default function ExamModeDialog({ open, onClose, item }: Props) {
                 {item.choices.map((choice, idx) => renderChoice(choice, idx))}
               </div>
 
-              {/* Footer: feedback + actions */}
               <div className="mt-4 flex flex-col gap-3 border-t border-slate-200 pt-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="text-xs text-slate-600">
-                  {!submitted && !expired && (
-                    <span>Question will auto-submit when timer hits 0.</span>
-                  )}
+                  {!submitted && !expired && <span>Question will auto-submit when timer hits 0.</span>}
                   {submitted && (
                     <div className="flex items-center gap-2">
                       <div
                         className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${
-                          isCorrect
-                            ? "bg-emerald-100 text-emerald-700"
-                            : "bg-rose-100 text-rose-700"
+                          isCorrect ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"
                         }`}
                       >
                         <CheckCircle2 size={14} />
@@ -289,7 +281,7 @@ export default function ExamModeDialog({ open, onClose, item }: Props) {
                   )}
                 </div>
 
-                <div className="flex items-center gap-2 justify-end">
+                <div className="flex items-center justify-end gap-2">
                   {!submitted && (
                     <button
                       type="button"
@@ -304,37 +296,38 @@ export default function ExamModeDialog({ open, onClose, item }: Props) {
                       Lock in answer
                     </button>
                   )}
-                  {submitted && (
-                    <button
-                      type="button"
-                      onClick={onClose}
-                      className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-800 hover:bg-slate-50"
-                    >
-                      Close
-                    </button>
-                  )}
+                {submitted && (
+  <button
+    type="button"
+    onClick={handleAdvance}
+    className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+  >
+    {hasNext ? "Next question" : "Finish exam"}
+  </button>
+)}
+
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Right: Exam meta / rules */}
+          {/* Right: exam meta */}
           <aside className="space-y-3">
             <div className="rounded-xl border border-slate-200/80 bg-white/95 p-4 shadow-sm">
               <div className="mb-2 text-xs uppercase tracking-wide text-slate-500">
                 Exam rules (NREMT-style)
               </div>
               <ul className="space-y-1.5 text-xs text-slate-700">
-                <li>• Single best answer. No partial credit.</li>
+                <li>• One best answer, no partial credit.</li>
                 <li>• No going back to change answers.</li>
-                <li>• Timer simulates NREMT pacing pressure.</li>
-                <li>• Rationale unlocks only after you answer.</li>
+                <li>• Timer is strict — simulates NREMT pacing.</li>
+                <li>• Feedback and rationale only after you answer.</li>
               </ul>
             </div>
 
             <div className="rounded-xl border border-slate-200/80 bg-white/95 p-4 text-xs text-slate-600">
-              This mode is for **exam conditioning** — short, brutal reps under time.  
-              Use your other Pathologix modes for step-by-step practice and cue highlighting.
+              Use this mode for <strong>exam conditioning</strong> — fast reps under pressure.
+              Use your other Pathologix modes for cue highlighting and step-by-step practice.
             </div>
           </aside>
         </div>
