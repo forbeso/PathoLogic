@@ -3,6 +3,16 @@ import Header from "@/components/Header";
 import { supabase } from "@/lib/supabase";
 import { getWeakestTopic } from "@/lib/adaptive";
 import { BarChart2, Target, Flame, Clock, ChevronUp, ChevronDown, Sparkles } from "lucide-react";
+import Head from "next/head";
+import {
+  AppShell,
+  PageContainer,
+  PageIntro,
+  MetricCard,
+  cardClass,
+  primaryButtonClass,
+  secondaryButtonClass,
+} from "@/components/AppShell";
 
 type PerfRow = {
   user_id: string;
@@ -101,74 +111,68 @@ export default function ProgressPage() {
   }
 
   return (
-    <div className="min-h-screen w-full bg-[radial-gradient(1200px_600px_at_50%_-100px,rgba(16,185,129,0.08),transparent),radial-gradient(900px_500px_at_100%_0,rgba(14,165,233,0.08),transparent)]">
+    <AppShell>
+      <Head><title>PathoLogix - My Progress</title></Head>
       <Header />
 
-      <main className="mx-auto max-w-6xl px-4 py-8 space-y-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-2xl font-semibold tracking-tight">My Progress</h1>
-
-          <div className="flex items-center gap-2">
+      <PageContainer className="space-y-6">
+        <PageIntro
+          eyebrow="Progress dashboard"
+          title="My Progress"
+          description="Track accuracy, attempts, and weak domains so your next study session has a clear target."
+          icon={BarChart2}
+          actions={
+            <>
             <button
               onClick={loadPerf}
-              className="rounded-xl border border-slate-200/80 bg-white px-3 py-1 text-sm shadow-sm hover:bg-slate-50"
+              className={secondaryButtonClass}
             >
               Refresh
             </button>
             <button
               onClick={trainWeakest}
-              className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-3 py-1 text-sm font-semibold text-white shadow hover:bg-emerald-500"
+              className={primaryButtonClass}
               title="Open Trainer targeting your weakest topic"
             >
               <Sparkles size={16} />
               Train weakest topic
             </button>
-          </div>
-        </div>
+            </>
+          }
+        />
 
         {/* KPI cards */}
         <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
-            <div className="flex items-center gap-2 text-slate-600 text-sm">
-              <BarChart2 size={16} /> Overall Accuracy
-            </div>
-            <div className="mt-2 text-2xl font-semibold">
-              {(totals.overallAcc * 100).toFixed(0)}%
-            </div>
+          <MetricCard
+            icon={BarChart2}
+            label="Overall Accuracy"
+            value={`${(totals.overallAcc * 100).toFixed(0)}%`}
+            tone={totals.overallAcc >= 0.7 ? "teal" : totals.overallAcc >= 0.4 ? "amber" : "rose"}
+            detail={
             <div className="mt-3">
               <PercentBar value={totals.overallAcc} />
             </div>
-          </div>
+            }
+          />
 
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
-            <div className="flex items-center gap-2 text-slate-600 text-sm">
-              <Flame size={16} /> Total Attempts
-            </div>
-            <div className="mt-2 text-2xl font-semibold">{totals.attempts}</div>
-            <div className="mt-1 text-xs text-slate-500">Across all topics</div>
-          </div>
+          <MetricCard icon={Flame} label="Total Attempts" value={totals.attempts} detail="Across all topics" tone="amber" />
 
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
-            <div className="flex items-center gap-2 text-slate-600 text-sm">
-              <Target size={16} /> Topics Trained
-            </div>
-            <div className="mt-2 text-2xl font-semibold">{totals.topics}</div>
-            <div className="mt-1 text-xs text-slate-500">Unique topics with history</div>
-          </div>
+          <MetricCard icon={Target} label="Topics Trained" value={totals.topics} detail="Unique topics with history" tone="teal" />
 
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
-            <div className="flex items-center gap-2 text-slate-600 text-sm">
-              <Clock size={16} /> Last Practiced
-            </div>
-            <div className="mt-2 text-base font-medium">
-              {totals.last ? new Date(totals.last).toLocaleString() : "—"}
-            </div>
-            <div className="mt-1 text-xs text-slate-500">Most recent update</div>
-          </div>
+          <MetricCard
+            icon={Clock}
+            label="Last Practiced"
+            value={
+              <span className="text-base font-semibold">
+              {totals.last ? new Date(totals.last).toLocaleString() : "-"}
+              </span>
+            }
+            detail="Most recent update"
+          />
         </section>
 
         {/* Table */}
-        <section className="rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-sm backdrop-blur">
+        <section className={`${cardClass} p-4`}>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -198,7 +202,7 @@ export default function ProgressPage() {
               </thead>
               <tbody>
                 {loading && (
-                  <tr><td colSpan={5} className="px-2 py-6 text-center text-slate-600">Loading…</td></tr>
+                  <tr><td colSpan={5} className="px-2 py-6 text-center text-slate-600">Loading...</td></tr>
                 )}
 
                 {!loading && sorted.length === 0 && (
@@ -224,7 +228,7 @@ export default function ProgressPage() {
                             localStorage.setItem("pathologix:adaptive_target", r.topic);
                             window.location.href = "/emtrainer";
                           }}
-                          className="rounded-xl border border-slate-200/80 bg-white px-3 py-1 shadow-sm hover:bg-slate-50"
+                          className="rounded-md border border-slate-300 bg-white px-3 py-1 shadow-sm hover:bg-slate-50"
                         >
                           Train this topic
                         </button>
@@ -241,7 +245,7 @@ export default function ProgressPage() {
         <p className="text-xs text-slate-500">
           Tip: accuracy is a running average. It updates each time you answer in the trainer.
         </p>
-      </main>
-    </div>
+      </PageContainer>
+    </AppShell>
   );
 }

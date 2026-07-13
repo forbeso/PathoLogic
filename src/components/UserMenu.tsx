@@ -39,7 +39,7 @@ export default function UserMenu({ email, avatarUrl }: Props) {
     <div className="relative" ref={menuRef}>
       <button
         onClick={() => setOpen((s) => !s)}
-        className="inline-flex items-center gap-2 rounded-xl border border-slate-200/80 bg-white px-2.5 py-1.5 text-sm shadow-sm hover:bg-slate-50"
+        className="inline-flex items-center gap-2 rounded-md border border-[#b7ccc5] bg-white px-2.5 py-2 text-sm text-slate-700 shadow-sm transition hover:border-teal-500 hover:bg-teal-50"
         aria-haspopup="menu"
         aria-expanded={open}
       >
@@ -52,11 +52,11 @@ export default function UserMenu({ email, avatarUrl }: Props) {
             className="h-6 w-6 rounded-full object-cover"
           />
         ) : (
-          <span className="grid h-6 w-6 place-items-center rounded-full bg-gradient-to-br from-emerald-500 to-cyan-500 text-xs font-semibold text-white">
+          <span className="grid h-6 w-6 place-items-center rounded-md bg-teal-50 text-xs font-semibold text-teal-800">
             {initials}
           </span>
         )}
-        <span className="hidden sm:inline text-slate-700 max-w-[160px] truncate">{email}</span>
+        <span className="hidden sm:inline max-w-[160px] truncate text-slate-700">{email}</span>
         <ChevronDown size={16} className="text-slate-500" />
       </button>
 
@@ -64,7 +64,7 @@ export default function UserMenu({ email, avatarUrl }: Props) {
       {open && (
         <div
           role="menu"
-          className="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-xl"
+          className="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl"
         >
           <div className="px-3 py-2 text-xs text-slate-500">
             Signed in as <span className="font-medium text-slate-700">{email || "user"}</span>

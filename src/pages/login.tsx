@@ -5,6 +5,8 @@ import { ThemeSupa } from "@supabase/auth-ui-shared";
 import { supabase } from "@/lib/supabase";
 import Header from "@/components/Header";
 import Head from "next/head";
+import { AppShell, PageContainer, PageIntro, cardClass } from "@/components/AppShell";
+import { ShieldCheck } from "lucide-react";
 
 export default function LoginPage() {
   const [session, setSession] = useState<any>(null);
@@ -42,7 +44,7 @@ export default function LoginPage() {
     const action =
       localStorage.getItem("pathologix:post_login_action") || null;
 
-    // clear intent so we don’t loop later
+    // clear intent so we do not loop later
     localStorage.removeItem("pathologix:redirect_after_login");
     localStorage.removeItem("pathologix:post_login_action");
 
@@ -55,13 +57,18 @@ export default function LoginPage() {
   }
 
   return (
-     <div className="min-h-screen w-full bg-[radial-gradient(1200px_600px_at_50%_-100px,rgba(16,185,129,0.10),transparent),radial-gradient(900px_500px_at_100%_0,rgba(14,165,233,0.10),transparent)] px-4">
-      <Head><title>Pathologix - EMT Scenario Trainer</title></Head>
+     <AppShell>
+      <Head><title>PathoLogix - Sign in</title></Head>
       <Header />
-    <div className="min-h-screen grid place-items-center bg-slate-50">
-       
-      <div className="w-full max-w-md rounded-2xl border bg-white p-6 shadow-sm">
-        <h1 className="mb-4 text-xl font-semibold">Sign in to PathoLogic</h1>
+      <PageContainer size="normal" className="grid min-h-[calc(100svh-90px)] place-items-center">
+      <div className="w-full max-w-md">
+        <PageIntro
+          eyebrow="Account access"
+          title="Sign in to PathoLogix"
+          description="Keep your practice history, saved scenarios, and weak-spot training tied to your account."
+          icon={ShieldCheck}
+        />
+      <div className={`${cardClass} mt-6 p-6`}>
         <Auth
           supabaseClient={supabase}
           appearance={{ theme: ThemeSupa }}
@@ -69,10 +76,8 @@ export default function LoginPage() {
           // Magic links or password are enabled in Supabase → Auth → Providers
         />
       </div>
-    </div>
-
-
-      
-    </div>
+      </div>
+    </PageContainer>
+    </AppShell>
   );
 }

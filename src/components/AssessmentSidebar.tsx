@@ -2,6 +2,12 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Mic, MicOff, Send, CheckCircle2, ChevronRight, Volume2 } from "lucide-react";
+import {
+  cardClass,
+  iconButtonClass,
+  inputClass,
+  secondaryButtonClass,
+} from "@/components/AppShell";
 
 type Cue = { text: string; rationale: string };
 type Choice = { id: string; text: string; correct: boolean; why_right?: string; why_wrong?: string };
@@ -123,7 +129,7 @@ export default function AssessmentSidebar({ item, open, onClose }: Props) {
   useEffect(() => {
     if (open) {
       setLog([
-        { who: "patient", text: "The scene is safe. I'm here—ask me anything about what's going on." },
+        { who: "patient", text: "The scene is safe. I'm here - ask me anything about what's going on." },
       ]);
     }
   }, [open, item?.vignette]);
@@ -174,7 +180,7 @@ export default function AssessmentSidebar({ item, open, onClose }: Props) {
       }),
     });
     const data = await res.json();
-    const reply = data.reply ?? "…";
+    const reply = data.reply ?? "...";
     setLog((l) => [...l, { who: "patient", text: reply }]);
     autoCheckFromText(reply);
     speak(reply);
@@ -212,17 +218,17 @@ export default function AssessmentSidebar({ item, open, onClose }: Props) {
           animate={{ x: 0 }}
           exit={{ x: "100%" }}
           transition={{ type: "spring", stiffness: 280, damping: 28 }}
-          className="fixed right-0 top-0 z-50 h-full w-full max-w-md border-l bg-white/95 p-4 shadow-2xl backdrop-blur "
+          className="fixed right-0 top-0 z-50 h-full w-full max-w-md border-l border-slate-200 bg-white p-4 shadow-2xl"
         >
           {/* Header */}
           <div className="mb-3 flex items-start justify-between">
             <div>
-              <div className="text-xs font-medium text-slate-500">{item.domain} · {item.topic}</div>
-              <h3 className="text-lg font-semibold">Assessment Mode</h3>
+              <div className="text-xs font-medium text-slate-500">{item.domain} / {item.topic}</div>
+              <h3 className="text-lg font-semibold text-slate-950">Assessment Mode</h3>
             </div>
             <button
               onClick={onClose}
-              className="rounded-lg border bg-white px-2 py-1 text-slate-600 shadow-sm hover:text-red-500 "
+              className={iconButtonClass}
               title="Close"
             >
               <X size={16} />
@@ -235,9 +241,9 @@ export default function AssessmentSidebar({ item, open, onClose }: Props) {
               <button
                 key={g.key}
                 onClick={() => setActiveKey(g.key)}
-                className={`rounded-full px-3 py-1 text-xs font-medium border shadow-sm ${
+                className={`rounded-md px-3 py-1.5 text-xs font-semibold border shadow-sm ${
                   activeKey === g.key
-                    ? "bg-emerald-600 text-white border-emerald-600"
+                    ? "bg-teal-600 text-white border-teal-600"
                     : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
                 }`}
               >
@@ -247,12 +253,12 @@ export default function AssessmentSidebar({ item, open, onClose }: Props) {
           </div>
 
           {/* Chat area */}
-          <div className="mb-3 h-56 overflow-y-auto rounded-xl border bg-white p-3 text-sm shadow-sm dark:bg-slate-900">
+          <div className="mb-3 h-56 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm shadow-sm">
             {log.map((m, i) => (
               <div key={i} className={`mb-2 flex ${m.who === "you" ? "justify-end" : "justify-start"}`}>
                 <div
-                  className={`max-w-[85%] rounded-2xl px-3 py-2 ${
-                    m.who === "you" ? "bg-sky-100 text-slate-900" : "bg-slate-100 text-slate-900"
+                  className={`max-w-[85%] rounded-lg px-3 py-2 ${
+                    m.who === "you" ? "bg-teal-100 text-slate-950" : "bg-white text-slate-900 shadow-sm"
                   }`}
                 >
                   {m.text}
@@ -276,8 +282,8 @@ export default function AssessmentSidebar({ item, open, onClose }: Props) {
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask the patient or bystander…"
-              className="flex-1 rounded-xl border bg-white px-3 py-2 text-sm shadow-sm"
+              placeholder="Ask the patient or bystander..."
+              className={`${inputClass} flex-1`}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
@@ -289,7 +295,7 @@ export default function AssessmentSidebar({ item, open, onClose }: Props) {
             />
             <button
               onClick={() => { const msg = input; setInput(""); sendText(msg); }}
-              className="rounded-xl border bg-white px-3 py-2 text-sm shadow-sm hover:bg-slate-50"
+              className={secondaryButtonClass}
               title="Send"
             >
               <Send size={16} />
@@ -300,7 +306,7 @@ export default function AssessmentSidebar({ item, open, onClose }: Props) {
                 const last = [...log].reverse().find((m) => m.who === "patient");
                 if (last) speak(last.text);
               }}
-              className="rounded-xl border bg-white px-3 py-2 text-sm shadow-sm hover:bg-slate-50"
+              className={secondaryButtonClass}
               title="Play last response"
             >
               <Volume2 size={16} />
@@ -308,17 +314,17 @@ export default function AssessmentSidebar({ item, open, onClose }: Props) {
           </div>
 
           {/* Checklist */}
-          <div className="rounded-2xl border bg-white p-3 shadow-sm dark:bg-slate-900">
-            <div className="mb-2 text-xs font-semibold text-white">{STEP_GROUPS.find(g => g.key === activeKey)?.title} Checklist</div>
+          <div className={`${cardClass} p-3`}>
+            <div className="mb-2 text-xs font-semibold text-slate-500">{STEP_GROUPS.find(g => g.key === activeKey)?.title} Checklist</div>
             <ul className="space-y-2">
               {tasks.map((t) => (
-                <li key={t} className="flex items-center justify-between gap-2 text-white">
+                <li key={t} className="flex items-center justify-between gap-2 text-slate-800">
                   <span className="text-sm">{t}</span>
                   <button
                     onClick={() => setChecked((c) => ({ ...c, [t]: !c[t] }))}
                     className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs ${
                       checked[t]
-                        ? "border-emerald-600 bg-emerald-50 text-emerald-700"
+                        ? "border-teal-600 bg-teal-50 text-teal-700"
                         : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
                     }`}
                     title={checked[t] ? "Completed" : "Mark complete"}
@@ -333,7 +339,7 @@ export default function AssessmentSidebar({ item, open, onClose }: Props) {
 
           {/* Footer hint */}
           <div className="mt-3 text-[11px] text-slate-500">
-            Tip: speak naturally (“I’m checking AVPU” or “Do you have allergies?”). Keywords are recognized and checklist auto-updates.
+            Tip: speak naturally ("I'm checking AVPU" or "Do you have allergies?"). Keywords are recognized and checklist auto-updates.
           </div>
         </motion.aside>
       )}

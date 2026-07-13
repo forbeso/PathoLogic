@@ -1,5 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { X, ExternalLink, Clock3, CheckCircle2 } from "lucide-react";
+import { X, Clock3, CheckCircle2, XCircle } from "lucide-react";
+import {
+  cardClass,
+  iconButtonClass,
+  secondaryButtonClass,
+} from "@/components/AppShell";
 
 type Cue = { text: string; rationale: string };
 type Choice = { id: string; text: string; correct: boolean; why_right?: string; why_wrong?: string };
@@ -31,6 +36,8 @@ type Props = {
   item: Item;
   onSubmitAnswer?: (payload: ExamAnswerPayload) => void;
   hasNext?: boolean;
+  currentQuestionNumber?: number;
+  totalQuestions?: number;
 };
 
 // seconds per question
@@ -42,7 +49,16 @@ function formatTime(totalSeconds: number) {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-export default function ExamModeDialog({ open, onClose, item, onSubmitAnswer, hasNext, onAdvance }: Props) {
+export default function ExamModeDialog({
+  open,
+  onClose,
+  item,
+  onSubmitAnswer,
+  hasNext,
+  onAdvance,
+  currentQuestionNumber,
+  totalQuestions,
+}: Props) {
   const [selectedChoiceId, setSelectedChoiceId] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [expired, setExpired] = useState(false);
@@ -126,10 +142,6 @@ const handleAdvance = () => {
     if (e.key === "Escape") onClose();
   };
 
-  const openInNewTab = () => {
-  window.open("/exam/nremt", "_blank", "noopener,noreferrer");
-};
-
   if (!open) return null;
 
   const selectedChoice = item.choices.find((c) => c.id === selectedChoiceId) || null;
@@ -142,14 +154,14 @@ const handleAdvance = () => {
     let borderClasses = "border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm";
     if (submitted) {
       if (isChoiceCorrect) {
-        borderClasses = "border-emerald-500 bg-emerald-50";
+        borderClasses = "border-teal-500 bg-teal-50";
       } else if (isSelected && !isChoiceCorrect) {
         borderClasses = "border-rose-500 bg-rose-50";
       } else {
         borderClasses = "border-slate-200 bg-slate-50";
       }
     } else if (isSelected) {
-      borderClasses = "border-emerald-500 bg-emerald-50 shadow-sm";
+        borderClasses = "border-teal-500 bg-teal-50 shadow-sm";
     }
 
     const letter = String.fromCharCode(65 + index); // A/B/C/D
@@ -159,12 +171,13 @@ const handleAdvance = () => {
         key={choice.id}
         type="button"
         onClick={() => !submitted && setSelectedChoiceId(choice.id)}
-        className={`w-full rounded-xl border px-3 py-2 text-left text-sm transition ${borderClasses} ${
+        aria-label={`${letter}. ${choice.text}`}
+        className={`w-full rounded-md border px-3 py-2 text-left text-sm transition ${borderClasses} ${
           submitted ? "cursor-default" : "cursor-pointer"
         }`}
       >
         <div className="flex items-start gap-3">
-          <div className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-full border text-xs font-semibold text-slate-700">
+          <div className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-md border text-xs font-semibold text-slate-700">
             {letter}
           </div>
           <div className="flex-1">
@@ -172,7 +185,7 @@ const handleAdvance = () => {
             {submitted && (
               <>
                 {isChoiceCorrect && choice.why_right && (
-                  <p className="mt-1 text-xs text-emerald-700">{choice.why_right}</p>
+                  <p className="mt-1 text-xs text-teal-700">{choice.why_right}</p>
                 )}
                 {!isChoiceCorrect && isSelected && choice.why_wrong && (
                   <p className="mt-1 text-xs text-rose-700">{choice.why_wrong}</p>
@@ -187,26 +200,31 @@ const handleAdvance = () => {
 
   return (
     <div
-      className="fixed inset-0 z-[60] grid place-items-center bg-black/40 p-4"
+      className="fixed inset-0 z-[60] grid place-items-center bg-slate-700/28 p-4 backdrop-blur-sm"
       onKeyDown={closeOnEsc}
       role="dialog"
       aria-modal="true"
     >
-      <div className="relative flex w-full max-w-5xl flex-col rounded-2xl border border-slate-200/80 bg-white/95 shadow-2xl backdrop-blur">
+      <div className="relative flex max-h-[calc(100vh-2rem)] w-full max-w-5xl flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-200/70 px-5 py-3">
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200/70 px-5 py-3">
           <div>
-            <div className="text-xs uppercase tracking-wide text-slate-500">
-              {item.domain} • {item.topic}
+            <div className="text-xs font-semibold uppercase text-slate-500">
+              {item.domain} / {item.topic}
             </div>
             <h2 className="text-lg font-semibold text-slate-900">NREMT-style Exam Mode</h2>
+            {currentQuestionNumber && totalQuestions ? (
+              <div className="mt-1 text-xs font-medium text-slate-500">
+                Question {currentQuestionNumber} of {totalQuestions}
+              </div>
+            ) : null}
           </div>
           <div className="flex items-center gap-3">
             <div
               className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${
                 timeRemaining <= 10 || expired
                   ? "bg-rose-100 text-rose-700"
-                  : "bg-slate-100 text-slate-700"
+                  : "bg-teal-50 text-teal-700"
               }`}
             >
               <Clock3 size={14} />
@@ -215,15 +233,10 @@ const handleAdvance = () => {
             </div>
 
             <button
-              onClick={openInNewTab}
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-200/80 bg-white px-3 py-1.5 text-sm font-medium text-slate-800 shadow-sm hover:bg-slate-50"
-            >
-              <ExternalLink size={16} /> Open in new tab
-            </button>
-            <button
               onClick={onClose}
-              className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200/80 bg-white text-slate-700 hover:bg-slate-50"
-              aria-label="Close"
+              className={iconButtonClass}
+              aria-label="Exit exam"
+              title="Exit exam"
             >
               <X size={16} />
             </button>
@@ -231,11 +244,11 @@ const handleAdvance = () => {
         </div>
 
         {/* Body */}
-        <div className="grid flex-1 gap-4 p-5 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
+        <div className="grid flex-1 gap-4 overflow-y-auto p-5 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
           {/* Left: scenario, question, choices */}
           <div className="space-y-4">
-            <div className="rounded-xl border border-slate-200/80 bg-white/95 p-4 shadow-sm">
-              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <div className={`${cardClass} p-4`}>
+              <h3 className="mb-2 text-xs font-semibold uppercase text-slate-500">
                 Scenario
               </h3>
               <p className="whitespace-pre-line text-[15px] leading-relaxed text-slate-900">
@@ -243,15 +256,15 @@ const handleAdvance = () => {
               </p>
             </div>
 
-            <div className="rounded-xl border border-slate-200/80 bg-white/95 p-4 shadow-sm">
-              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <div className={`${cardClass} p-4`}>
+              <h3 className="mb-2 text-xs font-semibold uppercase text-slate-500">
                 Question
               </h3>
               <p className="text-[15px] font-medium text-slate-900">{item.question}</p>
             </div>
 
-            <div className="rounded-xl border border-slate-200/80 bg-white/95 p-4 shadow-sm">
-              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <div className={`${cardClass} p-4`}>
+              <h3 className="mb-3 text-xs font-semibold uppercase text-slate-500">
                 Select one answer
               </h3>
               <div className="space-y-2">
@@ -264,14 +277,14 @@ const handleAdvance = () => {
                   {submitted && (
                     <div className="flex items-center gap-2">
                       <div
-                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${
-                          isCorrect ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"
+                        className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold ${
+                          isCorrect ? "bg-teal-50 text-teal-700" : "bg-rose-100 text-rose-700"
                         }`}
                       >
-                        <CheckCircle2 size={14} />
+                        {isCorrect ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
                         <span>
                           {expired && !selectedChoice
-                            ? "Time expired — review the correct answer above."
+                            ? "Time expired - review the correct answer above."
                             : isCorrect
                             ? "Correct"
                             : "Incorrect"}
@@ -287,10 +300,10 @@ const handleAdvance = () => {
                       type="button"
                       disabled={!selectedChoiceId || expired}
                       onClick={handleSubmit}
-                      className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold shadow ${
+                      className={`inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-semibold shadow ${
                         !selectedChoiceId || expired
                           ? "cursor-not-allowed bg-slate-200 text-slate-500"
-                          : "bg-slate-900 text-white hover:bg-slate-800"
+                          : "bg-teal-600 text-white hover:bg-teal-500"
                       }`}
                     >
                       Lock in answer
@@ -300,7 +313,7 @@ const handleAdvance = () => {
   <button
     type="button"
     onClick={handleAdvance}
-    className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+    className={secondaryButtonClass}
   >
     {hasNext ? "Next question" : "Finish exam"}
   </button>
@@ -313,20 +326,20 @@ const handleAdvance = () => {
 
           {/* Right: exam meta */}
           <aside className="space-y-3">
-            <div className="rounded-xl border border-slate-200/80 bg-white/95 p-4 shadow-sm">
-              <div className="mb-2 text-xs uppercase tracking-wide text-slate-500">
+            <div className={`${cardClass} p-4`}>
+              <div className="mb-2 text-xs font-semibold uppercase text-slate-500">
                 Exam rules (NREMT-style)
               </div>
               <ul className="space-y-1.5 text-xs text-slate-700">
-                <li>• One best answer, no partial credit.</li>
-                <li>• No going back to change answers.</li>
-                <li>• Timer is strict — simulates NREMT pacing.</li>
-                <li>• Feedback and rationale only after you answer.</li>
+                <li>One best answer, no partial credit.</li>
+                <li>No going back to change answers.</li>
+                <li>Timer is strict - simulates NREMT pacing.</li>
+                <li>Feedback and rationale only after you answer.</li>
               </ul>
             </div>
 
-            <div className="rounded-xl border border-slate-200/80 bg-white/95 p-4 text-xs text-slate-600">
-              Use this mode for <strong>exam conditioning</strong> — fast reps under pressure.
+            <div className={`${cardClass} p-4 text-xs text-slate-600`}>
+              Use this mode for <strong>exam conditioning</strong> - fast reps under pressure.
               Use your other Pathologix modes for cue highlighting and step-by-step practice.
             </div>
           </aside>

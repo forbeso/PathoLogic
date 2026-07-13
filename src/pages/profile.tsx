@@ -1,7 +1,17 @@
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import Header from "@/components/Header";
-import { Camera, Loader2 } from "lucide-react";
+import { Camera, Loader2, UserRound, Archive, ArrowLeft } from "lucide-react";
+import Head from "next/head";
+import {
+  AppShell,
+  PageContainer,
+  PageIntro,
+  cardClass,
+  inputClass,
+  primaryButtonClass,
+  secondaryButtonClass,
+} from "@/components/AppShell";
 
 type Profile = {
   id: string;
@@ -9,7 +19,7 @@ type Profile = {
   avatar_url: string | null;
   cohort: string | null;
   bio: string | null;
-  // role is server-managed; we’ll show but not edit here
+  // role is server-managed; show it but do not edit here
   role?: "student" | "instructor" | "admin";
 };
 
@@ -111,23 +121,30 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen w-full bg-slate-50">
+      <AppShell>
+        <Head><title>PathoLogix - Profile</title></Head>
         <Header />
-        <div className="mx-auto max-w-4xl px-4 py-10 text-slate-600">Loading profile…</div>
-      </div>
+        <PageContainer size="normal" className="text-slate-600">Loading profile...</PageContainer>
+      </AppShell>
     );
   }
 
   return (
-    <div className="min-h-screen w-full bg-[radial-gradient(1200px_600px_at_50%_-100px,rgba(16,185,129,0.08),transparent),radial-gradient(900px_500px_at_100%_0,rgba(14,165,233,0.08),transparent)]">
+    <AppShell>
+      <Head><title>PathoLogix - Profile</title></Head>
       <Header />
 
-      <main className="mx-auto max-w-4xl px-4 py-8">
-        <h1 className="text-2xl font-semibold tracking-tight">Profile</h1>
+      <PageContainer size="normal" className="space-y-6">
+        <PageIntro
+          eyebrow="Learner profile"
+          title="Profile"
+          description="Keep your EMT training context current so your saved work and progress feel personal."
+          icon={UserRound}
+        />
 
-        <form onSubmit={handleSave} className="mt-6 grid grid-cols-1 gap-6">
+        <form onSubmit={handleSave} className="grid grid-cols-1 gap-6">
           {/* Card */}
-          <div className="rounded-2xl border border-slate-200/80 bg-white/90 p-5 shadow-sm backdrop-blur">
+          <div className={`${cardClass} p-5`}>
             <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
               {/* Avatar */}
               <div className="flex flex-col items-center gap-3">
@@ -137,17 +154,17 @@ export default function ProfilePage() {
                     <img
                       src={profile.avatar_url}
                       alt="avatar"
-                      className="h-24 w-24 rounded-full object-cover border border-slate-200"
+                      className="h-24 w-24 rounded-md object-cover border border-slate-200"
                     />
                   ) : (
-                    <div className="grid h-24 w-24 place-items-center rounded-full bg-gradient-to-br from-emerald-500 to-cyan-500 text-white text-2xl font-bold">
+                    <div className="grid h-24 w-24 place-items-center rounded-md border border-teal-200 bg-teal-50 text-teal-800 text-2xl font-bold">
                       {email ? (email[0] || "U").toUpperCase() : "U"}
                     </div>
                   )}
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="absolute -bottom-2 -right-2 inline-flex items-center gap-1 rounded-full bg-white px-2 py-1 text-xs shadow ring-1 ring-slate-200 hover:bg-slate-50"
+                    className="absolute -bottom-2 -right-2 inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 text-xs shadow ring-1 ring-slate-200 hover:bg-slate-50"
                   >
                     {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Camera className="h-3 w-3" />}
                     {uploading ? "Uploading" : "Change"}
@@ -176,7 +193,7 @@ export default function ProfilePage() {
                   <input
                     value={email}
                     disabled
-                    className="mt-1 w-full rounded-xl border border-slate-200/80 bg-slate-50 px-3 py-2 text-sm text-slate-600"
+                    className={`${inputClass} mt-1 w-full`}
                   />
                 </div>
 
@@ -186,7 +203,7 @@ export default function ProfilePage() {
                     value={profile?.full_name ?? ""}
                     onChange={(e) => setProfile((p) => (p ? { ...p, full_name: e.target.value } : p))}
                     placeholder="Your name"
-                    className="mt-1 w-full rounded-xl border border-slate-200/80 bg-white px-3 py-2 text-sm"
+                    className={`${inputClass} mt-1 w-full`}
                   />
                 </div>
 
@@ -197,7 +214,7 @@ export default function ProfilePage() {
                       value={profile?.cohort ?? ""}
                       onChange={(e) => setProfile((p) => (p ? { ...p, cohort: e.target.value } : p))}
                       placeholder="e.g., 68W Fall 2025"
-                      className="mt-1 w-full rounded-xl border border-slate-200/80 bg-white px-3 py-2 text-sm"
+                      className={`${inputClass} mt-1 w-full`}
                     />
                   </div>
                   <div>
@@ -205,7 +222,7 @@ export default function ProfilePage() {
                     <input
                       value={profile?.role ?? "student"}
                       disabled
-                      className="mt-1 w-full rounded-xl border border-slate-200/80 bg-slate-50 px-3 py-2 text-sm text-slate-600"
+                      className={`${inputClass} mt-1 w-full`}
                     />
                   </div>
                 </div>
@@ -215,9 +232,9 @@ export default function ProfilePage() {
                   <textarea
                     value={profile?.bio ?? ""}
                     onChange={(e) => setProfile((p) => (p ? { ...p, bio: e.target.value } : p))}
-                    placeholder="Tell us about your training goals…"
+                    placeholder="Tell us about your training goals..."
                     rows={4}
-                    className="mt-1 w-full rounded-xl border border-slate-200/80 bg-white px-3 py-2 text-sm"
+                    className={`${inputClass} mt-1 w-full`}
                   />
                 </div>
 
@@ -225,7 +242,7 @@ export default function ProfilePage() {
                   <button
                     type="submit"
                     disabled={saving}
-                    className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-emerald-500 disabled:opacity-70"
+                    className={primaryButtonClass}
                   >
                     {saving && <Loader2 className="h-4 w-4 animate-spin" />}
                     Save changes
@@ -237,16 +254,18 @@ export default function ProfilePage() {
           </div>
 
           {/* Helpful links */}
-          <div className="flex items-center justify-between text-sm text-slate-600">
-            <a href="/my-scenarios" className="rounded-xl border border-slate-200/80 bg-white px-3 py-1 shadow-sm hover:bg-slate-50">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-slate-600">
+            <a href="/my-scenarios" className={secondaryButtonClass}>
+              <Archive size={16} />
               My Scenarios
             </a>
-            <a href="/emtrainer" className="rounded-xl border border-slate-200/80 bg-white px-3 py-1 shadow-sm hover:bg-slate-50">
+            <a href="/emtrainer" className={secondaryButtonClass}>
+              <ArrowLeft size={16} />
               Back to Trainer
             </a>
           </div>
         </form>
-      </main>
-    </div>
+      </PageContainer>
+    </AppShell>
   );
 }

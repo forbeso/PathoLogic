@@ -16,6 +16,16 @@ import {
   X,
 } from "lucide-react";
 import Header from "./Header";
+import {
+  AppShell,
+  PageContainer,
+  PageIntro,
+  cardClass,
+  inputClass,
+  primaryButtonClass,
+  secondaryButtonClass,
+  StatusPill,
+} from "@/components/AppShell";
 
 /** Types **/
 type Flashcard = {
@@ -176,11 +186,11 @@ export default function FlashcardTrainer() {
   if (masteryPercent >= 85) {
     masteryLabel = "Exam-ready in this deck";
     masteryDetail =
-      "You’re retaining most of this content. Now mix in timed NREMT exam mode and scenario work.";
+      "You are retaining most of this content. Now mix in timed NREMT exam mode and scenario work.";
   } else if (masteryPercent >= 65) {
     masteryLabel = "Solid progress";
     masteryDetail =
-      "You’ve got a handle on a lot of this. Target cards marked “Again” and trauma/airway weak spots.";
+      "You have got a handle on a lot of this. Target cards marked Again and trauma/airway weak spots.";
   } else if (masteryPercent >= 40) {
     masteryLabel = "Foundation building";
     masteryDetail =
@@ -190,75 +200,66 @@ export default function FlashcardTrainer() {
   // Loading / empty states
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 grid place-items-center">
-        <div className="rounded-xl border border-slate-200 bg-white/90 px-4 py-2 text-slate-700 text-sm shadow-sm">
-          Loading flashcards…
+      <AppShell>
+        <div className="grid min-h-screen place-items-center">
+        <div className={`${cardClass} px-4 py-2 text-sm text-slate-700`}>
+          Loading flashcards...
         </div>
       </div>
+      </AppShell>
     );
   }
 
   if (!cards.length) {
     return (
-      <div className="min-h-screen bg-slate-50 grid place-items-center px-4">
-        
-        <div className="rounded-xl border border-slate-200 bg-white/90 px-4 py-3 text-slate-700 text-sm shadow-sm">
+      <AppShell>
+        <div className="grid min-h-screen place-items-center px-4">
+        <div className={`${cardClass} px-4 py-3 text-sm text-slate-700`}>
           {error
             ? error
             : "No flashcards found yet. Add some in Supabase or build an admin to create decks."}
         </div>
       </div>
+      </AppShell>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(1200px_600px_at_50%_-100px,rgba(16,185,129,0.10),transparent),radial-gradient(900px_500px_at_100%_0,rgba(14,165,233,0.10),transparent)] px-4">
+    <AppShell>
         <Header/>
-      <div className="mx-auto max-w-4xl space-y-6 mt-5">
+      <PageContainer size="normal" className="space-y-6">
         {/* Header */}
-        <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-              <Brain size={14} />
-              NREMT Flashcard Lab
-            </div>
-            <h1 className="mt-2 text-2xl font-semibold text-slate-900">
-              High-yield EMT flashcards
-            </h1>
-            <p className="mt-1 text-sm text-slate-600">
-              Rapid-fire cards based on core EMS concepts so you can prep for{" "}
-              <span className="font-semibold text-emerald-700">NREMT</span> and{" "}
-              <span className="font-semibold text-emerald-700">other exams</span>{" "}
-              without drowning in the textbook.
-            </p>
-          </div>
-
-          <div className="space-y-2 text-right">
-            <div className="text-xs uppercase tracking-wide text-slate-400">
-              Deck mastery
-            </div>
-            <div className="flex items-center justify-end gap-2">
-              <div className="h-2 w-32 overflow-hidden rounded-full bg-slate-200">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-cyan-500"
-                  style={{ width: `${masteryPercent}%` }}
-                />
+        <PageIntro
+          eyebrow="Flashcard Lab"
+          title="High-yield EMT flashcards"
+          description="Rapid-fire review for core EMS concepts, NREMT patterns, and the details that deserve one more repetition."
+          icon={Brain}
+          actions={
+            <div className={`${cardClass} min-w-48 p-3`}>
+              <div className="text-xs font-semibold text-slate-500">Deck mastery</div>
+              <div className="mt-2 flex items-center gap-2">
+                <div className="h-2 w-32 overflow-hidden rounded-full bg-slate-200">
+                  <div
+                    className="h-full rounded-full bg-teal-500"
+                    style={{ width: `${masteryPercent}%` }}
+                  />
+                </div>
+                <span className="text-sm font-semibold text-slate-900">
+                  {masteryPercent}%
+                </span>
               </div>
-              <span className="text-sm font-semibold text-slate-900">
-                {masteryPercent}%
-              </span>
+              <div className="mt-1 text-[11px] text-slate-500">
+                {masteredCount} mastered / {reviewCount} to review
+              </div>
             </div>
-            <div className="text-[11px] text-slate-500">
-              {masteredCount} mastered • {reviewCount} to review
-            </div>
-          </div>
-        </header>
+          }
+        />
 
         {/* Controls */}
-        <section className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between">
+        <section className={`${cardClass} flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between`}>
           <div className="flex flex-wrap items-center gap-2">
-            <div className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5">
-              <Filter size={14} className="text-slate-400" />
+            <div className="relative">
+              <Filter size={14} className="pointer-events-none absolute left-3 top-2.5 text-slate-400" />
               <select
                 value={domainFilter}
                 onChange={(e) => {
@@ -266,7 +267,7 @@ export default function FlashcardTrainer() {
                   setIndex(0);
                   setFlipped(false);
                 }}
-                className="bg-transparent text-xs text-slate-800 focus:outline-none"
+                className={`${inputClass} pl-8 text-xs`}
               >
                 <option value="All">All domains</option>
                 {domains.map((d) => (
@@ -280,9 +281,9 @@ export default function FlashcardTrainer() {
             <button
               type="button"
               onClick={() => setShuffleMode((s) => !s)}
-              className={`inline-flex items-center gap-1 rounded-xl border px-3 py-1.5 text-xs font-medium ${
+              className={`inline-flex items-center gap-1 rounded-md border px-3 py-2 text-xs font-semibold ${
                 shuffleMode
-                  ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+                  ? "border-teal-300 bg-teal-50 text-teal-700"
                   : "border-slate-200 bg-white text-slate-700"
               }`}
             >
@@ -293,7 +294,7 @@ export default function FlashcardTrainer() {
             <button
               type="button"
               onClick={resetSession}
-              className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+              className={secondaryButtonClass}
             >
               <RotateCcw size={14} />
               Reset session
@@ -319,7 +320,7 @@ export default function FlashcardTrainer() {
           {/* Flashcard */}
           <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between text-xs text-slate-500">
-              <div className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-1 border border-slate-200">
+              <div className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 border border-slate-200">
                 <BookOpen size={12} />
                 <span>
                   Card {total === 0 ? 0 : index + 1} / {total || 0}
@@ -328,7 +329,7 @@ export default function FlashcardTrainer() {
 
               {current && current.difficulty && (
                 <span
-                  className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] ${difficultyChip(
+                  className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] ${difficultyChip(
                     current.difficulty
                   )}`}
                 >
@@ -347,28 +348,19 @@ export default function FlashcardTrainer() {
                     exit={{ rotateY: -90, opacity: 0 }}
                     transition={{ duration: 0.2 }}
                     onClick={() => setFlipped((f) => !f)}
-                    className="absolute inset-0 rounded-3xl border border-slate-200 bg-white p-5 shadow-md"
+                    className="absolute inset-0 rounded-lg border border-slate-200 bg-white p-5 shadow-md"
                   >
                     <div className="flex h-full flex-col justify-between">
                       <div className="space-y-2">
                         <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                          <span className="rounded-full bg-emerald-100 text-emerald-700 px-2 py-0.5">
-                            {current.domain}
-                          </span>
-                          <span className="rounded-full bg-slate-100 text-slate-700 px-2 py-0.5">
-                            {current.topic}
-                          </span>
+                          <StatusPill tone="teal">{current.domain}</StatusPill>
+                          <StatusPill>{current.topic}</StatusPill>
                           {current.tags?.slice(0, 2).map((t) => (
-                            <span
-                              key={t}
-                              className="rounded-full bg-slate-100 text-slate-600 px-2 py-0.5"
-                            >
-                              {t}
-                            </span>
+                            <StatusPill key={t}>{t}</StatusPill>
                           ))}
                         </div>
 
-                        <h2 className="mt-2 text-sm font-semibold uppercase tracking-wide text-slate-400">
+                        <h2 className="mt-2 text-sm font-semibold uppercase text-slate-400">
                           {flipped ? "Answer / Key points" : "Prompt"}
                         </h2>
                         <p className="mt-1 text-base leading-relaxed text-slate-900 whitespace-pre-line">
@@ -385,7 +377,7 @@ export default function FlashcardTrainer() {
                     </div>
                   </motion.div>
                 ) : (
-                  <div className="absolute inset-0 grid place-items-center rounded-3xl border border-dashed border-slate-300 bg-white text-sm text-slate-500">
+                  <div className="absolute inset-0 grid place-items-center rounded-lg border border-dashed border-slate-300 bg-white text-sm text-slate-500">
                     No cards in this deck yet.
                   </div>
                 )}
@@ -399,7 +391,7 @@ export default function FlashcardTrainer() {
                   type="button"
                   onClick={goPrev}
                   disabled={!total}
-                  className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+                  className={`${secondaryButtonClass} disabled:opacity-40`}
                 >
                   <ChevronLeft size={14} /> Prev
                 </button>
@@ -407,7 +399,7 @@ export default function FlashcardTrainer() {
                   type="button"
                   onClick={goNext}
                   disabled={!total}
-                  className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+                  className={`${secondaryButtonClass} disabled:opacity-40`}
                 >
                   Next <ChevronRight size={14} />
                 </button>
@@ -418,7 +410,7 @@ export default function FlashcardTrainer() {
                   type="button"
                   onClick={() => handleMark("again")}
                   disabled={!current}
-                  className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-40"
+                  className="inline-flex items-center gap-2 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-40"
                 >
                   <X size={14} />
                   Again / Not yet
@@ -427,7 +419,7 @@ export default function FlashcardTrainer() {
                   type="button"
                   onClick={() => handleMark("got-it")}
                   disabled={!current}
-                  className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-40"
+                  className={primaryButtonClass}
                 >
                   <CheckCircle2 size={14} />
                   Got it
@@ -438,8 +430,8 @@ export default function FlashcardTrainer() {
 
           {/* Right side: feedback + tips */}
           <aside className="space-y-4">
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <div className={`${cardClass} p-4`}>
+              <div className="text-xs font-semibold uppercase text-slate-500">
                 Session snapshot
               </div>
               <div className="mt-2 text-sm text-slate-700">
@@ -458,8 +450,8 @@ export default function FlashcardTrainer() {
                   <span>{reviewCount}</span>
                 </div>
               </div>
-              <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
-                <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                <div className="text-[11px] font-semibold uppercase text-slate-500">
                   {masteryLabel}
                 </div>
                 <p className="mt-1 text-[11px] leading-relaxed">
@@ -468,8 +460,8 @@ export default function FlashcardTrainer() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 text-xs text-slate-600">
-              <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <div className={`${cardClass} p-4 text-xs text-slate-600`}>
+              <div className="mb-1 text-xs font-semibold uppercase text-slate-500">
                 How to use this for NREMT
               </div>
               <ul className="list-disc space-y-1 pl-4">
@@ -481,9 +473,9 @@ export default function FlashcardTrainer() {
         </section>
 
         <footer className="pt-2 text-[11px] text-slate-500">
-          Built for EMT / med students. Use alongside your textbook, protocols, and formal training — this is a supplement, not a replacement.
+          Built for EMT / med students. Use alongside your textbook, protocols, and formal training - this is a supplement, not a replacement.
         </footer>
-      </div>
-    </div>
+      </PageContainer>
+    </AppShell>
   );
 }

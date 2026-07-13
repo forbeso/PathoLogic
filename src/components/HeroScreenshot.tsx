@@ -1,15 +1,12 @@
-import Image from "next/image";
+/* eslint-disable @next/next/no-img-element */
 
 export default function HeroScreenshot() {
   return (
-    <div className="relative rounded-2xl shadow-xl overflow-hidden border ">
-      <Image
-        src="/emt.png"
-        alt="PathoLogix mock screenshot"
-        width={1200}
-        height={800}
-        className="w-full h-auto"
-        priority
+    <div className="relative overflow-hidden rounded-lg border border-slate-700/70 bg-white shadow-2xl shadow-black/30">
+      <img
+        src="/mock_screen.png"
+        alt="PathoLogix scenario trainer preview"
+        className="h-auto w-full"
       />
     </div>
   );

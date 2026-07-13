@@ -4,7 +4,6 @@ import {
   Check,
   X,
   Lightbulb,
-  HelpCircle,
   ChevronDown,
   ChevronUp,
   Brain,
@@ -20,6 +19,14 @@ import AssessmentSidebar from "./AssessmentSidebar";
 import ExamModeDialog, { ExamAnswerPayload } from "./ExamModeDialog";
 import { recordResult, getWeakestTopic, getCachedGeneratedScenario } from "@/lib/adaptive";
 import { supabase } from "@/lib/supabase";
+import {
+  cardClass,
+  mutedCardClass,
+  darkButtonClass,
+  primaryButtonClass,
+  secondaryButtonClass,
+  StatusPill,
+} from "@/components/AppShell";
 
 /* ---------- Types ---------- */
 type Cue = { text: string; rationale: string };
@@ -52,22 +59,7 @@ type SeededItem = {
 /* ---------- UI Helpers ---------- */
 function Badge({ children }: { children: React.ReactNode }) {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-slate-200/80 bg-white/80 px-2 py-0.5 text-xs text-slate-700 shadow-sm backdrop-blur">
-      {children}
-    </span>
-  );
-}
-
-function Pill({
-  icon: Icon,
-  children,
-}: {
-  icon: React.ComponentType<{ size?: number }>;
-  children: React.ReactNode;
-}) {
-  return (
-    <span className="inline-flex items-center gap-2 rounded-2xl border border-slate-200/80 bg-white/80 px-3 py-1 text-sm text-slate-700 shadow-sm backdrop-blur">
-      <Icon size={16} />
+    <span className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-700 shadow-sm">
       {children}
     </span>
   );
@@ -86,11 +78,11 @@ const Panel = ({
 }) => {
   const [open, setOpen] = useState(openByDefault);
   return (
-    <div className="rounded-2xl border border-slate-200/80 bg-white/80 shadow-sm backdrop-blur">
+    <div className={cardClass}>
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="flex w-full items-center justify-between p-4 text-left hover:bg-white/60"
+        className="flex w-full items-center justify-between p-4 text-left hover:bg-slate-50"
       >
         <div className="flex items-center gap-2 font-medium text-slate-800">
           <Icon size={18} />
@@ -146,7 +138,7 @@ function ProgressBar({ value, max }: { value: number; max: number }) {
   return (
     <div className="w-full h-2 rounded-full bg-slate-200/60 overflow-hidden">
       <motion.div
-        className="h-full bg-emerald-500"
+        className="h-full bg-teal-500"
         initial={{ width: 0 }}
         animate={{ width: `${pct}%` }}
         transition={{ type: "spring", stiffness: 120, damping: 20 }}
@@ -355,13 +347,13 @@ export default function EMTScenarioTrainer() {
   if (loading) {
     return (
       <div className="min-h-screen grid place-items-center ">
-        <div className="flex items-center gap-2 rounded-xl border border-slate-200/80 bg-white/80 px-4 py-2 text-slate-700 shadow-sm backdrop-blur">
+        <div className={`${cardClass} flex items-center gap-2 px-4 py-2 text-slate-700`}>
           <motion.span
-            className="inline-block h-2 w-2 rounded-full bg-emerald-500"
+            className="inline-block h-2 w-2 rounded-full bg-teal-500"
             animate={{ opacity: [0.2, 1, 0.2] }}
             transition={{ repeat: Infinity, duration: 1.2 }}
           />
-          Checking Vitals...
+          Checking vitals...
         </div>
       </div>
     );
@@ -370,7 +362,7 @@ export default function EMTScenarioTrainer() {
   if (!items.length) {
     return (
       <div className="min-h-screen grid place-items-center px-4">
-        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-700 shadow-sm">
+        <div className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-rose-700 shadow-sm">
           No scenarios found.
         </div>
       </div>
@@ -489,15 +481,15 @@ export default function EMTScenarioTrainer() {
   if (examPercent >= 85) {
     examPerformanceLabel = "Strong performance";
     examPerformanceDetail =
-      "You’re testing in a range consistent with a high chance of passing NREMT.";
+      "You are testing in a range consistent with a high chance of passing NREMT.";
   } else if (examPercent >= 75) {
     examPerformanceLabel = "On the edge";
     examPerformanceDetail =
-      "You’re close. Tighten up weak domains and do another full exam run.";
+      "You are close. Tighten up weak domains and do another full exam run.";
   } else if (examPercent >= 65) {
     examPerformanceLabel = "Improving";
     examPerformanceDetail =
-      "You’re building a base. Target weaker domains with focused practice scenarios.";
+      "You are building a base. Target weaker domains with focused practice scenarios.";
   }
 
   const examDomainEntries = Object.entries(examDomainStats).sort(
@@ -505,7 +497,7 @@ export default function EMTScenarioTrainer() {
   );
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 mt-4">
+    <div className="mx-auto max-w-3xl space-y-6 rounded-lg border border-[#c8dcd6] bg-white/58 p-4 shadow-[0_18px_42px_rgba(45,86,89,0.12)] backdrop-blur">
       {/* Sidebar */}
       <AssessmentSidebar item={item} open={assessmentOpen} onClose={() => setAssessmentOpen(false)} />
 
@@ -521,7 +513,7 @@ export default function EMTScenarioTrainer() {
           <button
             type="button"
             onClick={prevItem}
-            className="inline-flex items-center gap-1 rounded-xl border border-slate-200/80 bg-white/80 px-3 py-1 text-sm text-slate-800 shadow-sm hover:bg-slate-50 backdrop-blur"
+            className={secondaryButtonClass}
             aria-label="Previous"
           >
             <ChevronLeft size={16} /> Prev
@@ -529,7 +521,7 @@ export default function EMTScenarioTrainer() {
           <button
             type="button"
             onClick={randomItem}
-            className="inline-flex items-center gap-1 rounded-xl border border-slate-200/80 bg-white/80 px-3 py-1 text-sm text-slate-800 shadow-sm hover:bg-slate-50 backdrop-blur"
+            className={secondaryButtonClass}
             aria-label="Random"
           >
             <Shuffle size={16} /> Random
@@ -537,7 +529,7 @@ export default function EMTScenarioTrainer() {
           <button
             type="button"
             onClick={nextItem}
-            className="inline-flex items-center gap-1 rounded-xl border border-slate-200/80 bg-white/80 px-3 py-1 text-sm text-slate-800 shadow-sm hover:bg-slate-50 backdrop-blur"
+            className={secondaryButtonClass}
             aria-label="Next"
           >
             Next <ChevronRight size={16} />
@@ -552,11 +544,11 @@ export default function EMTScenarioTrainer() {
       </div>
 
       {/* Vignette */}
-      <section className="rounded-2xl border border-slate-200/80 bg-white/80 p-4 shadow-sm backdrop-blur">
-        <div className="mb-2 flex items-center gap-2 text-sm text-gray-600">
+      <section className={`${cardClass} p-4`}>
+        <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-teal-800">
           <Brain size={16} /> Scenario
         </div>
-        <p className="leading-relaxed text-gray-900">
+        <p className="text-lg leading-relaxed text-slate-950">
           {renderHighlighted(item.vignette, item.cues, showCues)}
         </p>
 
@@ -564,14 +556,14 @@ export default function EMTScenarioTrainer() {
           <button
             type="button"
             onClick={() => setShowCues((s) => !s)}
-            className="rounded-xl border border-slate-200/80 bg-white/80 px-3 py-1 text-sm text-slate-800 shadow-sm hover:bg-slate-50 backdrop-blur"
+            className={secondaryButtonClass}
           >
             {showCues ? "Hide" : "Show"} cues
           </button>
           <button
             type="button"
             onClick={() => setShowRationale((s) => !s)}
-            className="rounded-xl border border-slate-200/80 bg-white/80 px-3 py-1 text-sm text-slate-800 shadow-sm hover:bg-slate-50 backdrop-blur"
+            className={secondaryButtonClass}
           >
             {showRationale ? "Hide" : "Show"} rationales
           </button>
@@ -580,27 +572,20 @@ export default function EMTScenarioTrainer() {
           <button
             onClick={startAdaptive}
             disabled={adaptiveLoading}
-            className="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 px-3 py-1 text-sm font-semibold text-white shadow hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-70"
+            className={primaryButtonClass}
             title="Serve a scenario targeting your weakest topic"
           >
             <Sparkles size={16} />
-            {adaptiveLoading ? "Finding scenario…" : "Train on similar questions"}
+            {adaptiveLoading ? "Finding scenario..." : "Train on similar questions"}
           </button>
 
           {/* Assessment Mode */}
           <button
             onClick={() => setAssessmentOpen(true)}
-            className="relative inline-flex items-center gap-2 rounded-xl px-3 py-1 text-xs font-medium shadow-sm bg-white hover:bg-slate-50 transition-all
-                       before:absolute before:inset-0 before:rounded-xl before:p-[2px]
-                       before:bg-gradient-to-r before:from-purple-500 before:via-fuchsia-500 before:to-teal-400
-                       before:animate-[pulse_4s_ease-in-out_infinite]
-                       before:[mask:linear-gradient(#fff_0_0)_content-box,linear-gradient(#fff_0_0)]
-                       before:[-webkit-mask:linear-gradient(#fff_0_0)_content-box,linear-gradient(#fff_0_0)]
-                       before:[mask-composite:exclude] before:[-webkit-mask-composite:xor]
-                       before:z-0"
+            className={secondaryButtonClass}
           >
             <span className="relative z-10 flex items-center gap-1 text-slate-900 text-sm">
-              <TestTubeDiagonal size={16} /> Open Assessment Mode
+              <TestTubeDiagonal size={16} /> Assessment Mode
             </span>
           </button>
 
@@ -608,7 +593,7 @@ export default function EMTScenarioTrainer() {
           <button
             onClick={startDialogExam}
             disabled={examStarting}
-            className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-800"
+            className={darkButtonClass}
           >
             {examStarting ? "Starting..." : "NREMT Exam Mode"}
           </button>
@@ -630,13 +615,15 @@ export default function EMTScenarioTrainer() {
           item={examCurrent.item}
           onSubmitAnswer={handleDialogSubmitAnswer}
           hasNext={examIndex + 1 < examItems.length}
+          currentQuestionNumber={examIndex + 1}
+          totalQuestions={examItems.length}
         />
       )}
 
       {examCompleted && totalExamQuestions > 0 && (
-        <section className="space-y-3 rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-sm">
+        <section className={`${cardClass} space-y-3 p-4`}>
           <h3 className="text-sm font-semibold text-slate-900">
-            NREMT Exam Mode — Summary
+            NREMT Exam Mode Summary
           </h3>
           <p className="text-sm text-slate-700">
             You answered{" "}
@@ -649,8 +636,8 @@ export default function EMTScenarioTrainer() {
               Score: {examPercent}%
             </span>
           </p>
-          <div className="mt-2 rounded-xl border border-slate-200/80 bg-slate-50 px-4 py-3 text-sm">
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <div className="mt-2 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
+            <div className="text-xs font-semibold uppercase text-slate-500">
               Performance snapshot
             </div>
             <div className="mt-1 text-sm font-semibold text-slate-900">
@@ -678,7 +665,7 @@ export default function EMTScenarioTrainer() {
                   return (
                     <div
                       key={domain}
-                      className="flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50 px-3 py-2"
+                      className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-2"
                     >
                       <div>
                         <div className="text-sm font-medium text-slate-900">
@@ -710,9 +697,9 @@ export default function EMTScenarioTrainer() {
       )}
 
       {/* Question & Choices */}
-      <section className="space-y-3">
-        <div className="text-sm text-gray-600">Question</div>
-        <h2 className="text-lg font-medium text-gray-900">{item.question}</h2>
+      <section className={`${mutedCardClass} space-y-3 p-4`}>
+        <div className="text-sm font-semibold text-slate-600">Question</div>
+        <h2 className="text-xl font-bold text-slate-950">{item.question}</h2>
 
         <div className="space-y-2">
           {item.choices.map((c: Choice) => {
@@ -737,17 +724,17 @@ export default function EMTScenarioTrainer() {
                     console.error("Failed to record result", e);
                   }
                 }}
-                className={`flex w-full items-start gap-3 rounded-2xl border border-slate-200/80 bg-white/80 p-4 text-left shadow-sm hover:bg-slate-50 backdrop-blur ${
+                className={`flex w-full items-start gap-3 rounded-lg border border-[#b9cbc4] bg-[#fbfdfc] p-4 text-left shadow-sm transition hover:border-teal-600 hover:bg-white ${
                   chosen
                     ? correctChoice
-                      ? "ring-2 ring-emerald-400"
+                      ? "ring-2 ring-teal-400"
                       : "ring-2 ring-rose-300"
                     : ""
                 }`}
               >
                 <div className="mt-1 font-mono text-sm">{c.id}.</div>
                 <div className="flex-1">
-                  <div className="font-medium text-gray-900">{c.text}</div>
+                  <div className="font-medium text-slate-950">{c.text}</div>
 
                   <AnimatePresence initial={false}>
                     {chosen && (
@@ -758,29 +745,29 @@ export default function EMTScenarioTrainer() {
                         className="mt-2 flex items-center gap-2 text-sm"
                       >
                         {correctChoice ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700">
+                          <StatusPill tone="teal">
                             <Check size={16} /> Correct
-                          </span>
+                          </StatusPill>
                         ) : (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-rose-700">
+                          <StatusPill tone="rose">
                             <X size={16} /> Not quite
-                          </span>
+                          </StatusPill>
                         )}
                       </motion.div>
                     )}
                   </AnimatePresence>
 
                   {showRationale && (
-                    <div className="mt-2 text-sm text-gray-700">
+                    <div className="mt-2 text-sm text-slate-700">
                       {c.correct ? (
                         c.why_right ? (
-                          <div className="rounded-lg border bg-emerald-50 p-3">
+                          <div className="rounded-md border border-teal-200 bg-teal-50 p-3">
                             <div className="mb-1 font-medium">Why this is right</div>
                             <p>{c.why_right}</p>
                           </div>
                         ) : null
                       ) : c.why_wrong ? (
-                        <div className="rounded-lg border bg-amber-50 p-3">
+                        <div className="rounded-md border border-amber-200 bg-amber-50 p-3">
                           <div className="mb-1 font-medium">Common trap</div>
                           <p>{c.why_wrong}</p>
                         </div>
@@ -789,7 +776,7 @@ export default function EMTScenarioTrainer() {
                   )}
 
                   {showElims && !c.correct && (
-                    <div className="mt-2 text-xs text-gray-600">
+                    <div className="mt-2 text-xs text-slate-600">
                       Tip: Match distractor hallmarks to absent cues in the stem.
                     </div>
                   )}
@@ -803,8 +790,8 @@ export default function EMTScenarioTrainer() {
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            className={`rounded-2xl border p-4 shadow-sm ${
-              isCorrect ? "bg-emerald-50 border-emerald-200" : "bg-rose-50 border-rose-200"
+            className={`rounded-lg border p-4 shadow-sm ${
+              isCorrect ? "bg-teal-50 border-teal-200" : "bg-rose-50 border-rose-200"
             }`}
           >
             <div className="flex items-center gap-2 font-medium">
@@ -813,10 +800,10 @@ export default function EMTScenarioTrainer() {
                 ? "Nice! Your reasoning matches the key cues."
                 : "Review the cues and try the elimination steps."}
             </div>
-            <div className="mt-2 text-sm text-gray-700">
+            <div className="mt-2 text-sm text-slate-700">
               {isCorrect
                 ? "Correct reasoning applied."
-                : "Compare the hallmark signs of your choice to the cues in the stem—what’s missing?"}
+                : "Compare the hallmark signs of your choice to the cues in the stem - what is missing?"}
             </div>
           </motion.div>
         )}
@@ -837,7 +824,7 @@ export default function EMTScenarioTrainer() {
         <Panel title="Cue rationales" icon={Highlighter}>
           <ul className="space-y-2">
             {item.cues.map((c: Cue, i: number) => (
-              <li key={i} className="rounded-lg border bg-white/90 p-3 shadow-sm">
+              <li key={i} className="rounded-md border border-slate-200 bg-white p-3 shadow-sm">
                 <div className="font-medium">{c.text}</div>
                 <p className="text-sm text-gray-700">{c.rationale}</p>
               </li>
@@ -847,8 +834,8 @@ export default function EMTScenarioTrainer() {
       </section>
 
       {/* Footer */}
-      <footer className="pt-2 text-xs text-gray-500 mb-4">
-        PathoLogix 2025 &copy; — Practice scenarios for EMTs. Not a substitute for formal training or protocols.
+      <footer className="pt-2 text-xs text-slate-400 mb-4">
+        PathoLogix 2025 &copy; - Practice scenarios for EMTs. Not a substitute for formal training or protocols.
       </footer>
     </div>
   );

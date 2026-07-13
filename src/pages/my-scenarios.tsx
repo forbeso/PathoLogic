@@ -3,6 +3,17 @@ import { supabase } from "@/lib/supabase";
 import Header from "@/components/Header";
 import { Search, Filter, ChevronLeft, ChevronRight, ExternalLink, Sparkles } from "lucide-react";
 import Link from "next/link";
+import Head from "next/head";
+import {
+  AppShell,
+  PageContainer,
+  PageIntro,
+  EmptyState,
+  StatusPill,
+  cardClass,
+  inputClass,
+  secondaryButtonClass,
+} from "@/components/AppShell";
 
 type Cue = { text: string; rationale: string };
 type Choice = { id: "A"|"B"|"C"|"D"; text: string; correct: boolean; why_right?: string; why_wrong?: string };
@@ -104,35 +115,38 @@ export default function MyScenariosPage() {
   const pageCount = total !== null ? Math.ceil((total || 0) / PAGE_SIZE) : 0;
 
   return (
-    <div className="min-h-screen w-full bg-[radial-gradient(1200px_600px_at_50%_-100px,rgba(16,185,129,0.08),transparent),radial-gradient(900px_500px_at_100%_0,rgba(14,165,233,0.08),transparent)]">
+    <AppShell>
+      <Head><title>PathoLogix - My Scenarios</title></Head>
       <Header />
 
-      <div className="mx-auto max-w-6xl px-4 py-8 space-y-6">
+      <PageContainer className="space-y-6">
         {/* Title row */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-2xl font-semibold tracking-tight">My Scenarios</h1>
-
-          <div className="flex items-center gap-2">
+        <PageIntro
+          eyebrow="Saved practice"
+          title="My Scenarios"
+          description="Review generated scenarios you have saved, then reopen the ones that deserve another pass."
+          icon={Sparkles}
+          actions={
             <Link
               href="/emtrainer"
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-200/80 bg-white px-3 py-1 text-sm shadow-sm hover:bg-slate-50"
+              className={secondaryButtonClass}
               title="Back to trainer"
             >
               <ExternalLink size={16} />
               Trainer
             </Link>
-          </div>
-        </div>
+          }
+        />
 
         {/* Controls */}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className={`${cardClass} flex flex-wrap items-center gap-3 p-4`}>
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
             <input
               value={q}
               onChange={(e) => { setPage(0); setQ(e.target.value); }}
-              placeholder="Search vignette or question…"
-              className="pl-9 pr-3 py-2 rounded-xl border border-slate-200/80 bg-white shadow-sm text-sm w-64"
+              placeholder="Search vignette or question..."
+              className={`${inputClass} w-64 pl-9`}
             />
           </div>
 
@@ -141,7 +155,7 @@ export default function MyScenariosPage() {
             <select
               value={topic}
               onChange={(e) => { setPage(0); setTopic(e.target.value); }}
-              className="pl-9 pr-8 py-2 rounded-xl border border-slate-200/80 bg-white shadow-sm text-sm w-48"
+              className={`${inputClass} w-48 pl-9 pr-8`}
             >
               <option value="">All topics</option>
               {topics.length === 0 && <option disabled>No topics</option>}
@@ -155,27 +169,26 @@ export default function MyScenariosPage() {
         {/* List */}
         <div className="grid grid-cols-1 gap-4">
           {loading && (
-            <div className="rounded-2xl border border-slate-200/80 bg-white p-6 text-sm text-slate-600 shadow-sm">
-              Loading your scenarios…
+            <div className={`${cardClass} p-6 text-sm text-slate-600`}>
+              Loading your scenarios...
             </div>
           )}
 
           {!loading && rows.length === 0 && (
-            <div className="rounded-2xl border border-slate-200/80 bg-white p-6 text-sm text-slate-600 shadow-sm">
-              No scenarios found. Try generating one from the trainer with
-              <span className="mx-1 inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-700">
-                <Sparkles className="h-3 w-3" /> Train my weak spot
-              </span>
-            </div>
+            <EmptyState
+              icon={Sparkles}
+              title="No saved scenarios yet"
+              description="Generate a weak-spot scenario from the trainer, then come back here to review it again."
+              href="/emtrainer"
+              actionLabel="Open trainer"
+            />
           )}
 
           {!loading && rows.map((r) => (
-            <article key={r.id} className="rounded-2xl border border-slate-200/80 bg-white/90 backdrop-blur p-4 shadow-sm">
+            <article key={r.id} className={`${cardClass} p-4`}>
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
-                    {r.topic}
-                  </span>
+                  <StatusPill tone="teal">{r.topic}</StatusPill>
                   <span className="text-xs text-slate-500">
                     {new Date(r.created_at).toLocaleString()}
                   </span>
@@ -184,7 +197,7 @@ export default function MyScenariosPage() {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => openInTrainer(r)}
-                    className="rounded-xl border border-slate-200/80 bg-white px-3 py-1 text-sm shadow-sm hover:bg-slate-50"
+                    className={secondaryButtonClass}
                     title="Open this scenario in the Trainer"
                   >
                     Open in Trainer
@@ -199,7 +212,7 @@ export default function MyScenariosPage() {
                 {r.choices.map((c) => (
                   <li key={c.id} className="flex items-start gap-2">
                     <span className="mt-[2px] font-mono text-xs">{c.id}.</span>
-                    <span className={c.correct ? "font-medium text-emerald-700" : ""}>{c.text}</span>
+                    <span className={c.correct ? "font-medium text-teal-700" : ""}>{c.text}</span>
                   </li>
                 ))}
               </ul>
@@ -211,7 +224,7 @@ export default function MyScenariosPage() {
         {pageCount > 1 && (
           <div className="flex items-center justify-center gap-2 pt-2">
             <button
-              className="inline-flex items-center gap-1 rounded-xl border border-slate-200/80 bg-white px-3 py-1 text-sm shadow-sm hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className={`${secondaryButtonClass} disabled:cursor-not-allowed disabled:opacity-50`}
               onClick={() => setPage((p) => Math.max(0, p - 1))}
               disabled={page === 0}
             >
@@ -221,7 +234,7 @@ export default function MyScenariosPage() {
               Page <span className="font-medium">{page + 1}</span> / {pageCount}
             </div>
             <button
-              className="inline-flex items-center gap-1 rounded-xl border border-slate-200/80 bg-white px-3 py-1 text-sm shadow-sm hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className={`${secondaryButtonClass} disabled:cursor-not-allowed disabled:opacity-50`}
               onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
               disabled={page >= pageCount - 1}
             >
@@ -229,7 +242,7 @@ export default function MyScenariosPage() {
             </button>
           </div>
         )}
-      </div>
-    </div>
+      </PageContainer>
+    </AppShell>
   );
 }

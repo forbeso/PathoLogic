@@ -1,352 +1,501 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
+
 import React from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
-  HeartPulse,
-  Stethoscope,
-  Brain,
   Activity,
-  Timer,
-  CheckCircle2,
   ArrowRight,
+  BarChart3,
+  BookOpenCheck,
+  Brain,
+  CheckCircle2,
+  HeartPulse,
   ShieldCheck,
   Sparkles,
-  BookOpenCheck,
-  BarChart3,
-  MessageSquareQuote,
+  Stethoscope,
+  Timer,
+  Gamepad,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import HeroScreenshot from "@/components/HeroScreenshot";
 
-// Reusable UI bits
+type IconComponent = LucideIcon;
+
 const Container = ({ children }: { children: React.ReactNode }) => (
-  <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8">{children}</div>
-);
-
-const Badge = ({ children }: { children: React.ReactNode }) => (
-  <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-medium text-white/90 backdrop-blur">
+  <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8">
     {children}
-  </span>
+  </div>
 );
 
-const SectionTitle = ({
+const sectionIntroStyles = {
+  light: {
+    eyebrow: "text-teal-700",
+    title: "text-slate-950",
+    subtitle: "text-slate-600",
+  },
+  dark: {
+    eyebrow: "text-cyan-200",
+    title: "text-white",
+    subtitle: "text-slate-300",
+  },
+};
+
+function SectionIntro({
   eyebrow,
   title,
   subtitle,
+  tone = "light",
 }: {
   eyebrow: string;
   title: string;
   subtitle?: string;
-}) => (
-  <div className="mx-auto max-w-3xl text-center">
-    <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-      {eyebrow}
-    </div>
-    <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-      {title}
-    </h2>
-    {subtitle ? (
-      <p className="mt-3 ">{subtitle}</p>
-    ) : null}
-  </div>
-);
+  tone?: keyof typeof sectionIntroStyles;
+}) {
+  const styles = sectionIntroStyles[tone];
 
-const Feature = ({
-  icon: Icon,
-  title,
-  desc,
-}: {
-  icon: any;
-  title: string;
-  desc: string;
-}) => (
-  <div className="group rounded-2xl border border-slate-200/70 bg-white/70 p-5 shadow-sm backdrop-blur transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-700/70 ">
-    <div className="mb-3 inline-flex rounded-xl bg-emerald-500/10 p-2 text-emerald-600 dark:text-emerald-400">
-      <Icon size={20} />
+  return (
+    <div className="max-w-3xl">
+      <p className={`text-sm font-semibold ${styles.eyebrow}`}>{eyebrow}</p>
+      <h2 className={`mt-2 text-3xl font-bold sm:text-4xl ${styles.title}`}>
+        {title}
+      </h2>
+      {subtitle ? (
+        <p className={`mt-4 max-w-2xl text-base leading-7 ${styles.subtitle}`}>
+          {subtitle}
+        </p>
+      ) : null}
     </div>
-    <h3 className="text-base font-semibold">{title}</h3>
-    <p className="mt-1 text-sm ">{desc}</p>
-  </div>
-);
+  );
+}
+
+function IconTile({
+  icon: Icon,
+  className,
+}: {
+  icon: IconComponent;
+  className: string;
+}) {
+  return (
+    <div className={`grid h-11 w-11 place-items-center rounded-lg ${className}`}>
+      <Icon size={21} strokeWidth={2.2} />
+    </div>
+  );
+}
+
+const practicePaths = [
+  {
+    icon: Brain,
+    title: "Scenario Trainer",
+    description:
+      "Work through realistic EMS calls, identify the high-value cues, and compare your reasoning against a guided breakdown.",
+    href: "/emtrainer",
+    cta: "Start a scenario",
+    tileClass: "bg-teal-50 text-teal-700",
+  },
+  {
+    icon: Timer,
+    title: "NREMT Exam Mode",
+    description:
+      "Build test pacing with timed, one-question-at-a-time sets that mirror the pressure and distractors of exam day.",
+    href: "/exam/nremt",
+    cta: "Run exam mode",
+    tileClass: "bg-slate-100 text-slate-800",
+  },
+  {
+    icon: BookOpenCheck,
+    title: "Flashcards",
+    description:
+      "Reinforce key assessments, pathophysiology, and treatment priorities with fast focused review sessions.",
+    href: "/flashcards",
+    cta: "Review cards",
+    tileClass: "bg-amber-50 text-amber-700",
+  },
+];
+
+const capabilities = [
+  {
+    icon: Stethoscope,
+    title: "Clinical cue recognition",
+    description:
+      "Practice seeing vital signs, mechanism, red flags, and presentation details as a connected clinical picture.",
+  },
+  {
+    icon: Brain,
+    title: "Reasoning before recall",
+    description:
+      "Each scenario pushes you to choose, then explains the priority of care and why distractors are less appropriate.",
+  },
+  {
+    icon: ShieldCheck,
+    title: "NREMT-style discipline",
+    description:
+      "Question flow, tone, and answer structure are tuned for exam preparation without losing field relevance.",
+  },
+  {
+    icon: BarChart3,
+    title: "Progress you can act on",
+    description:
+      "Use performance history to spot weaker domains and decide what to practice next.",
+  },
+];
+
+const workflow = [
+  "Read the call and commit to the immediate priority.",
+  "Surface critical cues and compare them against distractors.",
+  "Review the step-by-step rationale behind the best answer.",
+  "Loop weak domains back into targeted practice.",
+];
+
+const faqs = [
+  {
+    q: "Is PathoLogix aligned with the NREMT?",
+    a: "Yes. The scenarios, distractors, and rationales are shaped around NREMT-style decision making while staying focused on real EMT reasoning.",
+  },
+  {
+    q: "Can I practice specific EMT domains?",
+    a: "Yes. You can move between scenario practice, timed exam sets, flashcards, and progress review depending on what needs the most reps.",
+  },
+  {
+    q: "What is the difference between learning and exam practice?",
+    a: "Learning practice makes the reasoning visible. Exam mode adds time pressure and hides feedback until you submit so you can build test discipline.",
+  },
+];
+
+function PracticeCard({
+  icon,
+  title,
+  description,
+  href,
+  cta,
+  tileClass,
+}: (typeof practicePaths)[number]) {
+  return (
+    <motion.article
+      initial={{ opacity: 0, y: 14 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ duration: 0.45 }}
+      className="group flex h-full flex-col rounded-lg border border-[#c8dcd6] bg-white/88 p-5 shadow-[0_10px_28px_rgba(45,86,89,0.08)] backdrop-blur transition hover:-translate-y-0.5 hover:border-teal-300 hover:bg-white hover:shadow-md"
+    >
+      <IconTile icon={icon} className={tileClass} />
+      <h3 className="mt-5 text-xl font-semibold text-slate-950">{title}</h3>
+      <p className="mt-3 flex-1 text-sm leading-6 text-slate-600">
+        {description}
+      </p>
+      <Link
+        href={href}
+        className="mt-6 inline-flex w-fit items-center gap-2 rounded-md bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-400"
+      >
+        {cta}
+        <ArrowRight size={16} />
+      </Link>
+    </motion.article>
+  );
+}
 
 export default function LandingPage() {
   return (
-    <main className="min-h-screen bg-[radial-gradient(1000px_600px_at_20%_-10%,rgba(16,185,129,0.18),transparent),radial-gradient(800px_500px_at_100%_0,rgba(59,130,246,0.15),transparent)]">
-      {/* Nav */}
-      {/* <nav className="sticky top-0 z-20 border-b border-white/10 bg-white/50 backdrop-blur dark:border-slate-800/80 dark:bg-slate-950/50">
+    <main className="relative isolate overflow-hidden text-slate-900">
+      <section className="relative isolate overflow-hidden bg-slate-950 text-white">
+        <img
+          src="/emt.png"
+          alt="EMT assisting a patient beside an ambulance"
+          className="absolute inset-0 -z-20 h-full w-full object-cover object-[58%_center]"
+        />
+        <div className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(8,18,26,0.94)_0%,rgba(8,18,26,0.83)_44%,rgba(8,18,26,0.28)_100%)]" />
+        <div className="absolute inset-x-0 bottom-0 -z-10 h-32 bg-[linear-gradient(0deg,rgba(15,23,42,0.80)_0%,rgba(15,23,42,0)_100%)]" />
+
         <Container>
-          <div className="flex h-14 items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-emerald-500 to-sky-500 text-white shadow-sm">
-                <Sparkles size={16} />
-              </div>
-              <span className="text-sm font-bold tracking-tight text-slate-900 dark:text-slate-100">
-                PathoLogic
-              </span>
-              <Badge>Beta</Badge>
-            </div>
-            <div className="hidden gap-6 text-sm text-slate-700 dark:text-slate-300 md:flex">
-              <a href="#features" className="hover:text-slate-900 dark:hover:text-white">Features</a>
-              <a href="#how" className="hover:text-slate-900 dark:hover:text-white">How it works</a>
-              <a href="#proof" className="hover:text-slate-900 dark:hover:text-white">Proof</a>
-              <a href="#faq" className="hover:text-slate-900 dark:hover:text-white">FAQ</a>
-            </div>
-            <div className="flex items-center gap-2">
+          <div className="flex min-h-[62svh] max-w-2xl flex-col justify-center py-12 sm:py-16">
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.45 }}
+              className="inline-flex w-fit items-center gap-2 rounded-md border border-white/25 bg-white/10 px-3 py-1 text-sm font-semibold text-cyan-100 backdrop-blur"
+            >
+              <HeartPulse size={16} />
+              NREMT-style EMT practice
+            </motion.div>
+
+            <motion.h1
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.04 }}
+              className="mt-5 text-5xl font-black sm:text-6xl lg:text-7xl"
+            >
+              PathoLogix
+            </motion.h1>
+
+            <motion.p
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.08 }}
+              className="mt-5 max-w-xl text-lg leading-8 text-slate-100 sm:text-xl"
+            >
+              Train the judgment behind the answer with realistic EMS calls,
+              cue-focused review, and timed exam practice built for EMT
+              students.
+            </motion.p>
+
+            <motion.div
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.12 }}
+              className="mt-8 flex flex-wrap gap-3"
+            >
               <Link
-                href="/app"
-                className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
+                href="/emtrainer"
+                className="inline-flex items-center gap-2 rounded-md bg-teal-400 px-5 py-3 text-sm font-bold text-slate-950 shadow-lg shadow-teal-950/20 transition hover:bg-teal-300 focus:outline-none focus:ring-2 focus:ring-white"
               >
-                Try Scenarios <ArrowRight size={16} />
+                Start practicing
+                <ArrowRight size={17} />
               </Link>
-            </div>
-          </div>
-        </Container>
-      </nav> */}
-
-      {/* Hero */}
-      <section className="relative overflow-hidden py-16 sm:py-24">
-        <Container>
-          <div className="grid items-center gap-10 md:grid-cols-2">
-            <div>
-              <motion.h1
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-                className="text-4xl font-extrabold tracking-tight sm:text-5xl"
+              <Link
+                href="/exam/nremt"
+                className="inline-flex items-center gap-2 rounded-md border border-white/35 bg-white/10 px-5 py-3 text-sm font-bold text-white backdrop-blur transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white"
               >
-                Train your EMT reasoning — not just your memory.
-              </motion.h1>
-              <motion.p
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.05 }}
-                className="mt-4 max-w-xl text-lg "
+                Try exam mode
+                <Timer size={17} />
+              </Link>
+
+              <Link
+                href="/emtscene"
+                className="inline-flex items-center gap-2 rounded-md bg-teal-400 px-5 py-3 text-sm font-bold text-slate-950 shadow-lg shadow-teal-950/20 transition hover:bg-teal-300 focus:outline-none focus:ring-2 focus:ring-white"
               >
-                PathoLogix generates NREMT‑style scenarios, highlights critical cues, and walks you through step‑by‑step differentials so you master the <em>why</em> behind each answer.
-              </motion.p>
+                Try our simulator
+                <Gamepad size={17} />
+              </Link>
+            </motion.div>
 
-              <div className="mt-6 flex flex-wrap items-center gap-3">
-                <Link
-                  href="/emtrainer"
-                  className="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow hover:bg-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                >
-                  Start practicing <ArrowRight size={16} />
-                </Link>
-                <a
-                  href="#features"
-                  className="inline-flex items-center gap-2 rounded-2xl border border-slate-300 bg-white/70 px-5 py-3 text-sm font-semibold text-white shadow-sm backdrop-blur  hover:text-dark dark:border-slate-700 dark:bg-slate-900/60"
-                >
-                  See features
-                </a>
-              </div>
-
-              <div className="mt-6 flex flex-wrap gap-2 text-xs ">
-                <Badge>Evidence‑based cues</Badge>
-                <Badge>Step‑wise breakdowns</Badge>
-                <Badge>Exam & Learn modes</Badge>
-              </div>
-            </div>
-
-            {/* Screenshot mock */}
-            {/* Screenshot mock (keeps your design) */}
-<motion.div
-  initial={{ opacity: 0, y: 20 }}
-  whileInView={{ opacity: 1, y: 0 }}
-  viewport={{ once: true }}
-  transition={{ duration: 0.6 }}
-  className="relative"
->
-  <div className="rounded-2xl border border-slate-200/80 bg-white/80 p-2 shadow-xl backdrop-blur dark:border-slate-700/70 dark:bg-slate-900/60">
-    {/* Image in the same frame */}
-    <HeroScreenshot/>
-
-    {/* Your floating mini-card stays */}
-    {/* <div className="-mt-10 ml-6 w-2/3 rounded-xl border border-slate-200/80 bg-white/90 p-3 shadow-xl dark:border-slate-700/70 dark:bg-slate-900/80 relative z-10">
-      <div className="text-xs font-semibold text-slate-700 dark:text-slate-200">Cue Highlighter</div>
-      <div className="mt-1 h-2 w-2/3 rounded bg-emerald-200" />
-      <div className="mt-2 h-2 w-1/2 rounded bg-amber-200" />
-    </div> */}
-  </div>
-</motion.div>
-
-          </div>
-        </Container>
-      </section>
-
-      {/* Features */}
-      <section id="features" className="py-16">
-        <Container>
-          <SectionTitle
-            eyebrow="Features"
-            title="Everything you need to think like an EMT"
-            subtitle="Built for EMTs in training with adaptive practice, explanations, and analytics."
-           
-          />
-
-          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            <Feature icon={Brain} title="Cue Highlighting" desc="Surface critical words in the stem so you learn to spot high‑value clues fast." />
-            <Feature icon={BookOpenCheck} title="Step‑by‑Step Reasoning" desc="Guided breakdowns train your differential diagnosis and priorities of care." />
-            <Feature icon={Timer} title="Exam & Learn Modes" desc="Timed exam mode or exploratory learn mode with just‑in‑time hints." />
-            <Feature icon={BarChart3} title="Adaptive Practice" desc="Biases questions toward weaker domains to close gaps quickly." />
-            <Feature icon={ShieldCheck} title="NREMT‑Aligned" desc="Style, tone, and distractors mirror the real test experience." />
-            <Feature icon={Activity} title="Progress Analytics" desc="Accuracy by domain, time‑on‑task, confidence calibration, and more." />
-          </div>
-        </Container>
-      </section>
-
-      {/* How it works */}
-      <section id="how" className="py-16">
-        <Container>
-          <SectionTitle
-            eyebrow="How it works"
-            title="From scenario to mastery in four steps"
-          />
-
-          <div className="mt-10 grid gap-6 md:grid-cols-4">
-            {["Read the stem & spot cues","Select the best answer","Reveal step‑wise reasoning","Review & reinforce"].map((step, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 10 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.4, delay: i * 0.06 }}
-                className="rounded-2xl border border-slate-200/70 bg-white/70 p-5  shadow-sm backdrop-blur dark:border-slate-700/70 "
-              >
-                <div className="mb-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/10 font-semibold text-emerald-600 dark:text-emerald-400">
-                  {i + 1}
-                </div>
-                <div className="text-sm font-semibold">{step}</div>
-                <p className="mt-1 text-xs">
-                  {[
-                    "Focus on vital signs, keywords, and red flags.",
-                    "Commit, don’t over‑toggle cues. Build test discipline.",
-                    "Compare against distractors and see why B ≠ D.",
-                    "Auto‑reinforce weak areas with adaptive sets.",
-                  ][i]}
-                </p>
-              </motion.div>
-            ))}
-          </div>
-        </Container>
-      </section>
-
-      {/* Social proof */}
-      {/* <section id="proof" className="py-16">
-        <Container>
-          <SectionTitle eyebrow="What users say" title="Built with EMT learners in mind" />
-          <div className="mt-8 grid gap-6 md:grid-cols-3">
-            {[
-              {
-                quote:
-                  "The cue highlighting taught me to actually read stems like a clinician. My practice scores jumped in a week.",
-                name: "Alex R.",
-                role: "EMT Student",
-              },
-              {
-                quote:
-                  "Feels like the NREMT—down to the distractors. The step‑by‑step breakdowns make the ‘why’ click.",
-                name: "Morgan T.",
-                role: "Paramedic Candidate",
-              },
-              {
-                quote:
-                  "Exam mode is brutal—but my pacing and accuracy improved fast.",
-                name: "Jamie L.",
-                role: "EMT-B",
-              },
-            ].map((t, i) => (
-              <motion.figure
-                key={i}
-                initial={{ opacity: 0, y: 8 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.4, delay: i * 0.05 }}
-                className="rounded-2xl border border-slate-200/70 bg-white/70 p-5 shadow-sm backdrop-blur dark:border-slate-700/70"
-              >
-                <MessageSquareQuote className="mb-3 text-emerald-600 dark:text-emerald-400" />
-                <blockquote className="text-sm">{t.quote}</blockquote>
-                <figcaption className="mt-3 text-xs">
-                  <span className="font-semibold">{t.name}</span> · {t.role}
-                </figcaption>
-              </motion.figure>
-            ))}
-          </div>
-        </Container>
-      </section> */}
-
-      {/* CTA */}
-      <section className="py-16">
-        <Container>
-          <div className="relative overflow-hidden rounded-3xl border border-slate-200/70 bg-gradient-to-br from-emerald-600 to-sky-600 p-8 text-white shadow-lg">
-            <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
-            <div className="relative z-10 grid items-center gap-6 md:grid-cols-2">
+            <motion.div
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.16 }}
+              className="mt-8 grid max-w-xl grid-cols-3 gap-3 border-t border-white/25 pt-5 text-xs text-slate-200 sm:gap-4 sm:text-sm"
+            >
               <div>
-                <h3 className="text-2xl font-bold tracking-tight">Ready to level up your clinical reasoning?</h3>
-                <p className="mt-2 text-white/80">
-                  Jump into adaptive practice or run a timed exam set. Your future patients will thank you.
-                </p>
+                <div className="text-xl font-bold text-white sm:text-2xl">3 modes</div>
+                <p className="mt-1">Scenario, exam, and review practice.</p>
               </div>
-              <div className="flex items-center gap-3 md:justify-end">
-                <Link
-                  href="/emtrainer"
-                  className="inline-flex items-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-emerald-700 shadow hover:bg-white/90"
-                >
-                  Try it free <ArrowRight size={16} />
-                </Link>
-                <a
-                  href="#faq"
-                  className="inline-flex items-center gap-2 rounded-2xl border border-white/30 bg-white/10 px-5 py-3 text-sm font-semibold text-white backdrop-blur hover:bg-white/20"
-                >
-                  Learn more
-                </a>
+              <div>
+                <div className="text-xl font-bold text-white sm:text-2xl">Cue first</div>
+                <p className="mt-1">Learn what details should change care.</p>
               </div>
-            </div>
+              <div>
+                <div className="text-xl font-bold text-white sm:text-2xl">Adaptive</div>
+                <p className="mt-1">Return to the domains that need reps.</p>
+              </div>
+            </motion.div>
           </div>
         </Container>
       </section>
 
-      {/* FAQ */}
-      <section id="faq" className="pb-20">
+      <section
+        id="practice"
+        className="bg-[linear-gradient(180deg,rgba(238,248,245,0.96),rgba(234,245,255,0.82))] py-16 sm:py-20"
+      >
         <Container>
-          <SectionTitle eyebrow="FAQ" title="Quick answers" />
+          <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
+            <SectionIntro
+              eyebrow="Practice paths"
+              title="Pick the kind of pressure you need today."
+              subtitle="Start with open reasoning, tighten pacing in exam mode, then reinforce the facts and patterns that keep showing up."
+            />
+            <Link
+              href="/progress"
+              className="inline-flex w-fit items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-slate-400 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-500"
+            >
+              View progress
+              <BarChart3 size={16} />
+            </Link>
+          </div>
 
-          <div className="mx-auto mt-8 max-w-3xl divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200/70 bg-white/70 shadow-sm backdrop-blur dark:divide-slate-800">
-            {[
-              {
-                q: "Is PathoLogix aligned with the NREMT?",
-                a: "Yes. Scenarios, distractors, and rationale style are designed to reflect NREMT conventions while focusing on clinical reasoning.",
-              },
-              {
-                q: "Can I practice specific domains?",
-                a: "Absolutely. Create decks by domain (Trauma, Cardiology, Airway, etc.), or run adaptive sets targeting your weak areas.",
-              },
-              {
-                q: "Exam mode vs Learn mode?",
-                a: "Exam mode hides cues until you submit and adds a timer. Learn mode reveals just‑in‑time hints and step‑by‑step reasoning.",
-              },
-            ].map((f, i) => (
-              <details key={i} className="group">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-4 text-sm font-medium  hover:bg-white/60 ">
-                  {f.q}
-                  <ArrowRight className="transition group-open:rotate-90" size={16} />
-                </summary>
-                <div className="px-4 pb-4 text-sm text-slate-600 dark:text-slate-300">{f.a}</div>
-              </details>
+          <div className="mt-10 grid gap-5 md:grid-cols-3">
+            {practicePaths.map((path) => (
+              <PracticeCard key={path.title} {...path} />
             ))}
           </div>
         </Container>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-slate-200/60 py-8 text-center text-xs  dark:border-slate-800 ">
+      <section id="features" className="border-y border-[#d5e6e1] bg-white/62 py-16 backdrop-blur sm:py-20">
         <Container>
-          <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
-            <div>© {new Date().getFullYear()} PathoLogix — Practice scenarios for EMTs.</div>
-            <div className="flex items-center gap-4">
-              <a href="#" className="hover:text-slate-700 dark:hover:text-emerald-400">Privacy</a>
-              <a href="#" className="hover:text-slate-700 dark:hover:text-emerald-400">Terms</a>
-              <a href="#" className="hover:text-slate-700 dark:hover:text-emerald-400">Contact</a>
+          <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+            <SectionIntro
+              eyebrow="Clinical reasoning"
+              title="Built to make the hidden thinking visible."
+              subtitle="PathoLogix is less about memorizing a single fact and more about practicing the chain of decisions that leads to better care."
+            />
+
+            <div className="grid overflow-hidden rounded-lg border border-[#c8dcd6] bg-[#c8dcd6] shadow-[0_12px_30px_rgba(45,86,89,0.08)] sm:grid-cols-2">
+              {capabilities.map((item) => (
+                <div key={item.title} className="bg-white/88 p-5 backdrop-blur">
+                  <div className="flex items-start gap-4">
+                    <IconTile
+                      icon={item.icon}
+                      className="shrink-0 bg-slate-100 text-slate-800"
+                    />
+                    <div>
+                      <h3 className="font-semibold text-slate-950">
+                        {item.title}
+                      </h3>
+                      <p className="mt-2 text-sm leading-6 text-slate-600">
+                        {item.description}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Container>
+      </section>
+
+      <section id="demo" className="bg-slate-950 py-16 text-white sm:py-20">
+        <Container>
+          <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+            <div>
+              <SectionIntro
+                eyebrow="Scenario flow"
+                title="Every rep ends with a clearer next decision."
+                subtitle="The trainer keeps the patient story, answer choice, and rationale close together so students can connect field details to care priorities."
+                tone="dark"
+              />
+
+              <div className="mt-8 space-y-4">
+                {workflow.map((step, index) => (
+                  <motion.div
+                    key={step}
+                    initial={{ opacity: 0, x: -12 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.35, delay: index * 0.05 }}
+                    className="flex gap-4 border-l border-slate-700 pl-4"
+                  >
+                    <div className="font-mono text-sm text-cyan-200">
+                      0{index + 1}
+                    </div>
+                    <p className="max-w-md text-sm leading-6 text-slate-300">
+                      {step}
+                    </p>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 18 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5 }}
+            >
+              <HeroScreenshot />
+            </motion.div>
+          </div>
+        </Container>
+      </section>
+
+      <section className="bg-white/58 py-16 backdrop-blur sm:py-20">
+        <Container>
+          <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+            <SectionIntro
+              eyebrow="Why it sticks"
+              title="Fast feedback without skipping the clinical why."
+              subtitle="The best practice loop is simple: make a decision, see what mattered, then do another focused rep before the pattern fades."
+            />
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              {[
+                "High-yield cues are called out after the decision.",
+                "Rationales explain why the best answer beats close distractors.",
+                "Timed mode keeps pacing honest under pressure.",
+                "Progress review helps choose the next study target.",
+              ].map((point) => (
+                <div
+                  key={point}
+                  className="flex items-start gap-3 rounded-lg border border-[#c8dcd6] bg-white/78 p-4 shadow-sm backdrop-blur"
+                >
+                  <CheckCircle2
+                    className="mt-0.5 shrink-0 text-teal-600"
+                    size={19}
+                  />
+                  <p className="text-sm leading-6 text-slate-700">{point}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Container>
+      </section>
+
+      <section className="bg-teal-700 py-14 text-white">
+        <Container>
+          <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="flex items-center gap-2 text-sm font-semibold text-teal-100">
+                <Sparkles size={16} />
+                Ready for the next rep?
+              </p>
+              <h2 className="mt-2 text-3xl font-bold">
+                Start with one scenario and let the weak spots reveal
+                themselves.
+              </h2>
+            </div>
+            <Link
+              href="/emtrainer"
+              className="inline-flex w-fit items-center gap-2 rounded-md bg-white px-5 py-3 text-sm font-bold text-teal-800 shadow-lg shadow-teal-950/20 transition hover:bg-teal-50 focus:outline-none focus:ring-2 focus:ring-white"
+            >
+              Practice now
+              <Activity size={17} />
+            </Link>
+          </div>
+        </Container>
+      </section>
+
+      <section id="faq" className="py-16 sm:py-20">
+        <Container>
+          <div className="grid gap-10 lg:grid-cols-[0.8fr_1.2fr]">
+            <SectionIntro
+              eyebrow="FAQ"
+              title="Quick answers before you jump in."
+            />
+
+            <div className="divide-y divide-[#d5e6e1] overflow-hidden rounded-lg border border-[#c8dcd6] bg-white/86 shadow-[0_12px_30px_rgba(45,86,89,0.08)] backdrop-blur">
+              {faqs.map((faq) => (
+                <details key={faq.q} className="group">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-5 text-left text-sm font-semibold text-slate-950 transition hover:bg-teal-50/70">
+                    {faq.q}
+                    <ArrowRight
+                      className="shrink-0 transition group-open:rotate-90"
+                      size={17}
+                    />
+                  </summary>
+                  <p className="px-5 pb-5 text-sm leading-6 text-slate-600">
+                    {faq.a}
+                  </p>
+                </details>
+              ))}
+            </div>
+          </div>
+        </Container>
+      </section>
+
+      <footer className="border-t border-[#d5e6e1] bg-white/70 py-8 text-sm text-slate-600 backdrop-blur">
+        <Container>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <p>© {new Date().getFullYear()} PathoLogix. EMT practice scenarios.</p>
+            <div className="flex items-center gap-5">
+              <a className="transition hover:text-slate-950" href="#">
+                Privacy
+              </a>
+              <a className="transition hover:text-slate-950" href="#">
+                Terms
+              </a>
+              <a className="transition hover:text-slate-950" href="#">
+                Contact
+              </a>
             </div>
           </div>
         </Container>

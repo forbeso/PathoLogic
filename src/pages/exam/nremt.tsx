@@ -3,6 +3,18 @@
 import { useCallback, useState } from "react";
 import ExamModeDialog, { ExamAnswerPayload } from "@/components/ExamModeDialog";
 import Header from "@/components/Header";
+import Head from "next/head";
+import {
+  AppShell,
+  PageContainer,
+  PageIntro,
+  MetricCard,
+  cardClass,
+  inputClass,
+  primaryButtonClass,
+  secondaryButtonClass,
+} from "@/components/AppShell";
+import { BarChart3, Clock3, FileQuestion, ShieldCheck, Target } from "lucide-react";
 
 type SeededItem = {
   orderIndex: number;
@@ -128,9 +140,12 @@ export default function NremtExamPage() {
   };
 
   const exitExamNow = () => {
-    // X button: bail out
-    setCompleted(true);
-    setSummaryItems(items);
+    // X button: abandon the current run without scoring unanswered questions.
+    setCompleted(false);
+    setCorrectCount(0);
+    setCurrentIndex(0);
+    setSummaryItems([]);
+    setDomainStats({});
     setItems([]);
     setSessionId(null);
   };
@@ -144,13 +159,13 @@ export default function NremtExamPage() {
   let performanceDetail = "Focus on understanding core pathophysiology and algorithms, then re-test.";
   if (percent >= 85) {
     performanceLabel = "Strong performance";
-    performanceDetail = "You’re testing in a range consistent with a high chance of passing NREMT.";
+    performanceDetail = "You are testing in a range consistent with a high chance of passing NREMT.";
   } else if (percent >= 75) {
     performanceLabel = "On the edge";
-    performanceDetail = "You’re close. Tighten up weak domains and do another full exam run.";
+    performanceDetail = "You are close. Tighten up weak domains and do another full exam run.";
   } else if (percent >= 65) {
     performanceLabel = "Improving";
-    performanceDetail = "You’re building a base. Target weaker domains with focused practice scenarios.";
+    performanceDetail = "You are building a base. Target weaker domains with focused practice scenarios.";
   }
 
   const domainEntries = Object.entries(domainStats).sort(
@@ -158,19 +173,20 @@ export default function NremtExamPage() {
   );
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(1200px_600px_at_50%_-100px,rgba(16,185,129,0.10),transparent),radial-gradient(900px_500px_at_100%_0,rgba(14,165,233,0.10),transparent)] w-full">
+    <AppShell>
+      <Head><title>PathoLogix - NREMT Exam Mode</title></Head>
       <Header />
-      <div className="mx-auto max-w-4xl px-4 py-8">
-        <h1 className="text-2xl font-semibold text-slate-900">
-          NREMT Exam Mode
-        </h1>
-        <p className="mt-1 text-sm text-slate-600">
-          Simulated NREMT-style exam: timed, one question at a time, no going back.
-        </p>
+      <PageContainer size="normal" className="space-y-6">
+        <PageIntro
+          eyebrow="Timed exam"
+          title="NREMT Exam Mode"
+          description="Simulated NREMT-style practice: timed, one question at a time, no going back."
+          icon={ShieldCheck}
+        />
 
         {/* Config / start card */}
         {!current && !completed && (
-          <div className="mt-6 rounded-2xl border border-slate-200/80 bg-white/95 p-5 shadow-sm">
+          <div className={`${cardClass} p-5`}>
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <h2 className="text-sm font-semibold text-slate-900">
@@ -195,18 +211,14 @@ export default function NremtExamPage() {
                       )
                     )
                   }
-                  className="mt-1 w-24 rounded-lg border border-slate-300 px-2 py-1 text-sm"
+                  className={`${inputClass} mt-1 w-28`}
                 />
               </div>
 
               <button
                 onClick={startExam}
                 disabled={starting}
-                className={`inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold shadow ${
-                  starting
-                    ? "cursor-wait bg-slate-300 text-slate-600"
-                    : "bg-slate-900 text-white hover:bg-slate-800"
-                }`}
+                className={primaryButtonClass}
               >
                 {starting ? "Starting..." : "Start exam"}
               </button>
@@ -222,24 +234,21 @@ export default function NremtExamPage() {
 
         {/* Summary after completion */}
         {completed && (
-          <div className="mt-6 space-y-4">
-            <div className="rounded-2xl border border-slate-200/80 bg-white/95 p-5 shadow-sm">
-              <h2 className="text-sm font-semibold text-slate-900">
-                Exam complete
-              </h2>
+          <div className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-3">
+              <MetricCard icon={Target} label="Score" value={`${percent}%`} detail={`${correctCount}/${totalQuestions} correct`} tone={percent >= 75 ? "teal" : percent >= 60 ? "amber" : "rose"} />
+              <MetricCard icon={FileQuestion} label="Questions" value={totalQuestions} detail="Completed in this set" />
+              <MetricCard icon={BarChart3} label="Domains" value={domainEntries.length || "0"} detail="Areas represented" />
+            </div>
+
+            <div className={`${cardClass} p-5`}>
+              <h2 className="text-lg font-semibold text-slate-950">Exam complete</h2>
               <p className="mt-2 text-sm text-slate-700">
-                You answered{" "}
-                <span className="font-semibold">{correctCount}</span> out of{" "}
-                <span className="font-semibold">{totalQuestions}</span>{" "}
-                questions correctly.
+                You answered <span className="font-semibold">{correctCount}</span> out of{" "}
+                <span className="font-semibold">{totalQuestions}</span> questions correctly.
               </p>
-              <p className="mt-1 text-sm">
-                <span className="font-semibold text-slate-900">
-                  Score: {percent}%
-                </span>
-              </p>
-              <div className="mt-3 rounded-xl border border-slate-200/80 bg-slate-50 px-4 py-3 text-sm">
-                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
+                <div className="text-xs font-semibold uppercase text-slate-500">
                   Performance snapshot
                 </div>
                 <div className="mt-1 text-sm font-semibold text-slate-900">
@@ -257,7 +266,7 @@ export default function NremtExamPage() {
                   setSummaryItems([]);
                   setDomainStats({});
                 }}
-                className="mt-4 inline-flex items-center rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+                className={`${secondaryButtonClass} mt-4`}
               >
                 Start another exam
               </button>
@@ -265,7 +274,7 @@ export default function NremtExamPage() {
 
             {/* Domain breakdown */}
             {domainEntries.length > 0 && (
-              <div className="rounded-2xl border border-slate-200/80 bg-white/95 p-5 shadow-sm">
+              <div className={`${cardClass} p-5`}>
                 <h3 className="text-sm font-semibold text-slate-900">
                   Domain breakdown
                 </h3>
@@ -281,7 +290,7 @@ export default function NremtExamPage() {
                     return (
                       <div
                         key={domain}
-                        className="flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50 px-3 py-2"
+                        className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-2"
                       >
                         <div>
                           <div className="text-sm font-medium text-slate-900">
@@ -311,7 +320,7 @@ export default function NremtExamPage() {
             )}
           </div>
         )}
-      </div>
+      </PageContainer>
 
       {/* Live question dialog */}
       {current && (
@@ -322,8 +331,10 @@ export default function NremtExamPage() {
           item={current.item}
           onSubmitAnswer={handleSubmitAnswer}
           hasNext={currentIndex + 1 < items.length}
+          currentQuestionNumber={currentIndex + 1}
+          totalQuestions={items.length}
         />
       )}
-    </div>
+    </AppShell>
   );
 }

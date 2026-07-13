@@ -1,9 +1,15 @@
-// src/components/Header.tsx
 import React, { useEffect, useState } from "react";
-import { Ambulance } from "lucide-react";
+import { Ambulance, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import UserMenu from "@/components/UserMenu";
+
+const navItems = [
+  { href: "/emtrainer", label: "Scenarios" },
+  { href: "/exam/nremt", label: "Exam Mode" },
+  { href: "/flashcards", label: "Flashcards" },
+  { href: "/progress", label: "Progress" },
+];
 
 export default function Header() {
   const [session, setSession] = useState<
@@ -19,61 +25,41 @@ export default function Header() {
   }, []);
 
   return (
-    <header className="flex flex-col gap-3 border-b border-slate-200/70 pb-4 px-4 py-8">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-
-        {/* LEFT SIDE — Logo + Nav */}
-        <div className="flex items-center gap-6">
-          {/* Logo / Title */}
-          <Link href="/" passHref>
-            <div className="flex items-center gap-2 cursor-pointer">
-              <div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-emerald-500 to-cyan-500 text-white shadow-sm">
-                <Ambulance size={18} />
-              </div>
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-                PathoLogix
-              </h1>
-            </div>
+    <header className="sticky top-0 z-30 border-b border-[#c8dcd6] bg-white/88 px-4 text-slate-950 shadow-[0_10px_28px_rgba(15,23,42,0.08)] backdrop-blur-xl">
+      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 py-3">
+        <div className="flex items-center gap-7">
+          <Link href="/" className="flex items-center gap-2">
+            <span className="grid h-10 w-10 place-items-center rounded-lg border border-teal-200 bg-teal-50 text-teal-700 shadow-sm">
+              <Ambulance size={20} />
+            </span>
+            <span className="text-xl font-black text-slate-950">PathoLogix</span>
           </Link>
 
-          {/* NEW NAVIGATION LINKS */}
-          <nav className="hidden md:flex items-center gap-2 text-sm">
-            <Link
-              href="/emtrainer"
-              className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 shadow-sm text-slate-700 hover:bg-slate-50"
-            >
-              Scenarios
-            </Link>
-
-            <Link
-              href="/exam/nremt"
-              className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 shadow-sm text-slate-700 hover:bg-slate-50"
-            >
-              Exam Mode
-            </Link>
-
-            <Link
-              href="/flashcards"
-              className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 shadow-sm text-slate-700 hover:bg-slate-50"
-            >
-              Flashcards
-            </Link>
-
-            {/* <Link
-              href="/study-tools"
-              className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 shadow-sm text-slate-700 hover:bg-slate-50"
-            >
-              Study Tools
-            </Link> */}
+          <nav className="hidden items-center gap-1 text-sm md:flex">
+            {navItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="rounded-md px-3 py-2 font-medium text-slate-600 transition hover:bg-teal-50 hover:text-teal-800"
+              >
+                {item.label}
+              </Link>
+            ))}
           </nav>
         </div>
 
-        {/* RIGHT SIDE — User/Auth */}
         <div className="flex items-center gap-2 text-sm text-slate-700">
+          <Link
+            href="/emtrainer"
+            className="hidden items-center gap-2 rounded-md bg-teal-600 px-3 py-2 font-semibold text-white shadow-sm transition hover:bg-teal-500 sm:inline-flex"
+          >
+            Practice
+            <ArrowRight size={15} />
+          </Link>
           {!session ? (
             <Link
               href="/login"
-              className="inline-flex rounded-xl bg-emerald-600 px-3 py-1.5 font-semibold text-white shadow hover:bg-emerald-500"
+              className="inline-flex rounded-md border border-[#b7ccc5] bg-white px-3 py-2 font-semibold text-slate-800 shadow-sm transition hover:border-teal-500 hover:bg-teal-50"
             >
               Sign in
             </Link>
@@ -83,35 +69,16 @@ export default function Header() {
         </div>
       </div>
 
-      {/* MOBILE NAV */}
-      <nav className="flex md:hidden overflow-x-auto gap-2 mt-1 pb-1">
-        <Link
-          href="/emtrainer"
-          className="whitespace-nowrap rounded-xl border border-slate-200 bg-white px-3 py-1 text-sm text-slate-700 shadow-sm hover:bg-slate-50"
-        >
-          Scenarios
-        </Link>
-
-        <Link
-          href="/exam/nremt"
-          className="whitespace-nowrap rounded-xl border border-slate-200 bg-white px-3 py-1 text-sm text-slate-700 shadow-sm hover:bg-slate-50"
-        >
-          Exam Mode
-        </Link>
-
-        <Link
-          href="/flashcards"
-          className="whitespace-nowrap rounded-xl border border-slate-200 bg-white px-3 py-1 text-sm text-slate-700 shadow-sm hover:bg-slate-50"
-        >
-          Flashcards
-        </Link>
-
-        {/* <Link
-          href="/study-tools"
-          className="whitespace-nowrap rounded-xl border border-slate-200 bg-white px-3 py-1 text-sm text-slate-700 shadow-sm hover:bg-slate-50"
-        >
-          Study Tools
-        </Link> */}
+      <nav className="mx-auto flex max-w-6xl gap-2 overflow-x-auto border-t border-[#d8e7e2] py-2 md:hidden">
+        {navItems.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            className="whitespace-nowrap rounded-md border border-[#c8dcd6] bg-white/80 px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm transition hover:border-teal-400 hover:bg-teal-50"
+          >
+            {item.label}
+          </Link>
+        ))}
       </nav>
     </header>
   );
