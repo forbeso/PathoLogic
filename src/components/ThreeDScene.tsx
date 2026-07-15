@@ -88,6 +88,10 @@ const GUIDE_PARAMEDIC_POSITION: Vec3 = [0.35, 0.05, 0.95];
 const GUIDE_PARAMEDIC_MODEL_SCALE = 0.9;
 const GUIDE_PARAMEDIC_CAMERA_POSITION: Vec3 = [2.35, 1.88, 4.05];
 const GUIDE_PARAMEDIC_CAMERA_TARGET: Vec3 = [0.35, 1.3, 0.95];
+const MOBILE_GUIDE_CAMERA_POSITION: Vec3 = [1.45, 1.72, 4.75];
+const MOBILE_GUIDE_CAMERA_TARGET: Vec3 = [0.35, 1.24, 0.95];
+const MOBILE_NORMAL_CAMERA_POSITION: Vec3 = [6.7, 2.58, 7.65];
+const MOBILE_NORMAL_CAMERA_TARGET: Vec3 = [1.45, 0.95, -1.15];
 
 type GuideStep = "welcome" | "name" | "named" | "done" | "soon";
 type CameraMode = "guide" | "normal" | "free";
@@ -919,18 +923,126 @@ function ParamedicGuideDialogue({
   const buttonClass =
     "rounded-md bg-teal-300 px-3 py-1.5 text-xs font-extrabold uppercase tracking-[0.12em] text-slate-950 shadow-lg shadow-teal-950/20 transition hover:bg-teal-200";
 
+  const content = (autoFocusName = false) => (
+    <>
+      <div className="mb-2 text-[10px] font-black uppercase tracking-[0.2em] text-teal-200 sm:text-[11px]">
+        Paramedic Guide
+      </div>
+
+      {step === "welcome" ? (
+        <>
+          <p className="text-sm font-semibold leading-relaxed">
+            Hi, I&apos;m your paramedic guide. Welcome to Sick City. Around here, you&apos;ll practice EMT
+            decisions for falls from high places, sudden chest pain, severe allergic reactions, and trouble breathing.
+          </p>
+          <div className="mt-3 flex justify-end">
+            <button type="button" className={buttonClass} onClick={onNext}>
+              Next
+            </button>
+          </div>
+        </>
+      ) : null}
+
+      {step === "name" ? (
+        <>
+          <p className="text-sm font-semibold leading-relaxed">Before we start, what should I call you?</p>
+          <input
+            data-testid={autoFocusName ? "mobile-guide-name-input" : "desktop-guide-name-input"}
+            value={userName}
+            onChange={(event) => onNameChange(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") onDoneName();
+            }}
+            placeholder="Type your name"
+            className="mt-3 w-full border-0 border-b border-teal-200/70 bg-transparent px-1 py-2 text-sm font-semibold italic text-white outline-none placeholder:italic placeholder:text-black"
+            autoFocus={autoFocusName}
+          />
+          <div className="mt-3 flex justify-end">
+            <button type="button" className={buttonClass} onClick={onDoneName}>
+              Done
+            </button>
+          </div>
+        </>
+      ) : null}
+
+      {step === "named" ? (
+        <>
+          <p className="text-sm font-semibold leading-relaxed">
+            <span className="italic">{displayName}</span>, you&apos;re the EMT in this training game. Use each
+            scene to practice your assessment, make safe decisions, and build the habits you&apos;ll need in the field.
+          </p>
+          <div className="mt-3 flex justify-end">
+            <button type="button" className={buttonClass} onClick={onBegin}>
+              Begin
+            </button>
+          </div>
+        </>
+      ) : null}
+
+      {step === "soon" ? (
+        <>
+          <p className="text-sm font-semibold leading-relaxed">Stay ready. More guided training is coming soon.</p>
+          <div className="mt-3 flex justify-end">
+            <button type="button" className={buttonClass} onClick={onReturn}>
+              Back to scene
+            </button>
+          </div>
+        </>
+      ) : null}
+    </>
+  );
+
   return (
-    <Html
-      position={[GUIDE_PARAMEDIC_POSITION[0] + 1.48, GUIDE_PARAMEDIC_POSITION[1] + 2.2, GUIDE_PARAMEDIC_POSITION[2] + 0.05]}
-      center
-      distanceFactor={5.2}
-      zIndexRange={[18, 0]}
-    >
-      <div
-        className="w-[min(360px,80vw)] rounded-xl border border-teal-200/45 bg-slate-950/78 p-4 text-white shadow-2xl shadow-slate-950/40 backdrop-blur-md"
-        style={{ pointerEvents: "auto" }}
+    <>
+      <Html
+        position={[GUIDE_PARAMEDIC_POSITION[0] + 1.48, GUIDE_PARAMEDIC_POSITION[1] + 2.2, GUIDE_PARAMEDIC_POSITION[2] + 0.05]}
+        center
+        distanceFactor={5.2}
+        zIndexRange={[18, 0]}
       >
-        <div className="mb-2 text-[11px] font-black uppercase tracking-[0.2em] text-teal-200">Paramedic Guide</div>
+        <div
+          className="hidden w-[min(360px,80vw)] rounded-xl border border-teal-200/45 bg-slate-950/78 p-4 text-white shadow-2xl shadow-slate-950/40 backdrop-blur-md lg:block"
+          style={{ pointerEvents: "auto" }}
+        >
+          {content(false)}
+        </div>
+      </Html>
+    </>
+  );
+}
+
+function MobileParamedicGuideDialogue({
+  step,
+  userName,
+  onNameChange,
+  onNext,
+  onDoneName,
+  onBegin,
+  onReturn,
+}: {
+  step: GuideStep;
+  userName: string;
+  onNameChange: (value: string) => void;
+  onNext: () => void;
+  onDoneName: () => void;
+  onBegin: () => void;
+  onReturn: () => void;
+}) {
+  if (step === "done") return null;
+
+  const displayName = userName.trim() || "friend";
+  const buttonClass =
+    "rounded-md bg-teal-300 px-3 py-1.5 text-xs font-extrabold uppercase tracking-[0.12em] text-slate-950 shadow-lg shadow-teal-950/20 transition hover:bg-teal-200";
+
+  return (
+    <div className="pointer-events-none absolute inset-x-3 bottom-3 z-40 lg:hidden">
+      <div
+        data-testid="mobile-guide-dialogue"
+        className="pointer-events-auto max-h-[42vh] overflow-y-auto rounded-2xl border border-teal-200/45 bg-slate-950/88 p-3.5 text-white shadow-2xl shadow-slate-950/50 backdrop-blur-xl"
+      >
+        <div className="mb-2 text-[10px] font-black uppercase tracking-[0.2em] text-teal-200">
+          Paramedic Guide
+        </div>
 
         {step === "welcome" ? (
           <>
@@ -950,6 +1062,7 @@ function ParamedicGuideDialogue({
           <>
             <p className="text-sm font-semibold leading-relaxed">Before we start, what should I call you?</p>
             <input
+              data-testid="mobile-guide-name-input"
               value={userName}
               onChange={(event) => onNameChange(event.target.value)}
               onKeyDown={(event) => {
@@ -992,7 +1105,7 @@ function ParamedicGuideDialogue({
           </>
         ) : null}
       </div>
-    </Html>
+    </div>
   );
 }
 
@@ -1885,7 +1998,8 @@ function GuideCameraRig({
   controlsRef: RefObject<any>;
   onNormalSettled: () => void;
 }) {
-  const { camera } = useThree();
+  const { camera, size } = useThree();
+  const isMobile = size.width < 768;
   const desiredPosition = useMemo(() => new THREE.Vector3(), []);
   const desiredTarget = useMemo(() => new THREE.Vector3(), []);
   const scratchTarget = useMemo(() => new THREE.Vector3(), []);
@@ -1893,8 +2007,13 @@ function GuideCameraRig({
   useFrame(() => {
     if (mode === "free") return;
 
-    desiredPosition.set(...(mode === "guide" ? GUIDE_PARAMEDIC_CAMERA_POSITION : NORMAL_CAMERA_POSITION));
-    desiredTarget.set(...(mode === "guide" ? GUIDE_PARAMEDIC_CAMERA_TARGET : NORMAL_CAMERA_TARGET));
+    const guidePosition = isMobile ? MOBILE_GUIDE_CAMERA_POSITION : GUIDE_PARAMEDIC_CAMERA_POSITION;
+    const guideTarget = isMobile ? MOBILE_GUIDE_CAMERA_TARGET : GUIDE_PARAMEDIC_CAMERA_TARGET;
+    const normalPosition = isMobile ? MOBILE_NORMAL_CAMERA_POSITION : NORMAL_CAMERA_POSITION;
+    const normalTarget = isMobile ? MOBILE_NORMAL_CAMERA_TARGET : NORMAL_CAMERA_TARGET;
+
+    desiredPosition.set(...(mode === "guide" ? guidePosition : normalPosition));
+    desiredTarget.set(...(mode === "guide" ? guideTarget : normalTarget));
 
     camera.position.lerp(desiredPosition, mode === "guide" ? 0.055 : 0.065);
 
@@ -3402,6 +3521,15 @@ export default function ThreeDScene({
           target={NORMAL_CAMERA_TARGET}
         />
       </Canvas>
+      <MobileParamedicGuideDialogue
+        step={guideStep}
+        userName={guideName}
+        onNameChange={setGuideName}
+        onNext={() => setGuideStep("name")}
+        onDoneName={() => setGuideStep("named")}
+        onBegin={returnToScene}
+        onReturn={returnToScene}
+      />
       <SceneViewControls visible={cameraMode === "free"} onViewControl={handleSceneViewControl} />
     </div>
   );

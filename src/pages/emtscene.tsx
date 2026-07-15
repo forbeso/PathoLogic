@@ -395,6 +395,7 @@ export default function EMTScene() {
   const [vitals, setVitals] = useState<VitalSet>(scenario.vitals);
   const [log, setLog] = useState<LogEntry[]>(() => makeOpeningLog(scenario));
   const [labOpen, setLabOpen] = useState(true);
+  const [mobileHudOpen, setMobileHudOpen] = useState(false);
   const [isDesktopLayout, setIsDesktopLayout] = useState(true);
   const [sceneHeight, setSceneHeight] = useState(655);
   const [primaryStepIndex, setPrimaryStepIndex] = useState(0);
@@ -408,6 +409,7 @@ export default function EMTScene() {
       const desktop = window.innerWidth >= 1024;
       setIsDesktopLayout(desktop);
       if (!desktop) setLabOpen(false);
+      if (desktop) setMobileHudOpen(false);
       setSceneHeight(Math.max(window.innerHeight - headerHeight, 520));
     };
     updateSceneHeight();
@@ -793,9 +795,198 @@ export default function EMTScene() {
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-slate-950/65 via-transparent to-slate-950/55" />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-slate-950/35" />
 
+        <button
+          type="button"
+          data-testid="mobile-hud-toggle"
+          onClick={() => setMobileHudOpen((open) => !open)}
+          className="absolute right-3 top-3 z-[60] inline-flex items-center gap-2 rounded-xl border border-white/15 bg-slate-950/82 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-white shadow-2xl shadow-slate-950/40 backdrop-blur-xl transition hover:border-teal-300/60 hover:bg-teal-400/10 lg:hidden"
+          aria-expanded={mobileHudOpen}
+          aria-controls="mobile-hud-panel"
+        >
+          {mobileHudOpen ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
+          {mobileHudOpen ? "Close HUD" : "Show HUD"}
+        </button>
+
+        {mobileHudOpen ? (
+          <section
+            id="mobile-hud-panel"
+            data-testid="mobile-hud-panel"
+            className="absolute inset-x-3 top-[58px] z-50 max-h-[calc(100%-74px)] overflow-y-auto rounded-2xl border border-white/15 bg-slate-950/88 p-3 text-white shadow-2xl shadow-slate-950/50 backdrop-blur-xl lg:hidden"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-teal-300">
+                  <Siren size={13} />
+                  Active dispatch
+                </div>
+                <h2 className="mt-1 text-base font-black leading-5">{scenario.title}</h2>
+                <p className="mt-1 text-xs leading-5 text-slate-300">{scenario.dispatch}</p>
+              </div>
+              <StatusPill tone={scenario.priority === "Unstable" ? "rose" : "amber"}>
+                {scenario.priority}
+              </StatusPill>
+            </div>
+
+            <div className="mt-3">
+              <select
+                value={scenario.id}
+                onChange={(event) => selectScenario(event.target.value)}
+                className="w-full rounded-lg border border-white/15 bg-black/30 px-3 py-2 text-xs font-bold text-white outline-none focus:border-teal-400"
+                aria-label="Select scenario"
+              >
+                {SCENARIOS.map((item) => (
+                  <option key={item.id} value={item.id} className="bg-slate-900">
+                    {item.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="mt-3 border-t border-white/10 pt-3">
+              <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                <ShieldCheck size={13} />
+                Scene report
+              </div>
+              <p className="mt-1 text-xs leading-5 text-slate-200">{scenario.scene}</p>
+            </div>
+
+            <div className="mt-3 border-t border-white/10 pt-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-teal-200">
+                  <MousePointerClick size={13} />
+                  Current goal
+                </div>
+                <button
+                  type="button"
+                  onClick={() => dispatchGame({ type: "TOGGLE_ACCESSIBILITY" })}
+                  className={`rounded-full border px-2 py-1 text-[10px] font-black uppercase tracking-wider transition ${gameState.accessibilityMode
+                    ? "border-teal-200 bg-teal-300 text-slate-950"
+                    : "border-white/15 bg-white/10 text-slate-200 hover:border-teal-200/60"
+                    }`}
+                >
+                  Mark objects
+                </button>
+              </div>
+              <h2 className="mt-2 text-lg font-black leading-6 text-white">{currentObjective.subtleGoal}</h2>
+              <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+                {actionableSceneObjects.map((object) => (
+                  <button
+                    key={object.id}
+                    type="button"
+                    data-testid={`mobile-scene-object-${object.id}`}
+                    onClick={() => {
+                      dispatchGame({ type: "SELECT_OBJECT", objectId: object.id });
+                      setMobileHudOpen(false);
+                    }}
+                    className={`shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-black transition ${object.id === gameState.selectedObjectId
+                      ? "border-teal-200 bg-teal-300 text-slate-950"
+                      : object.enabled === false
+                        ? "border-white/10 bg-white/5 text-slate-400"
+                        : "border-white/15 bg-white/10 text-white hover:border-teal-200/70"
+                      }`}
+                  >
+                    {object.name}
+                  </button>
+                ))}
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => dispatchGame({ type: "USE_HINT" })}
+                  className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-xs font-black text-white transition hover:border-amber-200/70 hover:bg-amber-300/15"
+                >
+                  <Lightbulb size={14} />
+                  Hint
+                </button>
+                <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-xs font-bold text-slate-200">
+                  Score {gameState.score} · {Math.floor(gameState.elapsedTime / 60)}:{String(gameState.elapsedTime % 60).padStart(2, "0")}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-3 border-t border-white/10 pt-3">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-teal-300">
+                  <HeartPulse size={14} />
+                  Patient vitals
+                </div>
+                <div className="text-[11px] font-medium text-slate-400">Live monitor</div>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                {monitorVitals.map((item) => (
+                  <div key={item.label} className="min-w-0">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{item.label}</div>
+                    <div className={`mt-1 whitespace-nowrap text-xl font-black leading-none ${item.tone}`} title={item.value}>
+                      {item.value}
+                    </div>
+                    {item.unit ? <div className="mt-1 text-[11px] font-semibold text-slate-300">{item.unit}</div> : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-3 border-t border-white/10 pt-3">
+              <div className="grid grid-cols-5 gap-1.5">
+                {PHASE_DOCK_ITEMS.map((item) => {
+                  const Icon = item.icon;
+                  const itemIndex = STAGES.findIndex((stageItem) => stageItem.key === item.key);
+                  const isActive = item.key === stage;
+                  const isPast = itemIndex >= 0 && itemIndex < stageIndex;
+
+                  return (
+                    <button
+                      key={item.key}
+                      type="button"
+                      onClick={() => setStage(item.key)}
+                      className={`group flex min-w-0 flex-col items-center gap-1 rounded-xl border px-0.5 py-2 text-center transition ${isActive
+                        ? "border-teal-300 bg-teal-400/15 text-teal-200 shadow-[0_0_28px_rgba(45,212,191,0.18)]"
+                        : isPast
+                          ? "border-teal-400/25 bg-teal-400/10 text-teal-100"
+                          : "border-white/15 bg-white/5 text-slate-200 hover:border-teal-300/50 hover:bg-white/10"
+                        }`}
+                      aria-pressed={isActive}
+                    >
+                      <span
+                        className={`grid h-8 w-8 place-items-center rounded-lg border transition ${isActive
+                          ? "border-teal-300 bg-teal-400/10 text-teal-200"
+                          : "border-white/15 bg-white/5 text-slate-100 group-hover:border-teal-300/50"
+                          }`}
+                      >
+                        <Icon size={17} strokeWidth={1.8} />
+                      </span>
+                      <span className={`max-w-full whitespace-nowrap text-[8px] font-bold leading-none ${isActive ? "text-teal-300" : "text-slate-200"}`}>
+                        {item.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="mt-3 border-t border-white/10 pt-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-teal-300">
+                  <Star size={14} />
+                  Scenario progress
+                </div>
+                <div className="text-2xl font-black text-teal-300">{scenarioProgressPercent}%</div>
+              </div>
+              <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10">
+                <div
+                  className="h-full rounded-full bg-teal-400 transition-all duration-300"
+                  style={{ width: `${scenarioProgressPercent}%` }}
+                />
+              </div>
+              <div className="mt-2 text-xs font-semibold text-slate-300">
+                {scenarioCompletedCount} of {scenarioTasks.length} scenario objectives complete
+              </div>
+            </div>
+          </section>
+        ) : null}
+
         <section
           data-testid="scene-objective-prompt"
-          className="absolute left-4 top-[330px] z-30 max-h-[172px] w-[min(390px,calc(100%-32px))] overflow-hidden rounded-2xl border border-teal-200/35 bg-slate-950/45 p-3.5 text-white shadow-2xl shadow-slate-950/35 backdrop-blur-md [@media(max-height:760px)]:max-h-[190px] 2xl:max-h-[calc(100%-430px)]"
+          className="absolute left-4 top-[330px] z-30 hidden max-h-[172px] w-[min(390px,calc(100%-32px))] overflow-hidden rounded-2xl border border-teal-200/35 bg-slate-950/45 p-3.5 text-white shadow-2xl shadow-slate-950/35 backdrop-blur-md [@media(max-height:760px)]:max-h-[190px] 2xl:max-h-[calc(100%-430px)] lg:block"
         >
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-teal-200">
@@ -913,7 +1104,7 @@ export default function EMTScene() {
 
         <section
           data-testid="active-dispatch-panel"
-          className="absolute left-4 top-4 z-20 w-[min(420px,calc(100%-32px))] rounded-2xl border border-white/15 bg-slate-950/70 p-4 text-white shadow-2xl backdrop-blur-xl xl:w-[390px]"
+          className="absolute left-4 top-4 z-20 hidden w-[min(420px,calc(100%-32px))] rounded-2xl border border-white/15 bg-slate-950/70 p-4 text-white shadow-2xl backdrop-blur-xl xl:w-[390px] lg:block"
         >
           <div className="flex items-start justify-between gap-3">
             <div>
