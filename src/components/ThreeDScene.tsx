@@ -1,5 +1,5 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { ContactShadows, Html, OrbitControls, Sky, SoftShadows, useGLTF, useAnimations } from "@react-three/drei";
+import { ContactShadows, Html, OrbitControls, Sky, SoftShadows, Text, useGLTF, useAnimations } from "@react-three/drei";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type Ref, type RefObject } from "react";
 import * as THREE from "three";
 import type { Group } from "three";
@@ -18,6 +18,9 @@ import { Model as Tree02Model } from "@/components/worldassets/Tree02";
 import { Model as Tree03Model } from "@/components/worldassets/Tree03";
 import { Model as Tree04Model } from "@/components/worldassets/Tree04";
 import {
+  CustomAmbulanceModel,
+  CustomFirstAidBagModel,
+  CustomPatientModel,
   DownloadedBigBuildingModel,
   DownloadedBenchModel,
   DownloadedBuildingModel,
@@ -26,6 +29,7 @@ import {
   DownloadedGrassModel,
   DownloadedLargeBuildingModel,
   DownloadedMossyRockModel,
+  DownloadedParamedicGuideModel,
   DownloadedRockModel,
   DownloadedScaffoldingModel,
   DownloadedSmallBuildingModel,
@@ -71,21 +75,22 @@ const NORMAL_CAMERA_DISTANCE = Math.hypot(
   NORMAL_CAMERA_POSITION[1] - NORMAL_CAMERA_TARGET[1],
   NORMAL_CAMERA_POSITION[2] - NORMAL_CAMERA_TARGET[2]
 );
-const CAMERA_MIN_DISTANCE = 9.2;
-const CAMERA_MAX_DISTANCE = NORMAL_CAMERA_DISTANCE + 0.2;
-const CAMERA_MIN_POLAR_ANGLE = 1.2;
-const CAMERA_MAX_POLAR_ANGLE = 1.48;
+const CAMERA_MIN_DISTANCE = 4.6;
+const CAMERA_MAX_DISTANCE = 18.5;
+const CAMERA_MIN_POLAR_ANGLE = 0.78;
+const CAMERA_MAX_POLAR_ANGLE = 1.55;
 const CAMERA_DEFAULT_AZIMUTH = Math.atan2(
   NORMAL_CAMERA_POSITION[0] - NORMAL_CAMERA_TARGET[0],
   NORMAL_CAMERA_POSITION[2] - NORMAL_CAMERA_TARGET[2]
 );
-const CAMERA_AZIMUTH_RANGE = 0.46;
-const WHISKERS_POSITION: Vec3 = [3.45, 0.2, 4.25];
-const WHISKERS_CAMERA_POSITION: Vec3 = [5.28, 1.76, 6.85];
-const WHISKERS_CAMERA_TARGET: Vec3 = [3.45, 0.92, 4.25];
+const CAMERA_AZIMUTH_RANGE = 1.35;
+const GUIDE_PARAMEDIC_POSITION: Vec3 = [0.35, 0.05, 0.95];
+const GUIDE_PARAMEDIC_MODEL_SCALE = 0.9;
+const GUIDE_PARAMEDIC_CAMERA_POSITION: Vec3 = [2.35, 1.88, 4.05];
+const GUIDE_PARAMEDIC_CAMERA_TARGET: Vec3 = [0.35, 1.3, 0.95];
 
-type WhiskersStep = "welcome" | "name" | "named" | "done" | "soon";
-type CameraMode = "cat" | "normal" | "free";
+type GuideStep = "welcome" | "name" | "named" | "done" | "soon";
+type CameraMode = "guide" | "normal" | "free";
 
 function normalizeSceneVariant(scenarioId?: string): SceneVariant {
   if (scenarioId === "spine" || scenarioId === "chest-pain") return scenarioId;
@@ -891,174 +896,7 @@ function ReferenceFence({ position, rotationY = 0, segments = 4 }: { position: V
   );
 }
 
-function WhiskersCat({ onClick }: { onClick: () => void }) {
-  const body = useRef<THREE.Group>(null);
-  const tail = useRef<THREE.Group>(null);
-  const clickBubble = useRef<THREE.Mesh>(null);
-  const clickBubbleMaterial = useRef<THREE.MeshStandardMaterial>(null);
-  const fur = "#d39a62";
-  const shadowFur = "#7b5134";
-  const warmFur = "#e3b879";
-  const pawFur = "#6b432a";
-  const spotFur = "#4f3324";
-  const muzzleFur = "#f0d1aa";
-  const bodySpots = [
-    { position: [-0.18, 0.5, -0.32] as Vec3, scale: [1.0, 0.72, 1] as Vec3, rotation: [0.08, 0.02, 0.18] as Vec3 },
-    { position: [0.05, 0.68, 0.3] as Vec3, scale: [0.74, 0.58, 1] as Vec3, rotation: [-0.04, 0.02, -0.16] as Vec3 },
-    { position: [0.26, 0.48, -0.26] as Vec3, scale: [0.58, 0.72, 1] as Vec3, rotation: [0.06, 0, -0.08] as Vec3 },
-  ];
-  const faceSpots = [
-    { position: [0.45, 1.04, 0.24] as Vec3, scale: [0.7, 0.52, 1] as Vec3 },
-  ];
-
-  useFrame(({ clock }) => {
-    const t = clock.getElapsedTime();
-    if (body.current) body.current.position.y = Math.sin(t * 1.8) * 0.018;
-    if (tail.current) tail.current.rotation.z = 0.58 + Math.sin(t * 1.35) * 0.08;
-    if (clickBubble.current) {
-      const pulse = 1 + (Math.sin(t * 1.15) + 1) * 0.055;
-      clickBubble.current.scale.setScalar(pulse);
-    }
-    if (clickBubbleMaterial.current) {
-      clickBubbleMaterial.current.opacity = 0.1 + (Math.sin(t * 1.15) + 1) * 0.035;
-    }
-  });
-
-  return (
-    <group
-      position={WHISKERS_POSITION}
-      rotation={[0, -0.9, 0]}
-      scale={0.74}
-      onClick={(event) => {
-        event.stopPropagation();
-        onClick();
-      }}
-    >
-      <mesh ref={clickBubble} position={[0.14, 0.62, 0]}>
-        <sphereGeometry args={[0.78, 28, 18]} />
-        <meshStandardMaterial
-          ref={clickBubbleMaterial}
-          color="#6fffe2"
-          emissive="#2dd4bf"
-          emissiveIntensity={0.18}
-          transparent
-          opacity={0.12}
-          roughness={0.45}
-          depthWrite={false}
-        />
-      </mesh>
-      <group ref={body}>
-        <mesh position={[-0.22, 0.28, 0]} scale={[0.74, 0.72, 0.58]} castShadow receiveShadow>
-          <sphereGeometry args={[0.38, 18, 18]} />
-          <meshStandardMaterial color={warmFur} roughness={0.88} />
-        </mesh>
-        <mesh position={[0.1, 0.57, 0]} scale={[0.54, 1.08, 0.46]} rotation={[0, 0, -0.02]} castShadow>
-          <sphereGeometry args={[0.34, 18, 18]} />
-          <meshStandardMaterial color={fur} roughness={0.88} />
-        </mesh>
-        <mesh position={[0.26, 0.82, 0]} scale={[0.34, 0.38, 0.32]} castShadow>
-          <sphereGeometry args={[0.24, 14, 14]} />
-          <meshStandardMaterial color={fur} roughness={0.88} />
-        </mesh>
-        <mesh position={[0.32, 0.42, 0]} scale={[0.3, 0.5, 0.24]} rotation={[0, 0, -0.02]} castShadow>
-          <sphereGeometry args={[0.2, 14, 14]} />
-          <meshStandardMaterial color="#dca86d" roughness={0.9} />
-        </mesh>
-        <mesh position={[0.4, 0.96, 0]} scale={[0.68, 0.62, 0.58]} castShadow>
-          <sphereGeometry args={[0.32, 18, 18]} />
-          <meshStandardMaterial color={fur} roughness={0.86} />
-        </mesh>
-
-        {bodySpots.map((spot, index) => (
-          <mesh
-            key={`whiskers-body-spot-${index}`}
-            position={spot.position}
-            rotation={spot.rotation}
-            scale={spot.scale}
-          >
-            <circleGeometry args={[0.085, 14]} />
-            <meshStandardMaterial color={spotFur} roughness={0.92} side={THREE.DoubleSide} />
-          </mesh>
-        ))}
-        {faceSpots.map((spot, index) => (
-          <mesh key={`whiskers-face-spot-${index}`} position={spot.position} rotation={[0.02, 0, -0.08]} scale={spot.scale}>
-            <circleGeometry args={[0.055, 14]} />
-            <meshStandardMaterial color={spotFur} roughness={0.9} side={THREE.DoubleSide} />
-          </mesh>
-        ))}
-
-        <mesh position={[0.3, 1.22, -0.22]} rotation={[0.16, 0.18, -0.18]} scale={[1, 1.08, 1]} castShadow>
-          <coneGeometry args={[0.105, 0.3, 3]} />
-          <meshStandardMaterial color={shadowFur} roughness={0.88} />
-        </mesh>
-        <mesh position={[0.3, 1.22, 0.22]} rotation={[-0.16, -0.18, -0.18]} scale={[1, 1.08, 1]} castShadow>
-          <coneGeometry args={[0.105, 0.3, 3]} />
-          <meshStandardMaterial color={shadowFur} roughness={0.88} />
-        </mesh>
-
-        <mesh position={[0.64, 0.99, -0.1]} scale={[1, 1.08, 1]}>
-          <sphereGeometry args={[0.04, 12, 12]} />
-          <meshStandardMaterial color="#f6bf45" emissive="#d28a18" emissiveIntensity={0.18} roughness={0.35} />
-        </mesh>
-        <mesh position={[0.64, 0.99, 0.1]} scale={[1, 1.08, 1]}>
-          <sphereGeometry args={[0.04, 12, 12]} />
-          <meshStandardMaterial color="#f6bf45" emissive="#d28a18" emissiveIntensity={0.18} roughness={0.35} />
-        </mesh>
-        <mesh position={[0.68, 0.88, 0]} rotation={[0, 0, Math.PI / 2]}>
-          <coneGeometry args={[0.035, 0.12, 10]} />
-          <meshStandardMaterial color="#050607" roughness={0.85} />
-        </mesh>
-        <mesh position={[0.62, 0.84, 0]} scale={[0.82, 0.48, 0.72]}>
-          <sphereGeometry args={[0.09, 12, 10]} />
-          <meshStandardMaterial color={muzzleFur} roughness={0.9} />
-        </mesh>
-        {[-0.24, -0.16, 0.16, 0.24].map((z, index) => (
-          <mesh
-            key={`whiskers-whisker-${index}`}
-            position={[0.67, 0.86 + (index % 2) * 0.045, z]}
-            rotation={[0, 0, z < 0 ? 0.08 : -0.08]}
-          >
-            <boxGeometry args={[0.008, 0.003, 0.12]} />
-            <meshStandardMaterial color="#eef6f7" roughness={0.8} transparent opacity={0.62} />
-          </mesh>
-        ))}
-
-        {[-0.11, 0.11].map((z) => (
-          <group key={`whiskers-front-paw-${z}`} position={[0.3, 0.15, z * 0.82]}>
-            <mesh position={[0, 0.16, 0]} rotation={[0, 0, -0.02]} scale={[1, 1, 0.88]} castShadow>
-              <cylinderGeometry args={[0.045, 0.054, 0.42, 8]} />
-              <meshStandardMaterial color={fur} roughness={0.9} />
-            </mesh>
-            <mesh position={[0.04, -0.07, 0]} scale={[1.1, 0.48, 0.98]} castShadow>
-              <sphereGeometry args={[0.064, 10, 10]} />
-              <meshStandardMaterial color={pawFur} roughness={0.9} />
-            </mesh>
-          </group>
-        ))}
-
-        {[-0.24, 0.24].map((z) => (
-          <mesh key={`whiskers-tucked-hind-paw-${z}`} position={[-0.2, 0.06, z]} scale={[1.0, 0.38, 0.72]} castShadow>
-            <sphereGeometry args={[0.07, 10, 10]} />
-            <meshStandardMaterial color={pawFur} roughness={0.9} />
-          </mesh>
-        ))}
-
-        <group ref={tail} position={[-0.45, 0.18, 0.21]} rotation={[0.15, 0.14, 0.1]}>
-          <mesh position={[-0.11, 0.01, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
-            <cylinderGeometry args={[0.052, 0.064, 0.42, 10]} />
-            <meshStandardMaterial color={shadowFur} roughness={0.88} />
-          </mesh>
-          <mesh position={[-0.31, 0.02, 0]} scale={[1.1, 0.74, 0.8]} castShadow>
-            <sphereGeometry args={[0.058, 10, 10]} />
-            <meshStandardMaterial color={shadowFur} roughness={0.88} />
-          </mesh>
-        </group>
-      </group>
-    </group>
-  );
-}
-
-function WhiskersDialogue({
+function ParamedicGuideDialogue({
   step,
   userName,
   onNameChange,
@@ -1067,7 +905,7 @@ function WhiskersDialogue({
   onBegin,
   onReturn,
 }: {
-  step: WhiskersStep;
+  step: GuideStep;
   userName: string;
   onNameChange: (value: string) => void;
   onNext: () => void;
@@ -1083,7 +921,7 @@ function WhiskersDialogue({
 
   return (
     <Html
-      position={[WHISKERS_POSITION[0] + 0.25, WHISKERS_POSITION[1] + 1.52, WHISKERS_POSITION[2] - 0.05]}
+      position={[GUIDE_PARAMEDIC_POSITION[0] + 1.48, GUIDE_PARAMEDIC_POSITION[1] + 2.2, GUIDE_PARAMEDIC_POSITION[2] + 0.05]}
       center
       distanceFactor={5.2}
       zIndexRange={[18, 0]}
@@ -1092,13 +930,13 @@ function WhiskersDialogue({
         className="w-[min(360px,80vw)] rounded-xl border border-teal-200/45 bg-slate-950/78 p-4 text-white shadow-2xl shadow-slate-950/40 backdrop-blur-md"
         style={{ pointerEvents: "auto" }}
       >
-        <div className="mb-2 text-[11px] font-black uppercase tracking-[0.2em] text-teal-200">68whiskers</div>
+        <div className="mb-2 text-[11px] font-black uppercase tracking-[0.2em] text-teal-200">Paramedic Guide</div>
 
         {step === "welcome" ? (
           <>
             <p className="text-sm font-semibold leading-relaxed">
-              Hi, I&apos;m 68whiskers. Welcome to Sick City. Around here, people need quick EMT help for falls
-              from high places, sudden chest pain, severe allergic reactions, and trouble breathing.
+              Hi, I&apos;m your paramedic guide. Welcome to Sick City. Around here, you&apos;ll practice EMT
+              decisions for falls from high places, sudden chest pain, severe allergic reactions, and trouble breathing.
             </p>
             <div className="mt-3 flex justify-end">
               <button type="button" className={buttonClass} onClick={onNext}>
@@ -1145,7 +983,7 @@ function WhiskersDialogue({
 
         {step === "soon" ? (
           <>
-            <p className="text-sm font-semibold leading-relaxed">Wait here, the rest is coming soon.</p>
+            <p className="text-sm font-semibold leading-relaxed">Stay ready. More guided training is coming soon.</p>
             <div className="mt-3 flex justify-end">
               <button type="button" className={buttonClass} onClick={onReturn}>
                 Back to scene
@@ -1501,9 +1339,9 @@ function BaselineGroundRightTerrain() {
         The Drei sky shader was washing this scene gray from the default EMT camera.
         Keep the Canvas blue background visible and let the cloud meshes carry the sky detail.
       */}
-      <CloudCluster position={[-10.5, 7.1, -16.2]} scale={0.9} drift={0.045} driftVector={[0.85, 0.08, 0.18]} />
-      <CloudCluster position={[0.4, 7.6, -18.4]} scale={0.74} drift={0.035} driftVector={[-0.6, 0.06, 0.26]} phase={1.8} />
-      <CloudCluster position={[10.2, 7.15, -15.5]} scale={0.66} drift={0.04} driftVector={[0.45, 0.05, -0.32]} phase={3.1} />
+      <CloudCluster position={[-10.5, 7.1, -16.2]} scale={0.9} drift={0.085} driftVector={[1.15, 0.08, 0.24]} />
+      <CloudCluster position={[0.4, 7.6, -18.4]} scale={0.74} drift={0.072} driftVector={[-0.9, 0.06, 0.34]} phase={1.8} />
+      <CloudCluster position={[10.2, 7.15, -15.5]} scale={0.66} drift={0.078} driftVector={[0.72, 0.05, -0.42]} phase={3.1} />
       <ReferenceGroundSurface />
       <DownloadedLargeBuildingModel position={[1.45, 0.05, -2.75]} scale={0.9} rotation={[0, -0.03, 0]} />
       {behindHouseTrees.map((tree, index) => (
@@ -1538,6 +1376,282 @@ function BaselineGroundRightTerrain() {
           rotation={[0, rotation, 0]}
         />
       ))}
+    </group>
+  );
+}
+
+function RoadsideFestivalGround() {
+  const grassPatches = useMemo(
+    () => [
+      [-7.6, 0.04, 1.6, 0.38, -0.4],
+      [-6.1, 0.04, 3.4, 0.34, 0.2],
+      [-4.9, 0.04, -1.4, 0.3, 0.9],
+      [-2.6, 0.04, 2.4, 0.26, -0.6],
+      [-0.7, 0.04, 3.8, 0.34, 0.35],
+      [1.3, 0.04, 2.75, 0.28, -0.2],
+      [3.25, 0.04, 2.9, 0.32, 0.75],
+      [5.75, 0.04, 1.35, 0.36, -0.55],
+      [7.3, 0.04, 3.15, 0.32, 0.15],
+      [-7.25, 0.04, -7.7, 0.3, -0.45],
+      [-4.0, 0.04, -8.45, 0.26, 0.6],
+      [2.4, 0.04, -8.2, 0.3, -0.2],
+      [6.9, 0.04, -8.1, 0.34, 0.42],
+      [-9.4, 0.04, -11.4, 0.35, 0.12],
+      [-5.2, 0.04, -12.6, 0.32, -0.7],
+      [0.4, 0.04, -11.9, 0.3, 0.4],
+      [5.8, 0.04, -12.35, 0.34, -0.25],
+      [9.2, 0.04, -11.15, 0.32, 0.55],
+    ] as Array<[number, number, number, number, number]>,
+    []
+  );
+  const smallRocks = useMemo(
+    () => [
+      [-7.1, 0.04, 0.55, 0.35, 0.1],
+      [-5.6, 0.04, 1.9, 0.24, -0.35],
+      [-3.25, 0.04, 0.85, 0.22, 0.7],
+      [-1.2, 0.04, 2.85, 0.18, -0.6],
+      [0.6, 0.04, 1.65, 0.2, 0.22],
+      [2.2, 0.04, 2.95, 0.24, -0.2],
+      [3.9, 0.04, 1.05, 0.28, 0.8],
+      [5.45, 0.04, 2.55, 0.22, -0.4],
+      [7.05, 0.04, 0.6, 0.3, 0.35],
+      [-8.6, 0.04, -8.15, 0.42, -0.5],
+      [8.3, 0.04, -8.4, 0.38, 0.2],
+    ] as Array<[number, number, number, number, number]>,
+    []
+  );
+
+  return (
+    <group>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.018, -1.4]} receiveShadow>
+        <planeGeometry args={[30, 24]} />
+        <meshStandardMaterial color="#78a64e" roughness={0.98} />
+      </mesh>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.006, 1.2]} receiveShadow>
+        <circleGeometry args={[6.9, 48]} />
+        <meshStandardMaterial color="#a98258" roughness={1} />
+      </mesh>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.012, 1.2]} receiveShadow>
+        <circleGeometry args={[4.65, 42]} />
+        <meshStandardMaterial color="#b08862" roughness={1} transparent opacity={0.72} />
+      </mesh>
+
+      <mesh position={[0, 0.045, -4.55]} receiveShadow>
+        <boxGeometry args={[24, 0.08, 3.42]} />
+        <meshStandardMaterial color="#30383b" roughness={0.94} />
+      </mesh>
+      <mesh position={[0, 0.027, -2.72]} receiveShadow>
+        <boxGeometry args={[24.4, 0.045, 0.36]} />
+        <meshStandardMaterial color="#c4b08d" roughness={0.98} />
+      </mesh>
+      <mesh position={[0, 0.027, -6.4]} receiveShadow>
+        <boxGeometry args={[24.4, 0.045, 0.38]} />
+        <meshStandardMaterial color="#bda47c" roughness={0.98} />
+      </mesh>
+      <mesh position={[0, 0.09, -2.93]} receiveShadow>
+        <boxGeometry args={[24.2, 0.02, 0.045]} />
+        <meshStandardMaterial color="#f3ead4" roughness={0.72} />
+      </mesh>
+      <mesh position={[0, 0.092, -6.19]} receiveShadow>
+        <boxGeometry args={[24.2, 0.02, 0.045]} />
+        <meshStandardMaterial color="#f3ead4" roughness={0.72} />
+      </mesh>
+      {Array.from({ length: 12 }, (_, index) => (
+        <mesh key={`road-center-mark-${index}`} position={[-11 + index * 2, 0.097, -4.55]} receiveShadow>
+          <boxGeometry args={[1.08, 0.018, 0.055]} />
+          <meshStandardMaterial color="#e7c95d" roughness={0.7} />
+        </mesh>
+      ))}
+
+      {grassPatches.map(([x, y, z, scale, rotation], index) => (
+        <DownloadedGrassModel
+          key={`roadside-grass-${index}`}
+          position={[x, y, z]}
+          scale={scale}
+          rotation={[0, rotation, 0]}
+        />
+      ))}
+      {smallRocks.map(([x, y, z, scale, rotation], index) => (
+        <DownloadedMossyRockModel
+          key={`roadside-rock-${index}`}
+          position={[x, y, z]}
+          scale={scale}
+          rotation={[0, rotation, 0]}
+        />
+      ))}
+    </group>
+  );
+}
+
+function FestivalRoadsideSign({ position = [1.35, 0.02, -7.15] as Vec3 }: { position?: Vec3 }) {
+  return (
+    <group position={position} rotation={[0, -0.06, 0]}>
+      {[-0.72, 0.72].map((x) => (
+        <mesh key={x} position={[x, 0.78, 0]} castShadow>
+          <cylinderGeometry args={[0.045, 0.055, 1.56, 8]} />
+          <meshStandardMaterial color="#7b5738" roughness={0.94} />
+        </mesh>
+      ))}
+      <mesh position={[0, 1.25, 0]} castShadow receiveShadow>
+        <boxGeometry args={[1.92, 0.78, 0.1]} />
+        <meshStandardMaterial color="#e4d1a5" roughness={0.88} />
+      </mesh>
+      <Text position={[0, 1.31, 0.062]} fontSize={0.18} anchorX="center" anchorY="middle" color="#3f2f22">
+        RIVERSIDE
+      </Text>
+      <Text position={[0, 1.08, 0.064]} fontSize={0.18} anchorX="center" anchorY="middle" color="#3f2f22">
+        FESTIVAL
+      </Text>
+    </group>
+  );
+}
+
+function RoadsideBuntingLine({ position, rotationY = 0, width = 8.5 }: { position: Vec3; rotationY?: number; width?: number }) {
+  const flags = useMemo(
+    () =>
+      Array.from({ length: 11 }, (_, index) => ({
+        x: -width / 2 + index * (width / 10),
+        y: 2.52 - Math.sin((index / 10) * Math.PI) * 0.18,
+        color: ["#d14f3b", "#f1c453", "#308f79", "#f8fafc"][index % 4],
+      })),
+    [width]
+  );
+
+  return (
+    <group position={position} rotation={[0, rotationY, 0]}>
+      <mesh position={[0, 2.52, 0]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[0.012, 0.012, width, 8]} />
+        <meshStandardMaterial color="#5c4a3a" roughness={0.94} />
+      </mesh>
+      {flags.map((flag, index) => (
+        <mesh key={`roadside-bunting-${index}`} position={[flag.x, flag.y - 0.14, 0]} rotation={[0, 0, Math.PI]} castShadow>
+          <coneGeometry args={[0.11, 0.28, 3]} />
+          <meshStandardMaterial color={flag.color} roughness={0.9} side={THREE.DoubleSide} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+function RoadsideVillageBackdrop() {
+  const buildings = useMemo(
+    () => [
+      { kind: "small" as const, position: [-8.0, 0.03, -11.5] as Vec3, rotationY: 0.14, scale: 0.5 },
+      { kind: "standard" as const, position: [-6.75, 0.03, -11.75] as Vec3, rotationY: 0.12, scale: 0.48 },
+      { kind: "large" as const, position: [-5.35, 0.03, -11.95] as Vec3, rotationY: 0.1, scale: 0.43 },
+      { kind: "small" as const, position: [-3.95, 0.03, -12.1] as Vec3, rotationY: 0.08, scale: 0.48 },
+      { kind: "standard" as const, position: [3.85, 0.03, -11.95] as Vec3, rotationY: -0.08, scale: 0.47 },
+      { kind: "small" as const, position: [5.15, 0.03, -11.75] as Vec3, rotationY: -0.1, scale: 0.48 },
+      { kind: "large" as const, position: [6.55, 0.03, -11.55] as Vec3, rotationY: -0.12, scale: 0.42 },
+      { kind: "standard" as const, position: [7.95, 0.03, -11.3] as Vec3, rotationY: -0.14, scale: 0.46 },
+    ],
+    []
+  );
+  const trees = useMemo(
+    () => [
+      [-10.3, 0.02, -8.9, 0.76, 0],
+      [-8.9, 0.02, -10.1, 0.58, 1],
+      [-1.8, 0.02, -10.6, 0.54, 2],
+      [0.4, 0.02, -10.9, 0.62, 0],
+      [2.2, 0.02, -10.35, 0.58, 1],
+      [8.9, 0.02, -10.0, 0.55, 2],
+      [10.2, 0.02, -8.7, 0.72, 0],
+      [-11.6, 0.02, -2.8, 0.62, 1],
+      [11.3, 0.02, -2.95, 0.68, 2],
+    ] as Array<[number, number, number, number, number]>,
+    []
+  );
+
+  return (
+    <group>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.008, -10.55]} receiveShadow>
+        <planeGeometry args={[24, 7]} />
+        <meshStandardMaterial color="#91ad5b" roughness={0.98} />
+      </mesh>
+      {buildings.map((building, index) => (
+        <BackgroundCityBuilding key={`roadside-village-${index}`} {...building} />
+      ))}
+      <DistantSteeple position={[0.2, 0.03, -11.85]} scale={0.88} />
+      <DistantTower position={[9.85, 0.03, -10.7]} scale={0.62} />
+      {trees.map(([x, y, z, scale, variant], index) => (
+        <WorldTree key={`roadside-tree-${index}`} position={[x, y, z]} scale={scale} variant={variant} />
+      ))}
+      <DistantBooth position={[-2.75, 0.02, -8.55]} color="#e9f6f1" />
+      <DistantBooth position={[3.15, 0.02, -8.75]} color="#d84f43" />
+      <DistantBooth position={[5.25, 0.02, -8.95]} color="#edf7ec" />
+      <FestivalRoadsideSign />
+      <RoadsideBuntingLine position={[-3.7, 0.02, -8.05]} rotationY={0.08} width={8} />
+      <RoadsideBuntingLine position={[4.65, 0.02, -8.2]} rotationY={-0.08} width={7.8} />
+      <ReferenceFence position={[-10.2, 0.05, -7.1]} rotationY={0.02} segments={8} />
+      <ReferenceFence position={[-2.8, 0.05, -7.15]} rotationY={0.02} segments={5} />
+      <ReferenceFence position={[5.5, 0.05, -7.12]} rotationY={0.02} segments={7} />
+    </group>
+  );
+}
+
+function AmbulanceLightGlow({ position }: { position: Vec3 }) {
+  const redRef = useRef<THREE.MeshStandardMaterial>(null);
+  const blueRef = useRef<THREE.MeshStandardMaterial>(null);
+
+  useFrame(({ clock }) => {
+    const pulse = (Math.sin(clock.getElapsedTime() * 5.2) + 1) / 2;
+    if (redRef.current) redRef.current.emissiveIntensity = 0.45 + pulse * 1.25;
+    if (blueRef.current) blueRef.current.emissiveIntensity = 1.7 - pulse * 1.05;
+  });
+
+  return (
+    <group position={position}>
+      <mesh position={[-0.18, 0, 0]} castShadow>
+        <boxGeometry args={[0.24, 0.09, 0.12]} />
+        <meshStandardMaterial ref={redRef} color="#ef4444" emissive="#ef4444" emissiveIntensity={0.9} roughness={0.35} />
+      </mesh>
+      <mesh position={[0.18, 0, 0]} castShadow>
+        <boxGeometry args={[0.24, 0.09, 0.12]} />
+        <meshStandardMaterial ref={blueRef} color="#2563eb" emissive="#2563eb" emissiveIntensity={0.9} roughness={0.35} />
+      </mesh>
+    </group>
+  );
+}
+
+function RoadsideFestivalEmergencyScene({ environment }: { environment?: ScenarioState["environment"] }) {
+  const cones = useMemo(
+    () => [
+      [-3.35, 0.11, -3.05, 0.1],
+      [-0.95, 0.11, -3.0, -0.18],
+      [2.25, 0.11, -3.1, 0.26],
+      [4.7, 0.11, -5.95, -0.08],
+    ] as Array<[number, number, number, number]>,
+    []
+  );
+
+  return (
+    <group>
+      <CloudCluster position={[-8.4, 7.15, -16.4]} scale={0.72} drift={0.075} driftVector={[0.9, 0.06, 0.24]} />
+      <CloudCluster position={[1.4, 7.85, -17.9]} scale={0.62} drift={0.068} driftVector={[-0.7, 0.04, 0.28]} phase={1.4} />
+      <CloudCluster position={[9.2, 7.3, -15.2]} scale={0.68} drift={0.081} driftVector={[0.7, 0.05, -0.2]} phase={2.8} />
+      <RoadsideFestivalGround />
+      <RoadsideVillageBackdrop />
+
+      <CustomAmbulanceModel position={[-4.55, 0.96, -4.78]} scale={3.78} rotation={[0, 0.34, 0]} />
+      <AmbulanceLightGlow position={[-4.62, 2.55, -3.62]} />
+      <DamagedCar position={[3.85, 0.08, -4.72]} />
+
+      {cones.map(([x, y, z, rotation], index) => (
+        <DownloadedConeModel key={`roadside-cone-${index}`} position={[x, y, z]} scale={0.3} rotation={[0, rotation, 0]} />
+      ))}
+
+      <CustomFirstAidBagModel position={[-1.25, 0.06, 1.86]} scale={0.88} rotation={[0, -0.5, 0]} />
+      <CustomPatientModel position={[2.28, 0.2, 1.18]} scale={2.0} rotation={[0, -0.16, 0]} />
+      <mesh position={[2.28, 0.025, 1.28]} rotation={[-Math.PI / 2, 0, -0.16]} receiveShadow>
+        <circleGeometry args={[1.55, 40]} />
+        <meshStandardMaterial color="#7e684f" transparent opacity={0.22} roughness={1} />
+      </mesh>
+      <BarkingDog position={[5.38, 0, 1.28]} secured={environment?.dogSecured} agitated={environment?.dogAgitated ?? true} showLabel={false} />
+
+      <ReferenceFence position={[-9.5, 0.05, -2.0]} rotationY={0.05} segments={7} />
+      <ReferenceFence position={[6.3, 0.05, -1.9]} rotationY={0.02} segments={5} />
+      <DownloadedMossyRockModel position={[-7.85, 0.04, 2.85]} scale={0.44} rotation={[0, -0.2, 0]} />
+      <DownloadedMossyRockModel position={[6.8, 0.04, 2.78]} scale={0.36} rotation={[0, 0.45, 0]} />
     </group>
   );
 }
@@ -1762,7 +1876,7 @@ function CameraDirector({
   return null;
 }
 
-function WhiskersCameraRig({
+function GuideCameraRig({
   mode,
   controlsRef,
   onNormalSettled,
@@ -1779,14 +1893,14 @@ function WhiskersCameraRig({
   useFrame(() => {
     if (mode === "free") return;
 
-    desiredPosition.set(...(mode === "cat" ? WHISKERS_CAMERA_POSITION : NORMAL_CAMERA_POSITION));
-    desiredTarget.set(...(mode === "cat" ? WHISKERS_CAMERA_TARGET : NORMAL_CAMERA_TARGET));
+    desiredPosition.set(...(mode === "guide" ? GUIDE_PARAMEDIC_CAMERA_POSITION : NORMAL_CAMERA_POSITION));
+    desiredTarget.set(...(mode === "guide" ? GUIDE_PARAMEDIC_CAMERA_TARGET : NORMAL_CAMERA_TARGET));
 
-    camera.position.lerp(desiredPosition, mode === "cat" ? 0.055 : 0.065);
+    camera.position.lerp(desiredPosition, mode === "guide" ? 0.055 : 0.065);
 
     const controls = controlsRef.current;
     if (controls?.target) {
-      controls.target.lerp(desiredTarget, mode === "cat" ? 0.08 : 0.075);
+      controls.target.lerp(desiredTarget, mode === "guide" ? 0.08 : 0.075);
       controls.update();
     } else {
       camera.lookAt(desiredTarget);
@@ -1818,9 +1932,9 @@ function SceneViewControls({
   ];
 
   return (
-    <div className="pointer-events-auto absolute left-4 top-[590px] z-20 rounded-xl border border-white/15 bg-slate-950/68 p-2 shadow-2xl shadow-slate-950/35 backdrop-blur-md">
-      <div className="mb-2 px-1 text-[10px] font-black uppercase tracking-[0.18em] text-teal-200">Scene view</div>
-      <div className="grid grid-cols-4 gap-2">
+    <div className="pointer-events-auto absolute left-4 top-[590px] z-20 rounded-xl border border-white/15 bg-slate-950/68 p-2 shadow-2xl shadow-slate-950/35 backdrop-blur-md [@media(max-height:760px)]:bottom-[132px] [@media(max-height:760px)]:left-[424px] [@media(max-height:760px)]:top-auto [@media(max-height:760px)]:p-1.5">
+      <div className="mb-2 px-1 text-[10px] font-black uppercase tracking-[0.18em] text-teal-200 [@media(max-height:760px)]:sr-only">Scene view</div>
+      <div className="grid grid-cols-4 gap-2 [@media(max-height:760px)]:gap-1.5">
         {controls.map(({ action, label, icon: Icon }) => (
           <button
             key={action}
@@ -1828,7 +1942,7 @@ function SceneViewControls({
             aria-label={label}
             title={label}
             onClick={() => onViewControl(action)}
-            className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/15 bg-white/10 text-white transition hover:border-teal-200/60 hover:bg-teal-300/20 hover:text-teal-100"
+            className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/15 bg-white/10 text-white transition hover:border-teal-200/60 hover:bg-teal-300/20 hover:text-teal-100 [@media(max-height:760px)]:h-9 [@media(max-height:760px)]:w-9"
           >
             <Icon size={18} strokeWidth={2.4} />
           </button>
@@ -2052,141 +2166,348 @@ export function EMTCharacter({
   return <group position={position}><primitive ref={group} object={scene} /></group>;
 }
 
-function MedicCharacter({ position = [-1.4, 0, 0.15] as Vec3, hasGloves = false }: { position?: Vec3; hasGloves?: boolean }) {
+function StarOfLifeMark({ position, rotation = [0, 0, 0], scale = 1 }: { position: Vec3; rotation?: Vec3; scale?: number }) {
+  return (
+    <group position={position} rotation={rotation} scale={scale}>
+      {[0, Math.PI / 3, -Math.PI / 3].map((angle) => (
+        <mesh key={angle} rotation={[0, 0, angle]} castShadow>
+          <boxGeometry args={[0.1, 0.36, 0.018]} />
+          <meshStandardMaterial color="#f8fafc" roughness={0.82} />
+        </mesh>
+      ))}
+      <mesh position={[0, 0, 0.012]} castShadow>
+        <boxGeometry args={[0.032, 0.24, 0.012]} />
+        <meshStandardMaterial color="#1d5f83" roughness={0.76} />
+      </mesh>
+      <mesh position={[0, 0.065, 0.018]} castShadow>
+        <sphereGeometry args={[0.028, 10, 8]} />
+        <meshStandardMaterial color="#1d5f83" roughness={0.76} />
+      </mesh>
+    </group>
+  );
+}
+
+function ReflectiveBand({
+  position,
+  size,
+  rotation = [0, 0, 0],
+}: {
+  position: Vec3;
+  size: Vec3;
+  rotation?: Vec3;
+}) {
+  return (
+    <mesh position={position} rotation={rotation} castShadow>
+      <boxGeometry args={size} />
+      <meshStandardMaterial color="#d9e1dc" metalness={0.08} roughness={0.52} />
+    </mesh>
+  );
+}
+
+function GLBParamedicGuide({
+  position = GUIDE_PARAMEDIC_POSITION,
+  rotationY = 0.6,
+  onClick,
+  showGuidePulse = false,
+}: {
+  position?: Vec3;
+  rotationY?: number;
+  onClick?: () => void;
+  showGuidePulse?: boolean;
+}) {
   const root = useRef<THREE.Group>(null);
-  const leftShoulder = useRef<THREE.Group>(null);
-  const rightShoulder = useRef<THREE.Group>(null);
-  const leftElbow = useRef<THREE.Group>(null);
-  const rightElbow = useRef<THREE.Group>(null);
+  const guidePulse = useRef<THREE.Mesh>(null);
+  const guidePulseMaterial = useRef<THREE.MeshStandardMaterial>(null);
 
   useFrame(({ clock }) => {
     const t = clock.getElapsedTime();
-
     if (root.current) {
-      root.current.rotation.y = -2.55 + Math.sin(t * 0.55) * 0.025;
-      root.current.position.y = Math.sin(t * 1.7) * 0.012;
+      root.current.rotation.y = rotationY + Math.sin(t * 0.62) * 0.012;
+      root.current.position.y = position[1] + Math.sin(t * 1.45) * 0.006;
     }
-
-    if (leftShoulder.current) {
-      leftShoulder.current.rotation.z = 0.12 + Math.sin(t * 1.25) * 0.025;
-      leftShoulder.current.rotation.x = -0.08;
-    }
-    if (rightShoulder.current) {
-      rightShoulder.current.rotation.z = -0.18 - Math.sin(t * 1.25 + 0.6) * 0.025;
-      rightShoulder.current.rotation.x = -0.18;
-    }
-    if (leftElbow.current) leftElbow.current.rotation.z = -0.16;
-    if (rightElbow.current) rightElbow.current.rotation.z = 0.34;
+    if (guidePulse.current) guidePulse.current.scale.setScalar(1 + (Math.sin(t * 1.1) + 1) * 0.04);
+    if (guidePulseMaterial.current) guidePulseMaterial.current.opacity = showGuidePulse ? 0.08 + (Math.sin(t * 1.1) + 1) * 0.03 : 0;
   });
 
-  const Arm = ({
-    side,
-    shoulderRef,
-    elbowRef,
-  }: {
-    side: -1 | 1;
-    shoulderRef: Ref<THREE.Group>;
-    elbowRef: Ref<THREE.Group>;
-  }) => (
-    <group ref={shoulderRef} position={[side * 0.47, 1.69, 0]}>
-      {/* Shoulder joint overlaps the torso so the arm reads as attached. */}
-      <mesh castShadow>
-        <sphereGeometry args={[0.14, 16, 16]} />
-        <meshStandardMaterial color="#14532d" roughness={0.82} />
+  return (
+    <group
+      ref={root}
+      position={position}
+      rotation={[0, rotationY, 0]}
+      onClick={(event) => {
+        event.stopPropagation();
+        onClick?.();
+      }}
+    >
+      <mesh ref={guidePulse} position={[0, 1.0, 0]}>
+        <sphereGeometry args={[0.68, 24, 16]} />
+        <meshStandardMaterial
+          ref={guidePulseMaterial}
+          color="#6fffe2"
+          emissive="#2dd4bf"
+          emissiveIntensity={0.14}
+          transparent
+          opacity={showGuidePulse ? 0.1 : 0}
+          roughness={0.45}
+          depthWrite={false}
+        />
       </mesh>
+      {showGuidePulse ? <FloatingLabel position={[0, 2.05, 0]} text="Paramedic" tone="teal" /> : null}
+      <DownloadedParamedicGuideModel scale={GUIDE_PARAMEDIC_MODEL_SCALE} />
+    </group>
+  );
+}
 
-      {/* Upper arm hangs from the shoulder pivot. */}
-      <mesh position={[side * 0.03, -0.3, 0]} castShadow>
-        <capsuleGeometry args={[0.105, 0.4, 8, 12]} />
-        <meshStandardMaterial color="#14532d" roughness={0.82} />
+function LowPolyParamedic({
+  position = GUIDE_PARAMEDIC_POSITION,
+  rotationY = 0.6,
+  onClick,
+  showGuidePulse = false,
+}: {
+  position?: Vec3;
+  rotationY?: number;
+  onClick?: () => void;
+  showGuidePulse?: boolean;
+}) {
+  const root = useRef<THREE.Group>(null);
+  const leftArm = useRef<THREE.Group>(null);
+  const rightArm = useRef<THREE.Group>(null);
+  const head = useRef<THREE.Group>(null);
+  const guidePulse = useRef<THREE.Mesh>(null);
+  const guidePulseMaterial = useRef<THREE.MeshStandardMaterial>(null);
+  const jacket = "#25563e";
+  const jacketDark = "#173a2b";
+  const jacketLight = "#3b7557";
+  const pants = "#1d2223";
+  const pantsLight = "#2b3132";
+  const skin = "#b87843";
+  const skinDark = "#875732";
+  const hair = "#171717";
+  const boot = "#181a1b";
+  const reflective = "#eef3ef";
+
+  useFrame(({ clock }) => {
+    const t = clock.getElapsedTime();
+    if (root.current) {
+      root.current.rotation.y = rotationY + Math.sin(t * 0.62) * 0.018;
+      root.current.position.y = position[1] + Math.sin(t * 1.45) * 0.01;
+    }
+    if (head.current) head.current.rotation.y = Math.sin(t * 0.72) * 0.025;
+    if (leftArm.current) leftArm.current.rotation.z = 0.07 + Math.sin(t * 1.05) * 0.018;
+    if (rightArm.current) rightArm.current.rotation.z = -0.07 - Math.sin(t * 1.05 + 0.4) * 0.018;
+    if (guidePulse.current) guidePulse.current.scale.setScalar(1 + (Math.sin(t * 1.1) + 1) * 0.045);
+    if (guidePulseMaterial.current) guidePulseMaterial.current.opacity = showGuidePulse ? 0.08 + (Math.sin(t * 1.1) + 1) * 0.03 : 0;
+  });
+
+  const Arm = ({ side, armRef }: { side: -1 | 1; armRef: Ref<THREE.Group> }) => (
+    <group ref={armRef} position={[side * 0.49, 1.66, 0.01]} rotation={[0.03, 0, side * 0.045]}>
+      <mesh position={[side * 0.01, -0.03, 0]} scale={[1.0, 1.08, 0.92]} castShadow>
+        <sphereGeometry args={[0.118, 24, 18]} />
+        <meshStandardMaterial color={jacket} roughness={0.78} />
       </mesh>
+      <mesh position={[side * 0.035, -0.32, 0]} rotation={[0, 0, side * 0.012]} castShadow>
+        <capsuleGeometry args={[0.095, 0.5, 10, 18]} />
+        <meshStandardMaterial color={jacket} roughness={0.78} />
+      </mesh>
+      <ReflectiveBand position={[side * 0.04, -0.4, 0.008]} size={[0.22, 0.052, 0.225]} />
+      <mesh position={[side * 0.042, -0.64, 0]} rotation={[0, 0, side * 0.006]} castShadow>
+        <capsuleGeometry args={[0.085, 0.34, 10, 18]} />
+        <meshStandardMaterial color={jacket} roughness={0.78} />
+      </mesh>
+      <mesh position={[side * 0.05, -0.92, 0.035]} scale={[0.72, 0.95, 0.54]} castShadow>
+        <sphereGeometry args={[0.105, 24, 18]} />
+        <meshStandardMaterial color={skin} roughness={0.88} />
+      </mesh>
+      <mesh position={[side * 0.045, -1.0, 0.115]} rotation={[0.35, 0, side * 0.08]} castShadow>
+        <capsuleGeometry args={[0.022, 0.13, 6, 10]} />
+        <meshStandardMaterial color={skin} roughness={0.88} />
+      </mesh>
+    </group>
+  );
 
-      {/* Forearm begins exactly at the elbow; no floating duplicate limbs. */}
-      <group ref={elbowRef} position={[side * 0.03, -0.58, 0]}>
-        <mesh castShadow>
-          <sphereGeometry args={[0.11, 14, 14]} />
-          <meshStandardMaterial color="#166534" roughness={0.82} />
-        </mesh>
-        <mesh position={[side * 0.015, -0.27, 0]} castShadow>
-          <capsuleGeometry args={[0.09, 0.34, 8, 12]} />
-          <meshStandardMaterial color="#166534" roughness={0.82} />
-        </mesh>
-        <mesh position={[side * 0.015, -0.53, 0]} castShadow>
-          <sphereGeometry args={[0.095, 16, 16]} />
-          <meshStandardMaterial color={hasGloves ? "#bfdbfe" : "#f4c7a1"} roughness={0.9} />
-        </mesh>
-      </group>
+  const Leg = ({ side }: { side: -1 | 1 }) => (
+    <group position={[side * 0.18, 0.82, 0]}>
+      <mesh position={[0, -0.35, 0]} scale={[0.98, 1, 0.86]} castShadow>
+        <capsuleGeometry args={[0.15, 0.9, 10, 18]} />
+        <meshStandardMaterial color={pants} roughness={0.86} />
+      </mesh>
+      <mesh position={[side * 0.06, -0.22, 0.15]} castShadow>
+        <boxGeometry args={[0.12, 0.28, 0.045]} />
+        <meshStandardMaterial color={pantsLight} roughness={0.86} />
+      </mesh>
+      <mesh position={[0, -1.06, 0.04]} scale={[1.12, 0.44, 1.55]} castShadow>
+        <boxGeometry args={[0.29, 0.18, 0.34]} />
+        <meshStandardMaterial color={boot} roughness={0.8} />
+      </mesh>
+      <mesh position={[0, -1.1, 0.18]} scale={[1.05, 0.34, 0.92]} castShadow>
+        <boxGeometry args={[0.28, 0.12, 0.28]} />
+        <meshStandardMaterial color="#232323" roughness={0.82} />
+      </mesh>
     </group>
   );
 
   return (
-    <group ref={root} position={position}>
-      <FloatingLabel position={[0, 2.72, 0]} text="Medic" tone="teal" />
-      <mesh position={[0, 2.2, 0]} castShadow>
-        <sphereGeometry args={[0.28, 24, 24]} />
-        <meshStandardMaterial color="#f4c7a1" roughness={0.86} />
+    <group
+      ref={root}
+      position={position}
+      scale={0.66}
+      onClick={(event) => {
+        event.stopPropagation();
+        onClick?.();
+      }}
+    >
+      <mesh ref={guidePulse} position={[0, 1.28, 0]}>
+        <sphereGeometry args={[0.82, 24, 16]} />
+        <meshStandardMaterial
+          ref={guidePulseMaterial}
+          color="#6fffe2"
+          emissive="#2dd4bf"
+          emissiveIntensity={0.14}
+          transparent
+          opacity={showGuidePulse ? 0.1 : 0}
+          roughness={0.45}
+          depthWrite={false}
+        />
       </mesh>
-      <mesh position={[0, 1.98, 0.22]} castShadow>
-        <boxGeometry args={[0.36, 0.16, 0.1]} />
-        <meshStandardMaterial color="#0f172a" roughness={0.8} />
+      <FloatingLabel position={[0, 2.74, 0]} text="Paramedic" tone="teal" />
+
+      <mesh position={[0, 1.6, 0]} scale={[0.7, 0.88, 0.42]} castShadow receiveShadow>
+        <boxGeometry args={[0.92, 1.02, 0.58]} />
+        <meshStandardMaterial color={jacket} roughness={0.8} />
+      </mesh>
+      <mesh position={[0, 1.94, 0.23]} rotation={[0.16, 0, 0]} castShadow>
+        <coneGeometry args={[0.14, 0.24, 32]} />
+        <meshStandardMaterial color="#f7f4ec" roughness={0.82} />
+      </mesh>
+      <mesh position={[-0.18, 1.88, 0.24]} rotation={[0, 0, 0.62]} castShadow>
+        <boxGeometry args={[0.34, 0.07, 0.04]} />
+        <meshStandardMaterial color={jacketLight} roughness={0.8} />
+      </mesh>
+      <mesh position={[0.18, 1.88, 0.24]} rotation={[0, 0, -0.62]} castShadow>
+        <boxGeometry args={[0.34, 0.07, 0.04]} />
+        <meshStandardMaterial color={jacketLight} roughness={0.8} />
+      </mesh>
+      <mesh position={[0, 1.55, 0.31]} castShadow>
+        <boxGeometry args={[0.025, 0.88, 0.028]} />
+        <meshStandardMaterial color={jacketDark} roughness={0.82} />
+      </mesh>
+      <ReflectiveBand position={[-0.23, 1.42, 0.32]} size={[0.3, 0.08, 0.034]} />
+      <ReflectiveBand position={[0.23, 1.42, 0.32]} size={[0.3, 0.08, 0.034]} />
+      <ReflectiveBand position={[0, 1.42, -0.32]} size={[0.78, 0.08, 0.034]} />
+      <StarOfLifeMark position={[0.23, 1.68, 0.35]} scale={0.45} />
+      <StarOfLifeMark position={[0, 1.63, -0.35]} rotation={[0, Math.PI, 0]} scale={0.72} />
+      <Text
+        position={[0, 1.94, -0.37]}
+        rotation={[0, Math.PI, 0]}
+        fontSize={0.16}
+        anchorX="center"
+        anchorY="middle"
+        color="#f8fafc"
+        outlineWidth={0.002}
+        outlineColor="#647067"
+      >
+        PARAMEDIC
+      </Text>
+
+      <mesh position={[0, 1.08, 0.01]} castShadow>
+        <boxGeometry args={[0.76, 0.11, 0.48]} />
+        <meshStandardMaterial color="#1f2324" roughness={0.82} />
+      </mesh>
+      {[-0.28, 0.02, 0.3].map((x) => (
+        <mesh key={`belt-loop-${x}`} position={[x, 1.08, 0.27]} castShadow>
+          <boxGeometry args={[0.045, 0.13, 0.04]} />
+          <meshStandardMaterial color="#313638" roughness={0.76} />
+        </mesh>
+      ))}
+      <mesh position={[0, 1.08, 0.32]} castShadow>
+        <boxGeometry args={[0.16, 0.13, 0.035]} />
+        <meshStandardMaterial color="#cbd5d0" roughness={0.56} />
+      </mesh>
+      <mesh position={[0, 0.92, 0]} scale={[0.92, 0.68, 0.78]} castShadow>
+        <boxGeometry args={[0.58, 0.36, 0.4]} />
+        <meshStandardMaterial color={pants} roughness={0.88} />
+      </mesh>
+      <mesh position={[-0.11, 0.73, 0.02]} rotation={[0, 0, 0.025]} castShadow>
+        <boxGeometry args={[0.2, 0.42, 0.34]} />
+        <meshStandardMaterial color={pants} roughness={0.88} />
+      </mesh>
+      <mesh position={[0.11, 0.73, 0.02]} rotation={[0, 0, -0.025]} castShadow>
+        <boxGeometry args={[0.2, 0.42, 0.34]} />
+        <meshStandardMaterial color={pants} roughness={0.88} />
       </mesh>
 
-      <mesh position={[0, 1.35, 0]} castShadow>
-        <boxGeometry args={[0.82, 1.15, 0.42]} />
-        <meshStandardMaterial color="#14532d" roughness={0.82} />
-      </mesh>
-      <mesh position={[-0.34, 1.78, 0.22]} castShadow>
-        <boxGeometry args={[0.18, 0.16, 0.08]} />
-        <meshStandardMaterial color="#0f172a" roughness={0.72} />
-      </mesh>
-      <mesh position={[-0.34, 1.9, 0.24]} castShadow>
-        <cylinderGeometry args={[0.012, 0.012, 0.25, 8]} />
-        <meshStandardMaterial color="#111827" roughness={0.65} />
-      </mesh>
-      <mesh position={[0, 1.3, 0.22]} castShadow>
-        <boxGeometry args={[0.44, 0.78, 0.05]} />
-        <meshStandardMaterial color="#f8fafc" roughness={0.9} />
-      </mesh>
-      <mesh position={[0, 1.28, -0.22]} castShadow>
-        <boxGeometry args={[0.46, 0.72, 0.05]} />
-        <meshStandardMaterial color="#f8fafc" roughness={0.9} />
-      </mesh>
-      <mesh position={[0, 1.63, -0.22]} castShadow>
-        <boxGeometry args={[0.26, 0.1, 0.055]} />
-        <meshStandardMaterial color="#f8fafc" roughness={0.9} />
-      </mesh>
-      <mesh position={[0, 1.28, -0.24]} castShadow>
-        <boxGeometry args={[0.07, 0.34, 0.02]} />
-        <meshStandardMaterial color="#1453b8" roughness={0.9} />
-      </mesh>
-      <mesh position={[0, 1.28, -0.24]} castShadow>
-        <boxGeometry args={[0.24, 0.08, 0.02]} />
-        <meshStandardMaterial color="#1453b8" roughness={0.9} />
-      </mesh>
-      <mesh position={[0, 0.65, 0]} castShadow>
-        <boxGeometry args={[0.56, 0.28, 0.34]} />
-        <meshStandardMaterial color="#1e293b" roughness={0.88} />
+      <group ref={head} position={[0, 2.26, 0.03]}>
+        <mesh scale={[0.82, 1.04, 0.72]} castShadow>
+          <sphereGeometry args={[0.27, 32, 24]} />
+          <meshStandardMaterial color={skin} roughness={0.9} />
+        </mesh>
+        <mesh position={[0, 0.17, -0.045]} scale={[0.92, 0.44, 0.78]} castShadow>
+          <sphereGeometry args={[0.28, 24, 18]} />
+          <meshStandardMaterial color={hair} roughness={0.82} />
+        </mesh>
+        <mesh position={[0.09, 0.14, 0.12]} rotation={[0.22, 0.06, -0.08]} scale={[0.78, 0.34, 0.38]} castShadow>
+          <sphereGeometry args={[0.22, 24, 18]} />
+          <meshStandardMaterial color={hair} roughness={0.82} />
+        </mesh>
+        <mesh position={[0, 0.06, 0.2]} scale={[0.36, 0.26, 0.34]} castShadow>
+          <coneGeometry args={[0.13, 0.18, 24]} />
+          <meshStandardMaterial color={skinDark} roughness={0.88} />
+        </mesh>
+        <mesh position={[-0.13, 0.04, 0.22]} castShadow>
+          <boxGeometry args={[0.04, 0.075, 0.026]} />
+          <meshStandardMaterial color="#111827" roughness={0.7} />
+        </mesh>
+        <mesh position={[0.13, 0.04, 0.22]} castShadow>
+          <boxGeometry args={[0.04, 0.075, 0.026]} />
+          <meshStandardMaterial color="#111827" roughness={0.7} />
+        </mesh>
+        <mesh position={[-0.13, 0.105, 0.22]} rotation={[0, 0, -0.08]} castShadow>
+          <boxGeometry args={[0.13, 0.026, 0.026]} />
+          <meshStandardMaterial color={hair} roughness={0.8} />
+        </mesh>
+        <mesh position={[0.13, 0.105, 0.22]} rotation={[0, 0, 0.08]} castShadow>
+          <boxGeometry args={[0.13, 0.026, 0.026]} />
+          <meshStandardMaterial color={hair} roughness={0.8} />
+        </mesh>
+        <mesh position={[0, -0.105, 0.244]} rotation={[0, 0, Math.PI]} castShadow>
+          <torusGeometry args={[0.07, 0.009, 8, 32, Math.PI]} />
+          <meshStandardMaterial color="#5a3327" roughness={0.86} />
+        </mesh>
+        <mesh position={[-0.27, -0.01, 0.01]} scale={[0.44, 0.72, 0.3]} castShadow>
+          <sphereGeometry args={[0.08, 20, 16]} />
+          <meshStandardMaterial color={skin} roughness={0.9} />
+        </mesh>
+        <mesh position={[0.27, -0.01, 0.01]} scale={[0.44, 0.72, 0.3]} castShadow>
+          <sphereGeometry args={[0.08, 20, 16]} />
+          <meshStandardMaterial color={skin} roughness={0.9} />
+        </mesh>
+      </group>
+
+      <mesh position={[0, 1.99, 0]} castShadow>
+        <capsuleGeometry args={[0.11, 0.2, 10, 18]} />
+        <meshStandardMaterial color={skinDark} roughness={0.9} />
       </mesh>
 
-      <Arm side={-1} shoulderRef={leftShoulder} elbowRef={leftElbow} />
-      <Arm side={1} shoulderRef={rightShoulder} elbowRef={rightElbow} />
+      <mesh position={[-0.27, 1.76, 0.34]} castShadow>
+        <boxGeometry args={[0.16, 0.2, 0.08]} />
+        <meshStandardMaterial color="#232628" roughness={0.72} />
+      </mesh>
+      <mesh position={[-0.28, 1.57, 0.33]} rotation={[0.08, 0, 0.04]} castShadow>
+        <cylinderGeometry args={[0.014, 0.014, 0.46, 6]} />
+        <meshStandardMaterial color="#111827" roughness={0.68} />
+      </mesh>
+      <mesh position={[-0.28, 1.38, 0.31]} castShadow>
+        <sphereGeometry args={[0.028, 8, 6]} />
+        <meshStandardMaterial color="#111827" roughness={0.68} />
+      </mesh>
 
-      <mesh position={[-0.18, 0.1, 0]} castShadow>
-        <boxGeometry args={[0.22, 0.84, 0.22]} />
-        <meshStandardMaterial color="#111827" roughness={0.92} />
-      </mesh>
-      <mesh position={[0.18, 0.1, 0]} castShadow>
-        <boxGeometry args={[0.22, 0.84, 0.22]} />
-        <meshStandardMaterial color="#111827" roughness={0.92} />
-      </mesh>
-      <mesh position={[-0.18, -0.38, 0.03]} castShadow>
-        <boxGeometry args={[0.3, 0.14, 0.38]} />
-        <meshStandardMaterial color="#111827" roughness={0.92} />
-      </mesh>
-      <mesh position={[0.18, -0.38, 0.03]} castShadow>
-        <boxGeometry args={[0.3, 0.14, 0.38]} />
-        <meshStandardMaterial color="#111827" roughness={0.92} />
-      </mesh>
+      <Arm side={-1} armRef={leftArm} />
+      <Arm side={1} armRef={rightArm} />
+      <Leg side={-1} />
+      <Leg side={1} />
+
+      <StarOfLifeMark position={[-0.56, 1.58, 0.03]} rotation={[0, -Math.PI / 2, 0]} scale={0.36} />
+      <StarOfLifeMark position={[0.56, 1.58, 0.03]} rotation={[0, Math.PI / 2, 0]} scale={0.36} />
     </group>
   );
 }
@@ -2927,20 +3248,21 @@ export default function ThreeDScene({
   onObjectSelect,
 }: ThreeDSceneProps) {
   const activeScenarioId = normalizeSceneVariant(scenarioId);
+  const useRoadsideFestivalScene = activeScenarioId === "anaphylaxis";
   const focusObject = interactiveObjects.find((object) => object.id === focusedObjectId);
   const patientPosition: Vec3 = [2.18, 0.08, 1.55];
   const orbitControlsRef = useRef<any>(null);
-  const [whiskersStep, setWhiskersStep] = useState<WhiskersStep>("welcome");
-  const [whiskersName, setWhiskersName] = useState("");
-  const [cameraMode, setCameraMode] = useState<CameraMode>("cat");
+  const [guideStep, setGuideStep] = useState<GuideStep>("welcome");
+  const [guideName, setGuideName] = useState("");
+  const [cameraMode, setCameraMode] = useState<CameraMode>("guide");
 
-  const focusWhiskers = () => {
-    setCameraMode("cat");
-    setWhiskersStep((currentStep) => (currentStep === "done" ? "soon" : currentStep));
+  const focusGuideParamedic = () => {
+    setCameraMode("guide");
+    setGuideStep((currentStep) => (currentStep === "done" ? "soon" : currentStep));
   };
 
   const returnToScene = () => {
-    setWhiskersStep("done");
+    setGuideStep("done");
     setCameraMode("normal");
   };
 
@@ -2997,22 +3319,41 @@ export default function ThreeDScene({
           shadow-bias={-0.00018}
         />
 
-        <BaselineGroundRightTerrain />
-        <WhiskersCat onClick={focusWhiskers} />
-        <WhiskersDialogue
-          step={whiskersStep}
-          userName={whiskersName}
-          onNameChange={setWhiskersName}
-          onNext={() => setWhiskersStep("name")}
-          onDoneName={() => setWhiskersStep("named")}
+        {useRoadsideFestivalScene ? <RoadsideFestivalEmergencyScene environment={environment} /> : <BaselineGroundRightTerrain />}
+        <GLBParamedicGuide
+          position={GUIDE_PARAMEDIC_POSITION}
+          rotationY={0.58}
+          onClick={focusGuideParamedic}
+          showGuidePulse={guideStep === "done"}
+        />
+        {!useRoadsideFestivalScene ? (
+          <>
+            <CustomFirstAidBagModel position={[-1.15, 0.06, 1.72]} scale={0.88} rotation={[0, -0.48, 0]} />
+            <CustomAmbulanceModel position={[-3.95, 0.52, -0.7]} scale={2.05} rotation={[0, 0.58, 0]} />
+          </>
+        ) : null}
+        <ParamedicGuideDialogue
+          step={guideStep}
+          userName={guideName}
+          onNameChange={setGuideName}
+          onNext={() => setGuideStep("name")}
+          onDoneName={() => setGuideStep("named")}
           onBegin={returnToScene}
           onReturn={returnToScene}
         />
-        <WhiskersCameraRig
+        <GuideCameraRig
           mode={cameraMode}
           controlsRef={orbitControlsRef}
           onNormalSettled={() => setCameraMode("free")}
         />
+        <FindingBubble text={sceneFinding} speaker={sceneSpeaker} />
+        <InteractiveLayer
+          objects={interactiveObjects}
+          selectedObjectId={selectedObjectId}
+          accessibilityMode={accessibilityMode}
+          onObjectSelect={onObjectSelect}
+        />
+        <CameraDirector focusObject={focusObject} locationId={locationId} />
 
         {/*
           Scene reset baseline, 2026-07-12:

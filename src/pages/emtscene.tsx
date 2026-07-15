@@ -795,7 +795,7 @@ export default function EMTScene() {
 
         <section
           data-testid="scene-objective-prompt"
-          className="absolute left-4 top-[330px] z-30 max-h-[172px] w-[min(390px,calc(100%-32px))] overflow-hidden rounded-2xl border border-teal-200/35 bg-slate-950/45 p-3.5 text-white shadow-2xl shadow-slate-950/35 backdrop-blur-md 2xl:max-h-[calc(100%-430px)]"
+          className="absolute left-4 top-[330px] z-30 max-h-[172px] w-[min(390px,calc(100%-32px))] overflow-hidden rounded-2xl border border-teal-200/35 bg-slate-950/45 p-3.5 text-white shadow-2xl shadow-slate-950/35 backdrop-blur-md [@media(max-height:760px)]:max-h-[190px] 2xl:max-h-[calc(100%-430px)]"
         >
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-teal-200">
@@ -921,8 +921,8 @@ export default function EMTScene() {
                 <Siren size={14} />
                 Active dispatch
               </div>
-              <h2 className="mt-1 text-lg font-black">{sceneScenario.title}</h2>
-              <p className="mt-1 text-xs leading-5 text-slate-300">{sceneScenario.dispatch}</p>
+              <h2 className="mt-1 text-lg font-black">{scenario.title}</h2>
+              <p className="mt-1 text-xs leading-5 text-slate-300">{scenario.dispatch}</p>
             </div>
             <StatusPill tone={scenario.priority === "Unstable" ? "rose" : "amber"}>
               {scenario.priority}
@@ -960,18 +960,18 @@ export default function EMTScene() {
               <ShieldCheck size={13} />
               Scene report
             </div>
-            <p className="mt-1 text-xs leading-5 text-slate-200">{sceneScenario.sceneReport}</p>
+            <p className="mt-1 text-xs leading-5 text-slate-200">{scenario.scene}</p>
           </div>
         </section>
 
         <section
           data-testid="desktop-bottom-hud"
-          className="absolute bottom-4 left-4 right-[416px] z-20 hidden items-end gap-2 text-white xl:gap-3 lg:flex"
+          className="absolute bottom-4 left-4 right-[400px] z-20 hidden items-end gap-2 text-white 2xl:right-[416px] 2xl:gap-3 lg:flex"
         >
           <button
             type="button"
             onClick={() => resetScene()}
-            className="flex h-[86px] w-[140px] shrink-0 items-center justify-center gap-2 rounded-2xl border border-white/15 bg-slate-950/80 px-3 text-sm font-black text-slate-100 shadow-2xl shadow-slate-950/40 backdrop-blur-xl transition hover:border-rose-300/60 hover:bg-rose-500/15 hover:text-white xl:w-[150px] 2xl:w-[160px]"
+            className="flex h-[76px] w-[124px] shrink-0 items-center justify-center gap-2 rounded-2xl border border-white/15 bg-slate-950/80 px-3 text-xs font-black text-slate-100 shadow-2xl shadow-slate-950/40 backdrop-blur-xl transition hover:border-rose-300/60 hover:bg-rose-500/15 hover:text-white 2xl:h-[86px] 2xl:w-[160px] 2xl:text-sm"
           >
             <LogOut size={20} />
             End Scenario
@@ -979,7 +979,7 @@ export default function EMTScene() {
 
           <div
             data-testid="patient-vitals-panel"
-            className="w-[320px] shrink-0 rounded-2xl border border-white/15 bg-slate-950/80 p-3 shadow-2xl shadow-slate-950/40 backdrop-blur-xl xl:w-[420px] xl:p-4 2xl:w-[640px]"
+            className="w-[388px] shrink-0 rounded-2xl border border-white/15 bg-slate-950/80 p-3 shadow-2xl shadow-slate-950/40 backdrop-blur-xl 2xl:w-[640px] 2xl:p-4"
           >
             <div className="mb-3 flex items-center justify-between gap-3">
               <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-teal-300">
@@ -988,11 +988,11 @@ export default function EMTScene() {
               </div>
               <div className="text-[11px] font-medium text-slate-400">Live monitor</div>
             </div>
-            <div className="grid grid-cols-[0.78fr_1fr_0.9fr_0.75fr_0.75fr_1.05fr] gap-2">
+            <div className="grid grid-cols-[0.75fr_1fr_0.9fr_0.72fr_0.72fr_1.08fr] gap-2 2xl:gap-3">
               {monitorVitals.map((item) => (
                 <div key={item.label} className="min-w-0">
                   <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{item.label}</div>
-                  <div className={`mt-1 truncate whitespace-nowrap text-lg font-black leading-none tracking-tight ${item.tone} xl:text-2xl`} title={item.value}>
+                  <div className={`mt-1 whitespace-nowrap text-[21px] font-black leading-none tracking-tight ${item.tone} 2xl:text-2xl`} title={item.value}>
                     {item.value}
                   </div>
                   {item.unit ? <div className="mt-1 text-xs font-semibold text-slate-300">{item.unit}</div> : null}
@@ -1003,9 +1003,9 @@ export default function EMTScene() {
 
           <div
             data-testid="phase-dock"
-            className="w-[220px] shrink-0 rounded-2xl border border-white/15 bg-slate-950/80 p-2 shadow-2xl shadow-slate-950/40 backdrop-blur-xl xl:w-[280px] xl:p-3 2xl:w-[390px]"
+            className="w-[300px] shrink-0 rounded-2xl border border-white/15 bg-slate-950/80 p-2 shadow-2xl shadow-slate-950/40 backdrop-blur-xl 2xl:w-[390px] 2xl:p-3"
           >
-            <div className="grid grid-cols-5 gap-1.5 xl:gap-2">
+            <div className="grid grid-cols-5 gap-1.5 2xl:gap-2">
               {PHASE_DOCK_ITEMS.map((item) => {
                 const Icon = item.icon;
                 const itemIndex = STAGES.findIndex((stageItem) => stageItem.key === item.key);
@@ -1017,7 +1017,7 @@ export default function EMTScene() {
                     key={item.key}
                     type="button"
                     onClick={() => setStage(item.key)}
-                    className={`group flex min-w-0 flex-col items-center gap-1 rounded-xl border px-0.5 py-2 text-center transition xl:gap-2 xl:px-1.5 xl:py-2.5 ${isActive
+                    className={`group flex min-w-0 flex-col items-center gap-1 rounded-xl border px-0.5 py-2 text-center transition 2xl:gap-2 2xl:px-1.5 2xl:py-2.5 ${isActive
                       ? "border-teal-300 bg-teal-400/15 text-teal-200 shadow-[0_0_28px_rgba(45,212,191,0.18)]"
                       : isPast
                         ? "border-teal-400/25 bg-teal-400/10 text-teal-100"
@@ -1026,14 +1026,14 @@ export default function EMTScene() {
                     aria-pressed={isActive}
                   >
                     <span
-                      className={`grid h-8 w-8 place-items-center rounded-lg border transition xl:h-10 xl:w-10 xl:rounded-xl ${isActive
+                      className={`grid h-8 w-8 place-items-center rounded-lg border transition 2xl:h-10 2xl:w-10 2xl:rounded-xl ${isActive
                         ? "border-teal-300 bg-teal-400/10 text-teal-200"
                         : "border-white/15 bg-white/5 text-slate-100 group-hover:border-teal-300/50"
                         }`}
                     >
                       <Icon size={18} strokeWidth={1.8} />
                     </span>
-                    <span className={`truncate text-[9px] font-bold xl:text-xs ${isActive ? "text-teal-300" : "text-slate-200"}`}>
+                    <span className={`max-w-full whitespace-nowrap text-[8px] font-bold leading-none 2xl:text-xs ${isActive ? "text-teal-300" : "text-slate-200"}`}>
                       {item.label}
                     </span>
                   </button>
@@ -1043,24 +1043,29 @@ export default function EMTScene() {
           </div>
         </section>
 
-        {labOpen && isDesktopLayout ? (
-          <aside
-            data-testid="desktop-scene-lab"
-            className="absolute bottom-[184px] right-4 top-4 z-40 hidden w-[380px] flex-col overflow-hidden rounded-2xl border border-white/15 bg-slate-950/80 text-white shadow-2xl backdrop-blur-xl lg:flex"
-          >
-            {controls}
-          </aside>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setLabOpen(true)}
-            data-testid="desktop-show-scene-lab"
-            className="absolute right-4 top-4 z-40 hidden items-center gap-2 rounded-2xl border border-white/15 bg-slate-950/80 px-4 py-3 text-sm font-black text-white shadow-2xl backdrop-blur-xl transition hover:border-teal-300/60 hover:bg-teal-400/10 lg:flex"
-          >
-            <PanelRightOpen size={18} />
-            EMT Scene Lab
-          </button>
-        )}
+        {/*
+          EMT Scene Lab HUD temporarily hidden while the scene layout is being refined.
+          Keep the panel code here so it can be restored without rebuilding the controls.
+
+          {labOpen && isDesktopLayout ? (
+            <aside
+              data-testid="desktop-scene-lab"
+              className="absolute bottom-[184px] right-4 top-4 z-40 hidden w-[380px] flex-col overflow-hidden rounded-2xl border border-white/15 bg-slate-950/80 text-white shadow-2xl backdrop-blur-xl lg:flex"
+            >
+              {controls}
+            </aside>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setLabOpen(true)}
+              data-testid="desktop-show-scene-lab"
+              className="absolute right-4 top-4 z-40 hidden items-center gap-2 rounded-2xl border border-white/15 bg-slate-950/80 px-4 py-3 text-sm font-black text-white shadow-2xl backdrop-blur-xl transition hover:border-teal-300/60 hover:bg-teal-400/10 lg:flex"
+            >
+              <PanelRightOpen size={18} />
+              EMT Scene Lab
+            </button>
+          )}
+        */}
 
         <section
           data-testid="scenario-progress-panel"
@@ -1096,14 +1101,18 @@ export default function EMTScene() {
           </div>
         </section>
 
-        {labOpen && !isDesktopLayout ? (
-          <aside
-            data-testid="mobile-scene-lab"
-            className="absolute inset-x-3 bottom-3 z-40 flex max-h-[58vh] flex-col overflow-hidden rounded-2xl border border-white/15 bg-slate-950/90 text-white shadow-2xl backdrop-blur-xl lg:hidden"
-          >
-            {controls}
-          </aside>
-        ) : null}
+        {/*
+          Mobile EMT Scene Lab HUD temporarily hidden with the desktop panel.
+
+          {labOpen && !isDesktopLayout ? (
+            <aside
+              data-testid="mobile-scene-lab"
+              className="absolute inset-x-3 bottom-3 z-40 flex max-h-[58vh] flex-col overflow-hidden rounded-2xl border border-white/15 bg-slate-950/90 text-white shadow-2xl backdrop-blur-xl lg:hidden"
+            >
+              {controls}
+            </aside>
+          ) : null}
+        */}
       </main>
     </AppShell>
   );
