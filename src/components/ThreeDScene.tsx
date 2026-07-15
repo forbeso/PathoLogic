@@ -88,8 +88,9 @@ const GUIDE_PARAMEDIC_POSITION: Vec3 = [0.35, 0.05, 0.95];
 const GUIDE_PARAMEDIC_MODEL_SCALE = 0.9;
 const GUIDE_PARAMEDIC_CAMERA_POSITION: Vec3 = [2.35, 1.88, 4.05];
 const GUIDE_PARAMEDIC_CAMERA_TARGET: Vec3 = [0.35, 1.3, 0.95];
-const MOBILE_GUIDE_CAMERA_POSITION: Vec3 = [1.45, 1.72, 4.75];
-const MOBILE_GUIDE_CAMERA_TARGET: Vec3 = [0.35, 1.24, 0.95];
+const MOBILE_GUIDE_PARAMEDIC_ROTATION_Y = 0;
+const MOBILE_GUIDE_CAMERA_POSITION: Vec3 = [0.35, 1.54, 2.92];
+const MOBILE_GUIDE_CAMERA_TARGET: Vec3 = [0.35, 1.32, 0.95];
 const MOBILE_NORMAL_CAMERA_POSITION: Vec3 = [6.7, 2.58, 7.65];
 const MOBILE_NORMAL_CAMERA_TARGET: Vec3 = [1.45, 0.95, -1.15];
 
@@ -2337,11 +2338,13 @@ function GLBParamedicGuide({
   const root = useRef<THREE.Group>(null);
   const guidePulse = useRef<THREE.Mesh>(null);
   const guidePulseMaterial = useRef<THREE.MeshStandardMaterial>(null);
+  const { size } = useThree();
+  const actualRotationY = size.width < 768 ? MOBILE_GUIDE_PARAMEDIC_ROTATION_Y : rotationY;
 
   useFrame(({ clock }) => {
     const t = clock.getElapsedTime();
     if (root.current) {
-      root.current.rotation.y = rotationY + Math.sin(t * 0.62) * 0.012;
+      root.current.rotation.y = actualRotationY + Math.sin(t * 0.62) * 0.012;
       root.current.position.y = position[1] + Math.sin(t * 1.45) * 0.006;
     }
     if (guidePulse.current) guidePulse.current.scale.setScalar(1 + (Math.sin(t * 1.1) + 1) * 0.04);
@@ -2352,7 +2355,7 @@ function GLBParamedicGuide({
     <group
       ref={root}
       position={position}
-      rotation={[0, rotationY, 0]}
+      rotation={[0, actualRotationY, 0]}
       onClick={(event) => {
         event.stopPropagation();
         onClick?.();
