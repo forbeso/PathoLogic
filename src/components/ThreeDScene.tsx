@@ -54,6 +54,8 @@ type ThreeDSceneProps = {
   environment?: ScenarioState["environment"];
   locationId?: ScenarioState["locationId"];
   inventory?: string[];
+  equippedItems?: string[];
+  showGuideIntro?: boolean;
   onObjectSelect?: (objectId: string) => void;
 };
 
@@ -85,6 +87,8 @@ const CAMERA_DEFAULT_AZIMUTH = Math.atan2(
 );
 const CAMERA_AZIMUTH_RANGE = 1.35;
 const GUIDE_PARAMEDIC_POSITION: Vec3 = [0.35, 0.05, 0.95];
+const STAGED_PARAMEDIC_POSITION: Vec3 = [-1.35, 0.05, 1.05];
+const PATIENT_SIDE_PARAMEDIC_POSITION: Vec3 = [1.02, 0.05, 1.3];
 const GUIDE_PARAMEDIC_MODEL_SCALE = 0.9;
 const GUIDE_PARAMEDIC_CAMERA_POSITION: Vec3 = [2.35, 1.88, 4.05];
 const GUIDE_PARAMEDIC_CAMERA_TARGET: Vec3 = [0.35, 1.3, 0.95];
@@ -96,6 +100,13 @@ const MOBILE_NORMAL_CAMERA_TARGET: Vec3 = [1.45, 0.95, -1.15];
 
 type GuideStep = "welcome" | "name" | "named" | "done" | "soon";
 type CameraMode = "guide" | "normal" | "free";
+
+function formatGuideDisplayName(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return "friend";
+
+  return `${trimmed.charAt(0).toUpperCase()}${trimmed.slice(1)}`;
+}
 
 function normalizeSceneVariant(scenarioId?: string): SceneVariant {
   if (scenarioId === "spine" || scenarioId === "chest-pain") return scenarioId;
@@ -920,7 +931,7 @@ function ParamedicGuideDialogue({
 }) {
   if (step === "done") return null;
 
-  const displayName = userName.trim() || "friend";
+  const displayName = formatGuideDisplayName(userName);
   const buttonClass =
     "rounded-md bg-teal-300 px-3 py-1.5 text-xs font-extrabold uppercase tracking-[0.12em] text-slate-950 shadow-lg shadow-teal-950/20 transition hover:bg-teal-200";
 
@@ -1031,7 +1042,7 @@ function MobileParamedicGuideDialogue({
 }) {
   if (step === "done") return null;
 
-  const displayName = userName.trim() || "friend";
+  const displayName = formatGuideDisplayName(userName);
   const buttonClass =
     "rounded-md bg-teal-300 px-3 py-1.5 text-xs font-extrabold uppercase tracking-[0.12em] text-slate-950 shadow-lg shadow-teal-950/20 transition hover:bg-teal-200";
 
@@ -1754,7 +1765,7 @@ function RoadsideFestivalEmergencyScene({ environment }: { environment?: Scenari
         <DownloadedConeModel key={`roadside-cone-${index}`} position={[x, y, z]} scale={0.3} rotation={[0, rotation, 0]} />
       ))}
 
-      <CustomFirstAidBagModel position={[-1.25, 0.06, 1.86]} scale={0.88} rotation={[0, -0.5, 0]} />
+      <CustomFirstAidBagModel position={[-1.7, 0.06, 1.66]} scale={0.88} rotation={[0, 0, 0]} />
       <CustomPatientModel position={[2.28, 0.2, 1.18]} scale={2.0} rotation={[0, -0.16, 0]} />
       <mesh position={[2.28, 0.025, 1.28]} rotation={[-Math.PI / 2, 0, -0.16]} receiveShadow>
         <circleGeometry args={[1.55, 40]} />
@@ -1940,7 +1951,7 @@ function FindingBubble({ text, speaker = "coach" }: { text?: string; speaker?: "
   const cleanedText = visibleText.replace(/^(Coach|Patient):\s*/i, "");
 
   return (
-    <Html position={[1.2, 2.25, 2.25]} center distanceFactor={6.8} zIndexRange={SCENE_HTML_Z_INDEX_RANGE}>
+    <Html position={[2.15, 2.0, 1.65]} center distanceFactor={6.4} zIndexRange={SCENE_HTML_Z_INDEX_RANGE}>
       <div
         data-testid="scene-finding-bubble"
         className={`w-[210px] rounded-lg border px-2.5 py-1.5 text-left text-[10px] font-bold leading-4 shadow-xl backdrop-blur transition-opacity duration-[1800ms] ${bubbleClass} ${isVisible ? "opacity-100" : "opacity-0"}`}
@@ -2089,6 +2100,7 @@ function InteractiveHotspot({
   const highlightVisible = accessibilityMode || hovered || selected || object.category === "movement";
   const labelVisible = accessibilityMode || hovered || object.category === "movement";
   const disabled = object.enabled === false;
+  const compactLabel = object.category === "movement";
 
   useEffect(() => {
     if (!hovered) return;
@@ -2130,9 +2142,9 @@ function InteractiveHotspot({
         />
       </mesh>
       {labelVisible ? (
-        <Html center distanceFactor={9} position={[0, 0.58, 0]} zIndexRange={SCENE_HTML_Z_INDEX_RANGE}>
+        <Html center distanceFactor={compactLabel ? 12 : 9} position={[0, compactLabel ? 0.46 : 0.58, 0]} zIndexRange={SCENE_HTML_Z_INDEX_RANGE}>
           <div
-            className={`max-w-[150px] rounded-full border px-3 py-1 text-center text-[10px] font-black uppercase tracking-wider shadow-xl backdrop-blur ${disabled
+            className={`${compactLabel ? "max-w-[104px] px-2 py-0.5 text-[8px] leading-3 tracking-[0.08em]" : "max-w-[150px] px-3 py-1 text-[10px] tracking-wider"} rounded-full border text-center font-black uppercase shadow-xl backdrop-blur ${disabled
               ? "border-slate-400/30 bg-slate-950/60 text-slate-300"
               : object.completed
                 ? "border-emerald-200/60 bg-emerald-500/25 text-emerald-50"
@@ -2329,11 +2341,13 @@ function GLBParamedicGuide({
   rotationY = 0.6,
   onClick,
   showGuidePulse = false,
+  hasGloves = false,
 }: {
   position?: Vec3;
   rotationY?: number;
   onClick?: () => void;
   showGuidePulse?: boolean;
+  hasGloves?: boolean;
 }) {
   const root = useRef<THREE.Group>(null);
   const guidePulse = useRef<THREE.Mesh>(null);
@@ -2376,6 +2390,18 @@ function GLBParamedicGuide({
       </mesh>
       {showGuidePulse ? <FloatingLabel position={[0, 2.05, 0]} text="Paramedic" tone="teal" /> : null}
       <DownloadedParamedicGuideModel scale={GUIDE_PARAMEDIC_MODEL_SCALE} />
+      {hasGloves ? (
+        <group>
+          <mesh position={[-0.39, 0.67, 0.05]} scale={[0.07, 0.1, 0.045]} castShadow>
+            <boxGeometry args={[1, 1, 1]} />
+            <meshStandardMaterial color="#7dd3fc" roughness={0.72} />
+          </mesh>
+          <mesh position={[0.39, 0.67, 0.05]} scale={[0.07, 0.1, 0.045]} castShadow>
+            <boxGeometry args={[1, 1, 1]} />
+            <meshStandardMaterial color="#7dd3fc" roughness={0.72} />
+          </mesh>
+        </group>
+      ) : null}
     </group>
   );
 }
@@ -3367,18 +3393,22 @@ export default function ThreeDScene({
   environment,
   locationId = "ambulance",
   inventory = [],
+  equippedItems = [],
+  showGuideIntro = true,
   onObjectSelect,
 }: ThreeDSceneProps) {
   const activeScenarioId = normalizeSceneVariant(scenarioId);
   const useRoadsideFestivalScene = activeScenarioId === "anaphylaxis";
   const focusObject = interactiveObjects.find((object) => object.id === focusedObjectId);
+  const medicPosition = locationId === "patientSide" ? PATIENT_SIDE_PARAMEDIC_POSITION : STAGED_PARAMEDIC_POSITION;
   const patientPosition: Vec3 = [2.18, 0.08, 1.55];
   const orbitControlsRef = useRef<any>(null);
-  const [guideStep, setGuideStep] = useState<GuideStep>("welcome");
+  const [guideStep, setGuideStep] = useState<GuideStep>(showGuideIntro ? "welcome" : "done");
   const [guideName, setGuideName] = useState("");
-  const [cameraMode, setCameraMode] = useState<CameraMode>("guide");
+  const [cameraMode, setCameraMode] = useState<CameraMode>(showGuideIntro ? "guide" : "normal");
 
   const focusGuideParamedic = () => {
+    if (!showGuideIntro) return;
     setCameraMode("guide");
     setGuideStep((currentStep) => (currentStep === "done" ? "soon" : currentStep));
   };
@@ -3443,14 +3473,15 @@ export default function ThreeDScene({
 
         {useRoadsideFestivalScene ? <RoadsideFestivalEmergencyScene environment={environment} /> : <BaselineGroundRightTerrain />}
         <GLBParamedicGuide
-          position={GUIDE_PARAMEDIC_POSITION}
+          position={medicPosition}
           rotationY={0.58}
           onClick={focusGuideParamedic}
-          showGuidePulse={guideStep === "done"}
+          showGuidePulse={showGuideIntro && guideStep === "done"}
+          hasGloves={equippedItems.includes("gloves")}
         />
         {!useRoadsideFestivalScene ? (
           <>
-            <CustomFirstAidBagModel position={[-1.15, 0.06, 1.72]} scale={0.88} rotation={[0, -0.48, 0]} />
+            <CustomFirstAidBagModel position={[-1.7, 0.06, 1.66]} scale={0.88} rotation={[0, 0, 0]} />
             <CustomAmbulanceModel position={[-3.95, 0.52, -0.7]} scale={2.05} rotation={[0, 0.58, 0]} />
           </>
         ) : null}

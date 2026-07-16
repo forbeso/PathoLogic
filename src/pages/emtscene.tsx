@@ -25,10 +25,12 @@ import {
 import {
   anaphylaxisFestivalScenario,
   createScenarioState,
+  getActionSuccessEvents,
   getCurrentObjective,
   getObjectAvailability,
   getVisibleInteractiveObjects,
   hasEvents,
+  isInteractiveObjectComplete,
   scenarioReducer,
   type InteractiveObjectConfig,
 } from "@/lib/emtSceneEngine";
@@ -489,7 +491,7 @@ export default function EMTScene() {
           ...object,
           enabled: availability.enabled,
           disabledReason: availability.reason,
-          completed: object.actions.some((action) => hasEvents(gameState, action.onSuccessEvents)),
+          completed: isInteractiveObjectComplete(object, gameState),
         };
       }),
     [gameState, sceneScenario]
@@ -499,7 +501,9 @@ export default function EMTScene() {
     (object) => !object.completed || object.id === gameState.selectedObjectId
   );
   const selectedActions = selectedObject
-    ? selectedObject.actions.filter((action) => !hasEvents(gameState, action.onSuccessEvents))
+    ? selectedObject.actions.filter(
+      (action) => !hasEvents(gameState, getActionSuccessEvents(action)) && hasEvents(gameState, action.requires)
+    )
     : [];
 
   const resetScene = (nextScenario = scenario) => {
@@ -781,13 +785,15 @@ export default function EMTScene() {
             scenarioId={scenario.id}
             sceneFinding={sceneFinding}
             sceneSpeaker={latestSceneMessage?.who === "patient" ? "patient" : "coach"}
-            interactiveObjects={sceneObjects}
+            interactiveObjects={actionableSceneObjects}
             selectedObjectId={gameState.selectedObjectId}
             focusedObjectId={gameState.focusedObjectId}
             accessibilityMode={gameState.accessibilityMode}
             environment={gameState.environment}
             locationId={gameState.locationId}
             inventory={gameState.inventory}
+            equippedItems={gameState.equippedItems}
+            showGuideIntro={false}
             onObjectSelect={(objectId) => dispatchGame({ type: "SELECT_OBJECT", objectId })}
           />
         </div>
@@ -820,7 +826,7 @@ export default function EMTScene() {
                   Active dispatch
                 </div>
                 <h2 className="mt-1 text-base font-black leading-5">{scenario.title}</h2>
-                <p className="mt-1 text-xs leading-5 text-slate-300">{scenario.dispatch}</p>
+                <p className="mt-1 text-xs leading-5 text-slate-300">{sceneScenario.dispatch}</p>
               </div>
               <StatusPill tone={scenario.priority === "Unstable" ? "rose" : "amber"}>
                 {scenario.priority}
@@ -847,7 +853,7 @@ export default function EMTScene() {
                 <ShieldCheck size={13} />
                 Scene report
               </div>
-              <p className="mt-1 text-xs leading-5 text-slate-200">{scenario.scene}</p>
+              <p className="mt-1 text-xs leading-5 text-slate-200">{sceneScenario.sceneReport}</p>
             </div>
 
             <div className="mt-3 border-t border-white/10 pt-3">
@@ -1113,7 +1119,7 @@ export default function EMTScene() {
                 Active dispatch
               </div>
               <h2 className="mt-1 text-lg font-black">{scenario.title}</h2>
-              <p className="mt-1 text-xs leading-5 text-slate-300">{scenario.dispatch}</p>
+              <p className="mt-1 text-xs leading-5 text-slate-300">{sceneScenario.dispatch}</p>
             </div>
             <StatusPill tone={scenario.priority === "Unstable" ? "rose" : "amber"}>
               {scenario.priority}
@@ -1151,7 +1157,7 @@ export default function EMTScene() {
               <ShieldCheck size={13} />
               Scene report
             </div>
-            <p className="mt-1 text-xs leading-5 text-slate-200">{scenario.scene}</p>
+            <p className="mt-1 text-xs leading-5 text-slate-200">{sceneScenario.sceneReport}</p>
           </div>
         </section>
 

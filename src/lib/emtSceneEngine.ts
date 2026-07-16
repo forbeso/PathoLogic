@@ -24,9 +24,14 @@ export type SceneEvent =
   | "DISPATCH_RECEIVED"
   | "AMBULANCE_EXITED"
   | "DOG_SELECTED"
+  | "DOG_INSPECTED"
   | "DOG_AGITATED"
+  | "RADIO_SELECTED"
   | "ANIMAL_CONTROL_CALLED"
   | "DOG_SECURED"
+  | "MEDICAL_BAG_OPENED"
+  | "GLOVES_COLLECTED"
+  | "GLOVES_EQUIPPED"
   | "PPE_EQUIPPED"
   | "PATIENT_APPROACHED"
   | "GENERAL_IMPRESSION_OBSERVED"
@@ -47,7 +52,9 @@ export type InteractionAction = {
   duration?: number;
   scoreEffect?: number;
   timeEffect?: number;
-  onSuccessEvents: SceneEvent[];
+  successEvents?: SceneEvent[];
+  failureEvents?: SceneEvent[];
+  onSuccessEvents?: SceneEvent[];
   onFailureEvents?: SceneEvent[];
 };
 
@@ -58,6 +65,7 @@ export type InteractiveObjectConfig = {
   actions: InteractionAction[];
   visibleWhen?: string[];
   enabledWhen?: string[];
+  completedWhen?: string[];
   highlightColor?: string;
   focusPosition?: Vec3;
   focusTarget?: Vec3;
@@ -90,6 +98,7 @@ export type ScenarioState = {
   selectedObjectId?: string;
   focusedObjectId?: string;
   inventory: string[];
+  equippedItems: string[];
   elapsedTime: number;
   score: number;
   hintsUsed: number;
@@ -145,7 +154,7 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
     "Outdoor festival first-aid area. The patient is visible near the treatment area, but a barking dog is between you and the patient.",
   startingLocation: "ambulance",
   initialPhase: "sceneSafety",
-  currentObjectiveId: "scene-safety",
+  currentObjectiveId: "inspect-dog",
   environmentInitialState: {
     dogSecured: false,
     fireControlled: true,
@@ -171,23 +180,47 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
   },
   objectives: [
     {
-      id: "scene-safety",
-      label: "Scene Safety",
-      subtleGoal: "Make the scene safe.",
+      id: "inspect-dog",
+      label: "Inspect Hazard",
+      subtleGoal: "Observe from the ambulance staging point and inspect the barking dog.",
       phase: "sceneSafety",
-      requiredEvents: ["DOG_SECURED"],
+      requiredEvents: ["DOG_INSPECTED"],
       hintLevels: [
         "Something near the patient may prevent a safe approach.",
         "Inspect the barking dog before moving in.",
-        "Use the ambulance radio to request animal control or police assistance.",
+        "Select the dog and inspect the hazard from a safe distance.",
+      ],
+    },
+    {
+      id: "use-radio",
+      label: "Use Radio",
+      subtleGoal: "Use the ambulance radio to request help.",
+      phase: "sceneSafety",
+      requiredEvents: ["RADIO_SELECTED", "ANIMAL_CONTROL_CALLED"],
+      hintLevels: [
+        "Do not approach the dog yourself.",
+        "Use the radio on the ambulance.",
+        "Request animal control through dispatch.",
+      ],
+    },
+    {
+      id: "secure-dog",
+      label: "Dog Secured",
+      subtleGoal: "Wait until the dog is secured and the path is safe.",
+      phase: "sceneSafety",
+      requiredEvents: ["DOG_SECURED"],
+      hintLevels: [
+        "Stay back while support handles the animal.",
+        "The dog must be removed from your approach path.",
+        "Once the dog is secured, move into BSI/PPE.",
       ],
     },
     {
       id: "bsi-ppe",
       label: "BSI / PPE",
-      subtleGoal: "Prepare yourself before patient contact.",
+      subtleGoal: "Open the medical bag and equip gloves before patient contact.",
       phase: "primaryAssessment",
-      requiredEvents: ["PPE_EQUIPPED"],
+      requiredEvents: ["GLOVES_EQUIPPED"],
       hintLevels: ["Look for gloves or PPE in your kit.", "Open the medical bag.", "Put on gloves before touching the patient."],
     },
     {
@@ -252,6 +285,7 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
       id: "ambulance-door",
       name: "Ambulance Door",
       category: "movement",
+      visibleWhen: ["AMBULANCE_EXIT_REQUIRED"],
       position: [-4.8, 1.1, -4.95],
       focusPosition: [8.8, 4.6, 6.8],
       focusTarget: [-5.75, 0.9, -4.35],
@@ -261,7 +295,7 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
           id: "exit-ambulance",
           label: "Step out and scan",
           description: "Move from the ambulance to the roadside staging point.",
-          onSuccessEvents: ["AMBULANCE_EXITED"],
+          successEvents: ["AMBULANCE_EXITED"],
           scoreEffect: 2,
         },
       ],
@@ -270,17 +304,26 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
       id: "dog",
       name: "Barking Dog",
       category: "hazard",
-      visibleWhen: ["AMBULANCE_EXITED"],
-      position: [1.15, 0.55, 3.35],
-      focusPosition: [8.4, 4.35, 8.2],
-      focusTarget: [0.95, 0.75, 2.25],
+      visibleWhen: ["DISPATCH_RECEIVED"],
+      completedWhen: ["DOG_INSPECTED"],
+      position: [5.38, 0.72, 1.28],
+      focusPosition: [7.65, 2.35, 4.4],
+      focusTarget: [5.25, 0.75, 1.25],
       highlightColor: "#fb7185",
       actions: [
+        {
+          id: "inspect-dog",
+          label: "Inspect from distance",
+          description: "The dog is barking, tense, and directly between you and the patient.",
+          successEvents: ["DOG_INSPECTED"],
+          scoreEffect: 4,
+          timeEffect: 8,
+        },
         {
           id: "approach-dog",
           label: "Approach the dog",
           description: "Unsafe. The dog blocks your path and forces you back.",
-          onSuccessEvents: ["DOG_AGITATED"],
+          successEvents: ["DOG_AGITATED"],
           scoreEffect: -8,
           timeEffect: 20,
         },
@@ -288,23 +331,15 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
           id: "ask-bystander-secure-dog",
           label: "Ask bystander to secure dog",
           description: "A bystander backs away and says they do not know the dog.",
-          onSuccessEvents: ["DOG_AGITATED"],
+          successEvents: ["DOG_AGITATED"],
           scoreEffect: -3,
           timeEffect: 15,
-        },
-        {
-          id: "call-animal-control",
-          label: "Call animal control",
-          description: "Use the radio/phone so trained help can secure the animal.",
-          onSuccessEvents: ["ANIMAL_CONTROL_CALLED", "DOG_SECURED"],
-          scoreEffect: 8,
-          timeEffect: 45,
         },
         {
           id: "ignore-dog",
           label: "Ignore dog and approach patient",
           description: "Unsafe. The dog lunges and you lose access to the patient.",
-          onSuccessEvents: ["DOG_AGITATED"],
+          successEvents: ["DOG_AGITATED"],
           scoreEffect: -10,
           timeEffect: 25,
         },
@@ -314,47 +349,67 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
       id: "ambulance-radio",
       name: "Ambulance Radio",
       category: "vehicle",
-      visibleWhen: ["AMBULANCE_EXITED"],
+      visibleWhen: ["DOG_INSPECTED"],
+      completedWhen: ["DOG_SECURED"],
       position: [-5.35, 1.75, -5.3],
-      focusPosition: [-5.1, 2.6, -2.0],
-      focusTarget: [-5.4, 1.4, -5.15],
+      focusPosition: [0.4, 2.65, 4.35],
+      focusTarget: [-3.45, 0.95, -2.85],
       highlightColor: "#2dd4bf",
       actions: [
         {
           id: "request-animal-control",
           label: "Request animal control",
           description: "Radio dispatch for animal control and police support.",
-          onSuccessEvents: ["ANIMAL_CONTROL_CALLED", "DOG_SECURED"],
+          requires: ["RADIO_SELECTED"],
+          successEvents: ["ANIMAL_CONTROL_CALLED", "DOG_SECURED"],
           scoreEffect: 10,
           timeEffect: 45,
         },
       ],
     },
     {
-      id: "ppe-kit",
-      name: "PPE Kit",
+      id: "medical-bag",
+      name: "Medical Bag",
       category: "equipment",
       visibleWhen: ["DOG_SECURED"],
-      position: [-3.35, 1.2, 0.45],
-      focusPosition: [-5.3, 2.35, 3.15],
-      focusTarget: [-3.35, 1.05, 0.45],
+      completedWhen: ["GLOVES_EQUIPPED"],
+      position: [-1.7, 0.55, 1.66],
+      focusPosition: [1.25, 1.85, 4.05],
+      focusTarget: [-1.7, 0.55, 1.66],
       highlightColor: "#5eead4",
       enabledWhen: ["DOG_SECURED"],
       actions: [
         {
-          id: "put-on-gloves",
+          id: "open-medical-bag",
+          label: "Open medical bag",
+          description: "Open the aid bag and locate PPE before patient contact.",
+          successEvents: ["MEDICAL_BAG_OPENED"],
+          scoreEffect: 3,
+        },
+        {
+          id: "collect-gloves",
+          label: "Take gloves",
+          description: "Take clean gloves from inside the medical bag.",
+          requires: ["MEDICAL_BAG_OPENED"],
+          successEvents: ["GLOVES_COLLECTED"],
+          scoreEffect: 3,
+        },
+        {
+          id: "equip-gloves",
           label: "Put on gloves",
-          description: "BSI/PPE equipped before patient contact.",
-          onSuccessEvents: ["PPE_EQUIPPED"],
+          description: "Finish BSI/PPE before touching the patient.",
+          requires: ["GLOVES_COLLECTED"],
+          successEvents: ["GLOVES_EQUIPPED", "PPE_EQUIPPED"],
           scoreEffect: 6,
         },
       ],
     },
     {
       id: "patient-approach",
-      name: "Patient Approach Point",
+      name: "Approach Patient",
       category: "movement",
       visibleWhen: ["PPE_EQUIPPED"],
+      completedWhen: ["PATIENT_APPROACHED"],
       position: [0.65, 0.08, 1.8],
       focusPosition: [5.5, 2.8, 5.0],
       focusTarget: [2.15, 0.45, 1.55],
@@ -490,6 +545,7 @@ export function createScenarioState(scenario: SceneScenarioConfig = anaphylaxisF
     selectedObjectId: undefined,
     focusedObjectId: undefined,
     inventory: [],
+    equippedItems: [],
     elapsedTime: 0,
     score: 80,
     hintsUsed: 0,
@@ -503,6 +559,15 @@ export function createScenarioState(scenario: SceneScenarioConfig = anaphylaxisF
 
 export function hasEvents(state: ScenarioState, events: string[] = []) {
   return events.every((event) => state.triggeredEvents.includes(event as SceneEvent));
+}
+
+export function getActionSuccessEvents(action: InteractionAction) {
+  return action.successEvents ?? action.onSuccessEvents ?? [];
+}
+
+export function isInteractiveObjectComplete(object: InteractiveObjectConfig, state: ScenarioState) {
+  if (object.completedWhen) return hasEvents(state, object.completedWhen);
+  return object.actions.some((action) => hasEvents(state, getActionSuccessEvents(action)));
 }
 
 export function getVisibleInteractiveObjects(scenario: SceneScenarioConfig, state: ScenarioState) {
@@ -535,12 +600,22 @@ function feedbackForEvent(event: SceneEvent): string {
       return "You step out and scan the scene from a safe distance. The dog is actively blocking the patient.";
     case "DOG_SELECTED":
       return "The dog is barking, tense, and between you and the patient.";
+    case "DOG_INSPECTED":
+      return "Hazard identified: the dog is agitated and blocking safe patient access. Use the ambulance radio for trained help.";
     case "DOG_AGITATED":
       return "The dog lunges closer. You step back and lose time. The patient is still not safely reachable.";
+    case "RADIO_SELECTED":
+      return "Radio selected. Contact dispatch before approaching the dog or patient.";
     case "ANIMAL_CONTROL_CALLED":
       return "Radio: Animal control and police support are en route. Hold position until the dog is secured.";
     case "DOG_SECURED":
       return "A responder secures the dog and leads it away. The path to the patient is now safe.";
+    case "MEDICAL_BAG_OPENED":
+      return "The medical bag is open. Gloves are visible inside.";
+    case "GLOVES_COLLECTED":
+      return "You take a pair of gloves from the medical bag.";
+    case "GLOVES_EQUIPPED":
+      return "Gloves on. BSI/PPE is complete before patient contact.";
     case "PPE_EQUIPPED":
       return "Gloves on. BSI/PPE is complete before patient contact.";
     case "PATIENT_APPROACHED":
@@ -576,6 +651,7 @@ function applyEvent(state: ScenarioState, event: SceneEvent): ScenarioState {
     next.focusedObjectId = "dog";
   }
   if (event === "DOG_SELECTED") next.focusedObjectId = "dog";
+  if (event === "DOG_INSPECTED") next.focusedObjectId = "dog";
   if (event === "DOG_AGITATED") {
     next.environment = { ...next.environment, dogAgitated: true };
     next.score = Math.max(0, next.score - 8);
@@ -587,15 +663,22 @@ function applyEvent(state: ScenarioState, event: SceneEvent): ScenarioState {
   }
   if (event === "DOG_SECURED") {
     next.environment = { ...next.environment, dogSecured: true, sceneSafe: true, dogAgitated: false };
-    next.focusedObjectId = "ppe-kit";
+    next.focusedObjectId = "medical-bag";
   }
+  if (event === "RADIO_SELECTED") next.focusedObjectId = "ambulance-radio";
   if (event === "GENERAL_IMPRESSION_OBSERVED") next.focusedObjectId = "patient";
   if (event === "RESPONSIVENESS_CHECKED") next.focusedObjectId = "airway-hotspot";
   if (event === "AIRWAY_OPENED") next.focusedObjectId = "chest-hotspot";
   if (event === "RESPIRATIONS_COUNTED") next.focusedObjectId = "pulse-hotspot";
   if (event === "PULSE_CHECKED") next.focusedObjectId = "transport-decision";
-  if (event === "PPE_EQUIPPED") {
+  if (event === "MEDICAL_BAG_OPENED") next.focusedObjectId = "medical-bag";
+  if (event === "GLOVES_COLLECTED") {
     next.inventory = next.inventory.includes("gloves") ? next.inventory : [...next.inventory, "gloves"];
+    next.focusedObjectId = "medical-bag";
+  }
+  if (event === "GLOVES_EQUIPPED" || event === "PPE_EQUIPPED") {
+    next.inventory = next.inventory.includes("gloves") ? next.inventory : [...next.inventory, "gloves"];
+    next.equippedItems = next.equippedItems.includes("gloves") ? next.equippedItems : [...next.equippedItems, "gloves"];
     next.currentPhase = "primaryAssessment";
     next.focusedObjectId = "patient-approach";
   }
@@ -675,7 +758,9 @@ export function scenarioReducer(
         focusedObjectId: action.objectId,
         feedback: object ? `${object.name} selected. Choose an action.` : state.feedback,
       };
-      return action.objectId === "dog" ? applyEvent(selectedState, "DOG_SELECTED") : selectedState;
+      let next = action.objectId === "dog" ? applyEvent(selectedState, "DOG_SELECTED") : selectedState;
+      if (action.objectId === "ambulance-radio") next = applyEvent(next, "RADIO_SELECTED");
+      return next;
     }
     case "RUN_ACTION": {
       const object = scenario.interactiveObjects.find((item) => item.id === action.objectId);
@@ -693,11 +778,14 @@ export function scenarioReducer(
       }
 
       let next = state;
-      interaction.onSuccessEvents.forEach((event) => {
+      getActionSuccessEvents(interaction).forEach((event) => {
         next = applyEvent(next, event);
       });
 
-      const shouldKeepSelection = object.id === "dog" && next.environment.dogAgitated && !next.environment.dogSecured;
+      const hasRemainingObjectActions = object.actions.some((action) => !hasEvents(next, getActionSuccessEvents(action)));
+      const shouldKeepSelection =
+        (object.id === "dog" && next.environment.dogAgitated && !next.environment.dogSecured) ||
+        (object.id === "medical-bag" && hasRemainingObjectActions);
       const maxScore = next.failedObjectives.includes("dog-hazard") ? 88 : 100;
       next = {
         ...next,
