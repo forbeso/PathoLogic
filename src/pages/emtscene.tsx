@@ -500,6 +500,7 @@ export default function EMTScene() {
   const actionableSceneObjects = sceneObjects.filter(
     (object) => !object.completed || object.id === gameState.selectedObjectId
   );
+  const nextSceneObject = actionableSceneObjects.find((object) => object.enabled !== false);
   const selectedActions = selectedObject
     ? selectedObject.actions.filter(
       (action) => !hasEvents(gameState, getActionSuccessEvents(action)) && hasEvents(gameState, action.requires)
@@ -812,6 +813,24 @@ export default function EMTScene() {
           {mobileHudOpen ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
           {mobileHudOpen ? "Close HUD" : "Show HUD"}
         </button>
+
+        {!mobileHudOpen && !selectedObject && nextSceneObject ? (
+          <button
+            type="button"
+            data-testid="mobile-next-scene-object"
+            onClick={() => dispatchGame({ type: "SELECT_OBJECT", objectId: nextSceneObject.id })}
+            className="absolute inset-x-3 bottom-[112px] z-40 rounded-2xl border border-teal-200/45 bg-slate-950/82 p-3 text-left text-white shadow-2xl shadow-slate-950/45 backdrop-blur-xl transition active:scale-[0.99] lg:hidden"
+          >
+            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-teal-200">
+              <MousePointerClick size={13} />
+              Start here
+            </div>
+            <div className="mt-1 text-base font-black leading-5">Tap {nextSceneObject.name}</div>
+            <div className="mt-1 line-clamp-2 text-xs font-semibold leading-4 text-slate-300">
+              {currentObjective.subtleGoal}
+            </div>
+          </button>
+        ) : null}
 
         {mobileHudOpen ? (
           <section

@@ -307,8 +307,8 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
       visibleWhen: ["DISPATCH_RECEIVED"],
       completedWhen: ["DOG_INSPECTED"],
       position: [5.38, 0.72, 1.28],
-      focusPosition: [7.65, 2.35, 4.4],
-      focusTarget: [5.25, 0.75, 1.25],
+      focusPosition: [-1.95, 1.62, -0.75],
+      focusTarget: [4.9, 0.75, 1.25],
       highlightColor: "#fb7185",
       actions: [
         {
@@ -351,9 +351,9 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
       category: "vehicle",
       visibleWhen: ["DOG_INSPECTED"],
       completedWhen: ["DOG_SECURED"],
-      position: [-5.35, 1.75, -5.3],
-      focusPosition: [0.4, 2.65, 4.35],
-      focusTarget: [-3.45, 0.95, -2.85],
+      position: [-4.55, 2.78, -3.52],
+      focusPosition: [-2.55, 1.95, -1.45],
+      focusTarget: [-4.55, 2.35, -3.52],
       highlightColor: "#2dd4bf",
       actions: [
         {
@@ -373,9 +373,9 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
       category: "equipment",
       visibleWhen: ["DOG_SECURED"],
       completedWhen: ["GLOVES_EQUIPPED"],
-      position: [-1.7, 0.55, 1.66],
-      focusPosition: [1.25, 1.85, 4.05],
-      focusTarget: [-1.7, 0.55, 1.66],
+      position: [-2.9, 0.55, -0.65],
+      focusPosition: [-1.05, 1.45, 1.55],
+      focusTarget: [-2.9, 0.42, -0.65],
       highlightColor: "#5eead4",
       enabledWhen: ["DOG_SECURED"],
       actions: [

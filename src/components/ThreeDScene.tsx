@@ -70,8 +70,8 @@ type SceneInteractiveObject = InteractiveObjectConfig & {
 };
 
 const SCENE_HTML_Z_INDEX_RANGE: [number, number] = [8, 0];
-const NORMAL_CAMERA_POSITION: Vec3 = [8.55, 2.75, 7.72];
-const NORMAL_CAMERA_TARGET: Vec3 = [1.1, 1.05, -2.1];
+const NORMAL_CAMERA_POSITION: Vec3 = [-1.95, 1.62, -0.75];
+const NORMAL_CAMERA_TARGET: Vec3 = [4.35, 0.78, 1.2];
 const NORMAL_CAMERA_DISTANCE = Math.hypot(
   NORMAL_CAMERA_POSITION[0] - NORMAL_CAMERA_TARGET[0],
   NORMAL_CAMERA_POSITION[1] - NORMAL_CAMERA_TARGET[1],
@@ -79,15 +79,8 @@ const NORMAL_CAMERA_DISTANCE = Math.hypot(
 );
 const CAMERA_MIN_DISTANCE = 4.6;
 const CAMERA_MAX_DISTANCE = 18.5;
-const CAMERA_MIN_POLAR_ANGLE = 0.78;
-const CAMERA_MAX_POLAR_ANGLE = 1.55;
-const CAMERA_DEFAULT_AZIMUTH = Math.atan2(
-  NORMAL_CAMERA_POSITION[0] - NORMAL_CAMERA_TARGET[0],
-  NORMAL_CAMERA_POSITION[2] - NORMAL_CAMERA_TARGET[2]
-);
-const CAMERA_AZIMUTH_RANGE = 1.35;
 const GUIDE_PARAMEDIC_POSITION: Vec3 = [0.35, 0.05, 0.95];
-const STAGED_PARAMEDIC_POSITION: Vec3 = [-1.35, 0.05, 1.05];
+const STAGED_PARAMEDIC_POSITION: Vec3 = [-2.35, 0.05, -1.15];
 const PATIENT_SIDE_PARAMEDIC_POSITION: Vec3 = [1.02, 0.05, 1.3];
 const GUIDE_PARAMEDIC_MODEL_SCALE = 0.9;
 const GUIDE_PARAMEDIC_CAMERA_POSITION: Vec3 = [2.35, 1.88, 4.05];
@@ -95,8 +88,8 @@ const GUIDE_PARAMEDIC_CAMERA_TARGET: Vec3 = [0.35, 1.3, 0.95];
 const MOBILE_GUIDE_PARAMEDIC_ROTATION_Y = 0;
 const MOBILE_GUIDE_CAMERA_POSITION: Vec3 = [0.35, 1.54, 2.92];
 const MOBILE_GUIDE_CAMERA_TARGET: Vec3 = [0.35, 1.32, 0.95];
-const MOBILE_NORMAL_CAMERA_POSITION: Vec3 = [6.7, 2.58, 7.65];
-const MOBILE_NORMAL_CAMERA_TARGET: Vec3 = [1.45, 0.95, -1.15];
+const MOBILE_NORMAL_CAMERA_POSITION: Vec3 = [-1.95, 1.48, -0.72];
+const MOBILE_NORMAL_CAMERA_TARGET: Vec3 = [5.0, 0.75, 1.25];
 
 type GuideStep = "welcome" | "name" | "named" | "done" | "soon";
 type CameraMode = "guide" | "normal" | "free";
@@ -1738,6 +1731,47 @@ function AmbulanceLightGlow({ position }: { position: Vec3 }) {
   );
 }
 
+function FloatingWalkieTalkie({ position }: { position: Vec3 }) {
+  const root = useRef<THREE.Group>(null);
+
+  useFrame(({ clock }) => {
+    if (!root.current) return;
+    root.current.position.y = position[1] + Math.sin(clock.getElapsedTime() * 1.35) * 0.035;
+    root.current.rotation.y = -0.45 + Math.sin(clock.getElapsedTime() * 0.8) * 0.08;
+  });
+
+  return (
+    <group ref={root} position={position} rotation={[0.18, -0.45, -0.08]} scale={0.52}>
+      <mesh castShadow>
+        <boxGeometry args={[0.34, 0.62, 0.14]} />
+        <meshStandardMaterial color="#1f2937" roughness={0.58} />
+      </mesh>
+      <mesh position={[0, 0.18, 0.076]}>
+        <boxGeometry args={[0.22, 0.16, 0.014]} />
+        <meshStandardMaterial color="#475569" roughness={0.5} />
+      </mesh>
+      {[0.02, -0.06, -0.14].map((y) => (
+        <mesh key={`walkie-speaker-${y}`} position={[0, y, 0.082]}>
+          <boxGeometry args={[0.22, 0.018, 0.018]} />
+          <meshStandardMaterial color="#0f172a" roughness={0.55} />
+        </mesh>
+      ))}
+      <mesh position={[0.12, 0.38, 0.08]}>
+        <boxGeometry args={[0.08, 0.07, 0.025]} />
+        <meshStandardMaterial color="#22d3ee" emissive="#0891b2" emissiveIntensity={0.28} roughness={0.35} />
+      </mesh>
+      <mesh position={[0.04, 0.52, 0]} rotation={[0, 0, 0.08]} castShadow>
+        <cylinderGeometry args={[0.018, 0.018, 0.55, 8]} />
+        <meshStandardMaterial color="#111827" roughness={0.48} />
+      </mesh>
+      <mesh position={[0, -0.42, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.42, 0.52, 36]} />
+        <meshStandardMaterial color="#2dd4bf" emissive="#0f766e" emissiveIntensity={0.26} transparent opacity={0.32} side={THREE.DoubleSide} />
+      </mesh>
+    </group>
+  );
+}
+
 function RoadsideFestivalEmergencyScene({ environment }: { environment?: ScenarioState["environment"] }) {
   const cones = useMemo(
     () => [
@@ -1758,20 +1792,27 @@ function RoadsideFestivalEmergencyScene({ environment }: { environment?: Scenari
       <RoadsideVillageBackdrop />
 
       <CustomAmbulanceModel position={[-4.55, 0.96, -4.78]} scale={3.78} rotation={[0, 0.34, 0]} />
-      <AmbulanceLightGlow position={[-4.62, 2.55, -3.62]} />
+      <AmbulanceLightGlow position={[-4.78, 2.22, -3.78]} />
+      <FloatingWalkieTalkie position={[-4.55, 2.78, -3.52]} />
       <DamagedCar position={[3.85, 0.08, -4.72]} />
 
       {cones.map(([x, y, z, rotation], index) => (
         <DownloadedConeModel key={`roadside-cone-${index}`} position={[x, y, z]} scale={0.3} rotation={[0, rotation, 0]} />
       ))}
 
-      <CustomFirstAidBagModel position={[-1.7, 0.06, 1.66]} scale={0.88} rotation={[0, 0, 0]} />
+      <CustomFirstAidBagModel position={[-2.9, 0.06, -0.65]} scale={0.88} rotation={[0, 0, 0]} />
       <CustomPatientModel position={[2.28, 0.2, 1.18]} scale={2.0} rotation={[0, -0.16, 0]} />
       <mesh position={[2.28, 0.025, 1.28]} rotation={[-Math.PI / 2, 0, -0.16]} receiveShadow>
         <circleGeometry args={[1.55, 40]} />
         <meshStandardMaterial color="#7e684f" transparent opacity={0.22} roughness={1} />
       </mesh>
-      <BarkingDog position={[5.38, 0, 1.28]} secured={environment?.dogSecured} agitated={environment?.dogAgitated ?? true} showLabel={false} />
+      <BarkingDog
+        position={[5.38, 0, 1.28]}
+        rotationY={3.1}
+        secured={environment?.dogSecured}
+        agitated={environment?.dogAgitated ?? true}
+        showLabel={false}
+      />
 
       <ReferenceFence position={[-9.5, 0.05, -2.0]} rotationY={0.05} segments={7} />
       <ReferenceFence position={[6.3, 0.05, -1.9]} rotationY={0.02} segments={5} />
@@ -2097,10 +2138,12 @@ function InteractiveHotspot({
   const [hovered, setHovered] = useState(false);
   const mesh = useRef<THREE.Mesh>(null);
   const color = object.completed ? "#34d399" : object.highlightColor ?? "#2dd4bf";
-  const highlightVisible = accessibilityMode || hovered || selected || object.category === "movement";
-  const labelVisible = accessibilityMode || hovered || object.category === "movement";
   const disabled = object.enabled === false;
+  const suggested = !disabled && !object.completed;
+  const highlightVisible = accessibilityMode || hovered || selected || suggested || object.category === "movement";
+  const labelVisible = accessibilityMode || hovered || selected || suggested || object.category === "movement";
   const compactLabel = object.category === "movement";
+  const labelText = suggested && !selected ? `Select ${object.name}` : object.name;
 
   useEffect(() => {
     if (!hovered) return;
@@ -2113,7 +2156,7 @@ function InteractiveHotspot({
 
   useFrame(({ clock }) => {
     if (!mesh.current) return;
-    const pulse = 1 + Math.sin(clock.getElapsedTime() * 3.2) * 0.08;
+    const pulse = 1 + Math.sin(clock.getElapsedTime() * 3.2) * (suggested ? 0.14 : 0.08);
     mesh.current.scale.setScalar(selected ? pulse * 1.12 : pulse);
   });
 
@@ -2135,9 +2178,9 @@ function InteractiveHotspot({
         <meshStandardMaterial
           color={disabled ? "#64748b" : color}
           emissive={disabled ? "#111827" : color}
-          emissiveIntensity={highlightVisible ? 0.55 : 0.12}
+          emissiveIntensity={highlightVisible ? (suggested ? 0.75 : 0.55) : 0.12}
           transparent
-          opacity={highlightVisible ? (disabled ? 0.18 : 0.3) : 0.03}
+          opacity={highlightVisible ? (disabled ? 0.18 : suggested ? 0.36 : 0.3) : 0.03}
           depthWrite={false}
         />
       </mesh>
@@ -2151,7 +2194,7 @@ function InteractiveHotspot({
                 : "border-teal-200/55 bg-slate-950/70 text-teal-50"
               }`}
           >
-            {object.name}
+            {labelText}
           </div>
         </Html>
       ) : null}
@@ -2189,11 +2232,13 @@ function BarkingDog({
   secured,
   agitated,
   position = [1.15, 0, 3.35] as Vec3,
+  rotationY = -1.05,
   showLabel = false,
 }: {
   secured?: boolean;
   agitated?: boolean;
   position?: Vec3;
+  rotationY?: number;
   showLabel?: boolean;
 }) {
   const root = useRef<THREE.Group>(null);
@@ -2226,7 +2271,7 @@ function BarkingDog({
   }
 
   return (
-    <group ref={root} position={position} rotation={[0, -1.05, 0]} scale={0.78}>
+    <group ref={root} position={position} rotation={[0, rotationY, 0]} scale={0.78}>
       <mesh position={[0, 0.62, 0]} scale={[0.92, 0.48, 0.36]} castShadow>
         <sphereGeometry args={[0.55, 16, 16]} />
         <meshStandardMaterial color="#5b4636" roughness={0.96} />
@@ -3481,7 +3526,7 @@ export default function ThreeDScene({
         />
         {!useRoadsideFestivalScene ? (
           <>
-            <CustomFirstAidBagModel position={[-1.7, 0.06, 1.66]} scale={0.88} rotation={[0, 0, 0]} />
+            <CustomFirstAidBagModel position={[-2.9, 0.06, -0.65]} scale={0.88} rotation={[0, 0, 0]} />
             <CustomAmbulanceModel position={[-3.95, 0.52, -0.7]} scale={2.05} rotation={[0, 0.58, 0]} />
           </>
         ) : null}
@@ -3548,10 +3593,6 @@ export default function ThreeDScene({
           makeDefault
           minDistance={CAMERA_MIN_DISTANCE}
           maxDistance={CAMERA_MAX_DISTANCE}
-          minPolarAngle={CAMERA_MIN_POLAR_ANGLE}
-          maxPolarAngle={CAMERA_MAX_POLAR_ANGLE}
-          minAzimuthAngle={CAMERA_DEFAULT_AZIMUTH - CAMERA_AZIMUTH_RANGE}
-          maxAzimuthAngle={CAMERA_DEFAULT_AZIMUTH + CAMERA_AZIMUTH_RANGE}
           target={NORMAL_CAMERA_TARGET}
         />
       </Canvas>
