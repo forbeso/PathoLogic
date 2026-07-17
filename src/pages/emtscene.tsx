@@ -403,6 +403,7 @@ export default function EMTScene() {
   const [primaryStepIndex, setPrimaryStepIndex] = useState(0);
   const [primaryFeedback, setPrimaryFeedback] = useState("Start with the action that protects you, your partner, and the patient.");
   const [sceneFinding, setSceneFinding] = useState("");
+  const [animalControlResponseActive, setAnimalControlResponseActive] = useState(false);
   const lastGameFeedback = useRef(gameState.feedback);
 
   useEffect(() => {
@@ -462,6 +463,22 @@ export default function EMTScene() {
     });
   }, [gameState.patient]);
 
+  useEffect(() => {
+    const animalControlCalled = hasEvents(gameState, ["ANIMAL_CONTROL_CALLED"]);
+    const dogSecured = hasEvents(gameState, ["DOG_SECURED"]);
+    if (!animalControlCalled || dogSecured) {
+      setAnimalControlResponseActive(false);
+      return;
+    }
+
+    setAnimalControlResponseActive(true);
+    const secureDogTimer = window.setTimeout(() => {
+      dispatchGame({ type: "APPLY_EVENT", event: "DOG_SECURED" });
+    }, 3300);
+
+    return () => window.clearTimeout(secureDogTimer);
+  }, [gameState.triggeredEvents]);
+
   const currentObjective = getCurrentObjective(sceneScenario, gameState);
   const phaseObjectives = sceneScenario.objectives.filter((objective) => objective.phase === gameState.currentPhase);
   const activeStage = STAGES.find((item) => item.key === stage) ?? STAGES[0];
@@ -516,6 +533,7 @@ export default function EMTScene() {
     setPrimaryStepIndex(0);
     setPrimaryFeedback("Start with the action that protects you, your partner, and the patient.");
     setSceneFinding("");
+    setAnimalControlResponseActive(false);
   };
 
   const runSceneAction = (object: InteractiveObjectConfig, actionId: string) => {
@@ -794,6 +812,7 @@ export default function EMTScene() {
             locationId={gameState.locationId}
             inventory={gameState.inventory}
             equippedItems={gameState.equippedItems}
+            animalControlResponseActive={animalControlResponseActive}
             showGuideIntro={false}
             onObjectSelect={(objectId) => dispatchGame({ type: "SELECT_OBJECT", objectId })}
           />
@@ -1030,24 +1049,6 @@ export default function EMTScene() {
             </button>
           </div>
           <h2 className="mt-2 text-lg font-black leading-6 text-white xl:text-xl">{currentObjective.subtleGoal}</h2>
-          <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-            {actionableSceneObjects.map((object) => (
-              <button
-                key={object.id}
-                type="button"
-                data-testid={`scene-object-${object.id}`}
-                onClick={() => dispatchGame({ type: "SELECT_OBJECT", objectId: object.id })}
-                className={`shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-black transition ${object.id === gameState.selectedObjectId
-                  ? "border-teal-200 bg-teal-300 text-slate-950"
-                  : object.enabled === false
-                    ? "border-white/10 bg-white/5 text-slate-400"
-                    : "border-white/15 bg-white/10 text-white hover:border-teal-200/70"
-                  }`}
-              >
-                {object.name}
-              </button>
-            ))}
-          </div>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <button
               type="button"

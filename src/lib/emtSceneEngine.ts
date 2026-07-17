@@ -141,6 +141,7 @@ export type SceneScenarioConfig = {
 export type ScenarioEngineAction =
   | { type: "SELECT_OBJECT"; objectId?: string }
   | { type: "RUN_ACTION"; objectId: string; actionId: string }
+  | { type: "APPLY_EVENT"; event: SceneEvent }
   | { type: "USE_HINT" }
   | { type: "RESET"; scenario?: SceneScenarioConfig }
   | { type: "TOGGLE_ACCESSIBILITY" }
@@ -361,7 +362,7 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
           label: "Request animal control",
           description: "Radio dispatch for animal control and police support.",
           requires: ["RADIO_SELECTED"],
-          successEvents: ["ANIMAL_CONTROL_CALLED", "DOG_SECURED"],
+          successEvents: ["ANIMAL_CONTROL_CALLED"],
           scoreEffect: 10,
           timeEffect: 45,
         },
@@ -651,7 +652,7 @@ function applyEvent(state: ScenarioState, event: SceneEvent): ScenarioState {
     next.focusedObjectId = "dog";
   }
   if (event === "DOG_SELECTED") next.focusedObjectId = "dog";
-  if (event === "DOG_INSPECTED") next.focusedObjectId = "dog";
+  if (event === "DOG_INSPECTED") next.focusedObjectId = "ambulance-radio";
   if (event === "DOG_AGITATED") {
     next.environment = { ...next.environment, dogAgitated: true };
     next.score = Math.max(0, next.score - 8);
@@ -666,6 +667,7 @@ function applyEvent(state: ScenarioState, event: SceneEvent): ScenarioState {
     next.focusedObjectId = "medical-bag";
   }
   if (event === "RADIO_SELECTED") next.focusedObjectId = "ambulance-radio";
+  if (event === "ANIMAL_CONTROL_CALLED") next.focusedObjectId = "dog";
   if (event === "GENERAL_IMPRESSION_OBSERVED") next.focusedObjectId = "patient";
   if (event === "RESPONSIVENESS_CHECKED") next.focusedObjectId = "airway-hotspot";
   if (event === "AIRWAY_OPENED") next.focusedObjectId = "chest-hotspot";
@@ -740,6 +742,8 @@ export function scenarioReducer(
       return { ...state, accessibilityMode: !state.accessibilityMode };
     case "TICK":
       return { ...state, elapsedTime: state.elapsedTime + action.seconds };
+    case "APPLY_EVENT":
+      return completeObjectives(scenario, applyEvent(state, action.event));
     case "USE_HINT": {
       const objective = getCurrentObjective(scenario, state);
       const hintIndex = Math.min(state.hintsUsed, objective.hintLevels.length - 1);
@@ -759,7 +763,22 @@ export function scenarioReducer(
         feedback: object ? `${object.name} selected. Choose an action.` : state.feedback,
       };
       let next = action.objectId === "dog" ? applyEvent(selectedState, "DOG_SELECTED") : selectedState;
-      if (action.objectId === "ambulance-radio") next = applyEvent(next, "RADIO_SELECTED");
+      if (action.objectId === "ambulance-radio") {
+        next = applyEvent(
+          {
+            ...selectedState,
+            selectedObjectId: undefined,
+          },
+          "RADIO_SELECTED"
+        );
+        next = applyEvent(next, "ANIMAL_CONTROL_CALLED");
+        next = {
+          ...next,
+          elapsedTime: next.elapsedTime + 45,
+          score: Math.min(100, next.score + 10),
+        };
+        return completeObjectives(scenario, next);
+      }
       return next;
     }
     case "RUN_ACTION": {

@@ -55,6 +55,7 @@ type ThreeDSceneProps = {
   locationId?: ScenarioState["locationId"];
   inventory?: string[];
   equippedItems?: string[];
+  animalControlResponseActive?: boolean;
   showGuideIntro?: boolean;
   onObjectSelect?: (objectId: string) => void;
 };
@@ -69,6 +70,18 @@ type SceneInteractiveObject = InteractiveObjectConfig & {
   disabledReason?: string;
 };
 
+const STATIC_FOCUS_OBJECTS: Record<string, SceneInteractiveObject> = {
+  dog: {
+    id: "dog",
+    name: "Barking Dog",
+    category: "hazard",
+    actions: [],
+    position: [5.38, 0.72, 1.28],
+    focusPosition: [-1.95, 1.62, -0.75],
+    focusTarget: [4.9, 0.75, 1.25],
+  },
+};
+
 const SCENE_HTML_Z_INDEX_RANGE: [number, number] = [8, 0];
 const NORMAL_CAMERA_POSITION: Vec3 = [-1.95, 1.62, -0.75];
 const NORMAL_CAMERA_TARGET: Vec3 = [4.35, 0.78, 1.2];
@@ -79,6 +92,7 @@ const NORMAL_CAMERA_DISTANCE = Math.hypot(
 );
 const CAMERA_MIN_DISTANCE = 4.6;
 const CAMERA_MAX_DISTANCE = 18.5;
+const CAMERA_MAX_POLAR_ANGLE = Math.PI / 2 - 0.04;
 const GUIDE_PARAMEDIC_POSITION: Vec3 = [0.35, 0.05, 0.95];
 const STAGED_PARAMEDIC_POSITION: Vec3 = [-2.35, 0.05, -1.15];
 const PATIENT_SIDE_PARAMEDIC_POSITION: Vec3 = [1.02, 0.05, 1.3];
@@ -1772,7 +1786,68 @@ function FloatingWalkieTalkie({ position }: { position: Vec3 }) {
   );
 }
 
-function RoadsideFestivalEmergencyScene({ environment }: { environment?: ScenarioState["environment"] }) {
+function AnimalControlResponse({ active }: { active?: boolean }) {
+  const root = useRef<THREE.Group>(null);
+  const dustRefs = useRef<Array<THREE.Mesh | null>>([]);
+
+  useFrame(({ clock }) => {
+    if (!active || !root.current) return;
+    const t = clock.getElapsedTime();
+    root.current.position.y = Math.sin(t * 5.2) * 0.035;
+    dustRefs.current.forEach((dust, index) => {
+      if (!dust) return;
+      const pulse = 1 + ((t * 0.72 + index * 0.21) % 1) * 0.75;
+      dust.scale.setScalar(pulse);
+      const material = dust.material as THREE.MeshStandardMaterial;
+      material.opacity = 0.34 - ((pulse - 1) / 0.75) * 0.22;
+    });
+  });
+
+  if (!active) return null;
+
+  const dustPuffs: Vec3[] = [
+    [0, 0.24, 0],
+    [-0.35, 0.18, 0.22],
+    [0.3, 0.2, -0.28],
+    [0.08, 0.42, 0.32],
+    [-0.16, 0.5, -0.18],
+  ];
+
+  return (
+    <group ref={root} position={[5.25, 0.02, 1.42]} rotation={[0, -0.32, 0]}>
+      <TinyPerson position={[0.72, 0, -0.16]} shirt="#0f766e" rotation={-1.35} scale={0.98} />
+      <mesh position={[0.33, 0.78, -0.02]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[0.012, 0.012, 0.88, 8]} />
+        <meshStandardMaterial color="#475569" roughness={0.7} />
+      </mesh>
+      {dustPuffs.map((position, index) => (
+        <mesh
+          key={`animal-control-dust-${index}`}
+          ref={(node) => {
+            dustRefs.current[index] = node;
+          }}
+          position={position}
+        >
+          <sphereGeometry args={[0.34 - index * 0.025, 10, 10]} />
+          <meshStandardMaterial color="#d7c5a8" transparent opacity={0.24} roughness={1} depthWrite={false} />
+        </mesh>
+      ))}
+      <Html position={[0.34, 1.68, -0.04]} center distanceFactor={7.4} zIndexRange={SCENE_HTML_Z_INDEX_RANGE}>
+        <div className="rounded-lg border border-teal-200/50 bg-slate-950/78 px-2.5 py-1 text-center text-[9px] font-black uppercase tracking-wider text-teal-50 shadow-xl backdrop-blur">
+          Animal control
+        </div>
+      </Html>
+    </group>
+  );
+}
+
+function RoadsideFestivalEmergencyScene({
+  environment,
+  animalControlResponseActive,
+}: {
+  environment?: ScenarioState["environment"];
+  animalControlResponseActive?: boolean;
+}) {
   const cones = useMemo(
     () => [
       [-3.35, 0.11, -3.05, 0.1],
@@ -1806,13 +1881,16 @@ function RoadsideFestivalEmergencyScene({ environment }: { environment?: Scenari
         <circleGeometry args={[1.55, 40]} />
         <meshStandardMaterial color="#7e684f" transparent opacity={0.22} roughness={1} />
       </mesh>
-      <BarkingDog
-        position={[5.38, 0, 1.28]}
-        rotationY={3.1}
-        secured={environment?.dogSecured}
-        agitated={environment?.dogAgitated ?? true}
-        showLabel={false}
-      />
+      {environment?.dogSecured && !animalControlResponseActive ? null : (
+        <BarkingDog
+          position={[5.38, 0, 1.28]}
+          rotationY={3.1}
+          secured={false}
+          agitated={environment?.dogAgitated ?? true}
+          showLabel={false}
+        />
+      )}
+      <AnimalControlResponse active={animalControlResponseActive} />
 
       <ReferenceFence position={[-9.5, 0.05, -2.0]} rotationY={0.05} segments={7} />
       <ReferenceFence position={[6.3, 0.05, -1.9]} rotationY={0.02} segments={5} />
@@ -2187,7 +2265,11 @@ function InteractiveHotspot({
       {labelVisible ? (
         <Html center distanceFactor={compactLabel ? 12 : 9} position={[0, compactLabel ? 0.46 : 0.58, 0]} zIndexRange={SCENE_HTML_Z_INDEX_RANGE}>
           <div
-            className={`${compactLabel ? "max-w-[104px] px-2 py-0.5 text-[8px] leading-3 tracking-[0.08em]" : "max-w-[150px] px-3 py-1 text-[10px] tracking-wider"} rounded-full border text-center font-black uppercase shadow-xl backdrop-blur ${disabled
+            onClick={(event) => {
+              event.stopPropagation();
+              onSelect?.(object.id);
+            }}
+            className={`${compactLabel ? "max-w-[104px] px-2 py-0.5 text-[8px] leading-3 tracking-[0.08em]" : "max-w-[126px] px-2.5 py-0.5 text-[9px] leading-4 tracking-[0.08em]"} pointer-events-auto cursor-pointer rounded-full border text-center font-black uppercase shadow-xl backdrop-blur ${disabled
               ? "border-slate-400/30 bg-slate-950/60 text-slate-300"
               : object.completed
                 ? "border-emerald-200/60 bg-emerald-500/25 text-emerald-50"
@@ -3439,12 +3521,13 @@ export default function ThreeDScene({
   locationId = "ambulance",
   inventory = [],
   equippedItems = [],
+  animalControlResponseActive = false,
   showGuideIntro = true,
   onObjectSelect,
 }: ThreeDSceneProps) {
   const activeScenarioId = normalizeSceneVariant(scenarioId);
   const useRoadsideFestivalScene = activeScenarioId === "anaphylaxis";
-  const focusObject = interactiveObjects.find((object) => object.id === focusedObjectId);
+  const focusObject = interactiveObjects.find((object) => object.id === focusedObjectId) ?? STATIC_FOCUS_OBJECTS[focusedObjectId ?? ""];
   const medicPosition = locationId === "patientSide" ? PATIENT_SIDE_PARAMEDIC_POSITION : STAGED_PARAMEDIC_POSITION;
   const patientPosition: Vec3 = [2.18, 0.08, 1.55];
   const orbitControlsRef = useRef<any>(null);
@@ -3516,7 +3599,14 @@ export default function ThreeDScene({
           shadow-bias={-0.00018}
         />
 
-        {useRoadsideFestivalScene ? <RoadsideFestivalEmergencyScene environment={environment} /> : <BaselineGroundRightTerrain />}
+        {useRoadsideFestivalScene ? (
+          <RoadsideFestivalEmergencyScene
+            environment={environment}
+            animalControlResponseActive={animalControlResponseActive}
+          />
+        ) : (
+          <BaselineGroundRightTerrain />
+        )}
         <GLBParamedicGuide
           position={medicPosition}
           rotationY={0.58}
@@ -3593,6 +3683,7 @@ export default function ThreeDScene({
           makeDefault
           minDistance={CAMERA_MIN_DISTANCE}
           maxDistance={CAMERA_MAX_DISTANCE}
+          maxPolarAngle={CAMERA_MAX_POLAR_ANGLE}
           target={NORMAL_CAMERA_TARGET}
         />
       </Canvas>
