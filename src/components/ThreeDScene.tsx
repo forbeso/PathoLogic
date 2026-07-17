@@ -1,12 +1,22 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { ContactShadows, Html, OrbitControls, Sky, SoftShadows, Text, useGLTF, useAnimations } from "@react-three/drei";
+import {
+  ContactShadows,
+  Html,
+  OrbitControls,
+  Sky,
+  SoftShadows,
+  Text,
+  useAnimations,
+  useGLTF,
+  useProgress,
+} from "@react-three/drei";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type Ref, type RefObject } from "react";
 import * as THREE from "three";
 import type { Group } from "three";
 // import { EMTCharacter } from "@/components/EMTCharacter";
 
 import type { InteractiveObjectConfig, ScenarioState } from "@/lib/emtSceneEngine";
-import { MoveLeft, MoveRight, ZoomIn, ZoomOut } from "lucide-react";
+import { LoaderCircle, MoveLeft, MoveRight, ZoomIn, ZoomOut } from "lucide-react";
 import { Model as BushModel } from "@/components/worldassets/Bush02";
 import { Model as GrassModel } from "@/components/worldassets/SmallGrass01";
 import { Model as PalmTreeModel } from "@/components/worldassets/PalmTree02";
@@ -25,6 +35,8 @@ import {
   DownloadedBenchModel,
   DownloadedBuildingModel,
   DownloadedConeModel,
+  DownloadedEchinaceaModel,
+  DownloadedFlowerModel,
   DownloadedGroundPlatformModel,
   DownloadedGrassModel,
   DownloadedLargeBuildingModel,
@@ -37,6 +49,7 @@ import {
   DownloadedTerrainGroundModel,
   DownloadedTerrainGroundRightModel,
   DownloadedTerrainSandModel,
+  DownloadedTulipModel,
   DownloadedWindmillModel,
 } from "@/components/worldassets/CustomSceneAssets";
 
@@ -387,6 +400,52 @@ function CloudCluster({
         <meshStandardMaterial color="#ffffff" transparent opacity={0.9} roughness={1} />
       </mesh>
     </group>
+  );
+}
+
+function SkyGradient() {
+  const uniforms = useMemo(
+    () => ({
+      topColor: { value: new THREE.Color("#69c6ff") },
+      middleColor: { value: new THREE.Color("#b8e8ff") },
+      bottomColor: { value: new THREE.Color("#f2fbff") },
+    }),
+    []
+  );
+
+  return (
+    <mesh renderOrder={-1000}>
+      <sphereGeometry args={[92, 36, 18]} />
+      <shaderMaterial
+        side={THREE.BackSide}
+        depthWrite={false}
+        depthTest={false}
+        fog={false}
+        uniforms={uniforms}
+        vertexShader={`
+          varying vec3 vWorldPosition;
+
+          void main() {
+            vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+            vWorldPosition = worldPosition.xyz;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `}
+        fragmentShader={`
+          uniform vec3 topColor;
+          uniform vec3 middleColor;
+          uniform vec3 bottomColor;
+          varying vec3 vWorldPosition;
+
+          void main() {
+            float h = normalize(vWorldPosition).y * 0.5 + 0.5;
+            vec3 lowBand = mix(bottomColor, middleColor, smoothstep(0.0, 0.58, h));
+            vec3 sky = mix(lowBand, topColor, smoothstep(0.42, 1.0, h));
+            gl_FragColor = vec4(sky, 1.0);
+          }
+        `}
+      />
+    </mesh>
   );
 }
 
@@ -1533,6 +1592,21 @@ function RoadsideFestivalGround() {
       [0.4, 0.04, -11.9, 0.3, 0.4],
       [5.8, 0.04, -12.35, 0.34, -0.25],
       [9.2, 0.04, -11.15, 0.32, 0.55],
+      [-13.5, 0.04, 5.2, 0.34, -0.15],
+      [-10.4, 0.04, 7.4, 0.28, 0.46],
+      [-6.8, 0.04, 6.6, 0.3, -0.4],
+      [-2.4, 0.04, 7.9, 0.34, 0.2],
+      [2.1, 0.04, 7.6, 0.31, -0.65],
+      [6.5, 0.04, 6.2, 0.29, 0.35],
+      [10.8, 0.04, 7.1, 0.33, -0.2],
+      [13.4, 0.04, 4.9, 0.28, 0.55],
+      [-14.8, 0.04, -9.9, 0.31, 0.34],
+      [13.6, 0.04, -9.7, 0.29, -0.28],
+      [-12.8, 0.04, -14.2, 0.35, -0.72],
+      [-7.6, 0.04, -15.1, 0.28, 0.2],
+      [-1.8, 0.04, -15.6, 0.3, -0.36],
+      [4.4, 0.04, -15.0, 0.34, 0.68],
+      [11.8, 0.04, -14.1, 0.32, -0.18],
     ] as Array<[number, number, number, number, number]>,
     []
   );
@@ -1549,47 +1623,59 @@ function RoadsideFestivalGround() {
       [7.05, 0.04, 0.6, 0.3, 0.35],
       [-8.6, 0.04, -8.15, 0.42, -0.5],
       [8.3, 0.04, -8.4, 0.38, 0.2],
+      [-12.9, 0.04, 3.7, 0.32, 0.45],
+      [-9.7, 0.04, 5.8, 0.26, -0.3],
+      [-4.7, 0.04, 6.95, 0.22, 0.18],
+      [4.8, 0.04, 6.75, 0.24, -0.24],
+      [9.3, 0.04, 5.45, 0.3, 0.66],
+      [12.7, 0.04, 3.55, 0.34, -0.4],
+      [-13.3, 0.04, -12.5, 0.38, 0.1],
+      [12.2, 0.04, -12.2, 0.36, -0.55],
     ] as Array<[number, number, number, number, number]>,
     []
   );
 
   return (
     <group>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.018, -1.4]} receiveShadow>
-        <planeGeometry args={[30, 24]} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.022, -2.4]} receiveShadow>
+        <planeGeometry args={[52, 42]} />
         <meshStandardMaterial color="#78a64e" roughness={0.98} />
       </mesh>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.018, -10.8]} receiveShadow>
+        <planeGeometry args={[52, 16]} />
+        <meshStandardMaterial color="#86aa58" roughness={0.98} />
+      </mesh>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.006, 1.2]} receiveShadow>
-        <circleGeometry args={[6.9, 48]} />
+        <circleGeometry args={[8.4, 56]} />
         <meshStandardMaterial color="#a98258" roughness={1} />
       </mesh>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.012, 1.2]} receiveShadow>
-        <circleGeometry args={[4.65, 42]} />
+        <circleGeometry args={[5.8, 48]} />
         <meshStandardMaterial color="#b08862" roughness={1} transparent opacity={0.72} />
       </mesh>
 
       <mesh position={[0, 0.045, -4.55]} receiveShadow>
-        <boxGeometry args={[24, 0.08, 3.42]} />
+        <boxGeometry args={[34, 0.08, 3.42]} />
         <meshStandardMaterial color="#30383b" roughness={0.94} />
       </mesh>
       <mesh position={[0, 0.027, -2.72]} receiveShadow>
-        <boxGeometry args={[24.4, 0.045, 0.36]} />
+        <boxGeometry args={[34.4, 0.045, 0.36]} />
         <meshStandardMaterial color="#c4b08d" roughness={0.98} />
       </mesh>
       <mesh position={[0, 0.027, -6.4]} receiveShadow>
-        <boxGeometry args={[24.4, 0.045, 0.38]} />
+        <boxGeometry args={[34.4, 0.045, 0.38]} />
         <meshStandardMaterial color="#bda47c" roughness={0.98} />
       </mesh>
       <mesh position={[0, 0.09, -2.93]} receiveShadow>
-        <boxGeometry args={[24.2, 0.02, 0.045]} />
+        <boxGeometry args={[34.2, 0.02, 0.045]} />
         <meshStandardMaterial color="#f3ead4" roughness={0.72} />
       </mesh>
       <mesh position={[0, 0.092, -6.19]} receiveShadow>
-        <boxGeometry args={[24.2, 0.02, 0.045]} />
+        <boxGeometry args={[34.2, 0.02, 0.045]} />
         <meshStandardMaterial color="#f3ead4" roughness={0.72} />
       </mesh>
-      {Array.from({ length: 12 }, (_, index) => (
-        <mesh key={`road-center-mark-${index}`} position={[-11 + index * 2, 0.097, -4.55]} receiveShadow>
+      {Array.from({ length: 17 }, (_, index) => (
+        <mesh key={`road-center-mark-${index}`} position={[-16 + index * 2, 0.097, -4.55]} receiveShadow>
           <boxGeometry args={[1.08, 0.018, 0.055]} />
           <meshStandardMaterial color="#e7c95d" roughness={0.7} />
         </mesh>
@@ -1666,51 +1752,207 @@ function RoadsideBuntingLine({ position, rotationY = 0, width = 8.5 }: { positio
 }
 
 function RoadsideVillageBackdrop() {
-  const buildings = useMemo(
+  const mountains = useMemo(
     () => [
-      { kind: "small" as const, position: [-8.0, 0.03, -11.5] as Vec3, rotationY: 0.14, scale: 0.5 },
-      { kind: "standard" as const, position: [-6.75, 0.03, -11.75] as Vec3, rotationY: 0.12, scale: 0.48 },
-      { kind: "large" as const, position: [-5.35, 0.03, -11.95] as Vec3, rotationY: 0.1, scale: 0.43 },
-      { kind: "small" as const, position: [-3.95, 0.03, -12.1] as Vec3, rotationY: 0.08, scale: 0.48 },
-      { kind: "standard" as const, position: [3.85, 0.03, -11.95] as Vec3, rotationY: -0.08, scale: 0.47 },
-      { kind: "small" as const, position: [5.15, 0.03, -11.75] as Vec3, rotationY: -0.1, scale: 0.48 },
-      { kind: "large" as const, position: [6.55, 0.03, -11.55] as Vec3, rotationY: -0.12, scale: 0.42 },
-      { kind: "standard" as const, position: [7.95, 0.03, -11.3] as Vec3, rotationY: -0.14, scale: 0.46 },
-    ],
+      [-18.5, 0.95, -20.5, 4.6, 2.3, 3.4, "#8fa2a0", -0.16],
+      [-13.5, 1.35, -21.6, 5.2, 3.0, 3.8, "#7f9696", 0.08],
+      [-8.3, 1.18, -20.9, 4.7, 2.65, 3.6, "#9aae99", -0.04],
+      [-2.2, 1.62, -22.2, 5.6, 3.55, 4.1, "#7e9498", 0.12],
+      [4.1, 1.32, -21.2, 5.1, 2.9, 3.7, "#8ea29c", -0.08],
+      [9.9, 1.52, -22.0, 5.8, 3.4, 4.0, "#7d9294", 0.06],
+      [15.7, 1.05, -20.6, 4.9, 2.45, 3.5, "#9aac96", 0.14],
+      [-21.0, 0.7, -17.8, 3.7, 1.75, 2.8, "#a0b58b", 0.12],
+      [-4.9, 0.82, -18.1, 4.1, 1.95, 3.0, "#a5b783", -0.12],
+      [17.9, 0.78, -18.0, 4.0, 1.8, 2.9, "#9fb487", -0.1],
+      [-17.6, 1.0, 16.2, 4.2, 2.2, 3.3, "#8ca099", 0.18],
+      [-12.4, 1.28, 17.4, 5.0, 2.85, 3.8, "#7f9494", -0.06],
+      [-6.6, 1.12, 16.8, 4.5, 2.55, 3.5, "#9aab92", 0.08],
+      [-0.8, 1.56, 18.1, 5.3, 3.35, 4.0, "#7e9396", -0.12],
+      [5.35, 1.24, 17.2, 4.9, 2.75, 3.7, "#8da29b", 0.1],
+      [11.1, 1.45, 18.0, 5.5, 3.2, 4.0, "#7d9293", -0.04],
+      [16.8, 1.04, 16.4, 4.6, 2.4, 3.4, "#98ab91", -0.16],
+    ] as Array<[number, number, number, number, number, number, string, number]>,
     []
   );
-  const trees = useMemo(
+  const treeLine = useMemo(
     () => [
-      [-10.3, 0.02, -8.9, 0.76, 0],
-      [-8.9, 0.02, -10.1, 0.58, 1],
-      [-1.8, 0.02, -10.6, 0.54, 2],
-      [0.4, 0.02, -10.9, 0.62, 0],
-      [2.2, 0.02, -10.35, 0.58, 1],
-      [8.9, 0.02, -10.0, 0.55, 2],
-      [10.2, 0.02, -8.7, 0.72, 0],
-      [-11.6, 0.02, -2.8, 0.62, 1],
-      [11.3, 0.02, -2.95, 0.68, 2],
+      [-18.2, 0.02, -20.4, 0.34, 0],
+      [-13.8, 0.02, -21.1, 0.4, 1],
+      [-8.6, 0.02, -20.7, 0.35, 2],
+      [-3.4, 0.02, -21.4, 0.38, 0],
+      [2.2, 0.02, -20.8, 0.35, 1],
+      [7.9, 0.02, -21.3, 0.39, 2],
+      [13.6, 0.02, -20.6, 0.36, 0],
+      [18.0, 0.02, -21.0, 0.34, 1],
+      [-18.6, 0.02, 23.2, 0.36, 0],
+      [-13.5, 0.02, 24.1, 0.42, 1],
+      [-8.0, 0.02, 23.5, 0.36, 2],
+      [-2.6, 0.02, 24.4, 0.4, 0],
+      [3.1, 0.02, 23.7, 0.37, 1],
+      [8.7, 0.02, 24.3, 0.42, 2],
+      [14.3, 0.02, 23.5, 0.37, 0],
+      [18.8, 0.02, 24.0, 0.35, 1],
+    ] as Array<[number, number, number, number, number]>,
+    []
+  );
+  const parkBenches = useMemo(
+    () => [
+      [-10.5, 0.5, -14.8, Math.PI + 0.28],
+      [9.2, 0.5, -14.9, Math.PI - 0.3],
+      [7.1, 0.5, 7.2, -0.72],
+    ] as Array<[number, number, number, number]>,
+    []
+  );
+  const festivalBooths = useMemo(
+    () => [
+      [-12.2, 0.02, -11.05, "#e9f6f1"],
+      [-5.15, 0.02, -12.25, "#e3b64c"],
+      [4.7, 0.02, -11.9, "#d84f43"],
+      [11.8, 0.02, -10.75, "#edf7ec"],
+    ] as Array<[number, number, number, string]>,
+    []
+  );
+  const hillsideRocks = useMemo(
+    () => [
+      [-15.8, 0.04, -10.35, 0.52, 0.28],
+      [-13.7, 0.04, -8.75, 0.36, -0.4],
+      [-10.4, 0.04, -10.7, 0.42, 0.72],
+      [-7.65, 0.04, -9.2, 0.32, -0.1],
+      [-3.4, 0.04, -10.65, 0.46, -0.5],
+      [1.3, 0.04, -10.5, 0.38, 0.2],
+      [4.95, 0.04, -9.1, 0.34, -0.72],
+      [8.2, 0.04, -10.45, 0.44, 0.48],
+      [11.85, 0.04, -8.85, 0.36, -0.35],
+      [15.3, 0.04, -10.35, 0.5, 0.1],
+    ] as Array<[number, number, number, number, number]>,
+    []
+  );
+  const hillsideGrass = useMemo(
+    () => [
+      [-16.9, 0.04, -9.55, 0.32, 0.22],
+      [-14.8, 0.04, -11.35, 0.28, -0.45],
+      [-11.4, 0.04, -9.25, 0.3, 0.12],
+      [-8.5, 0.04, -11.0, 0.26, 0.6],
+      [-5.15, 0.04, -9.45, 0.31, -0.3],
+      [-1.15, 0.04, -11.2, 0.27, 0.4],
+      [2.3, 0.04, -9.45, 0.29, -0.2],
+      [5.65, 0.04, -11.15, 0.32, 0.55],
+      [9.3, 0.04, -9.25, 0.28, -0.35],
+      [12.4, 0.04, -11.0, 0.3, 0.18],
+      [15.9, 0.04, -9.55, 0.32, -0.5],
+    ] as Array<[number, number, number, number, number]>,
+    []
+  );
+  const echinaceaPatches = useMemo(
+    () => [
+      [-10.7, 0.03, -8.25, 0.62, 0.2],
+      [2.4, 0.03, -9.1, 0.56, -0.45],
+      [7.4, 0.03, 9.7, 0.6, 0.35],
+    ] as Array<[number, number, number, number, number]>,
+    []
+  );
+  const flowerPatches = useMemo(
+    () => [
+      [-5.9, 0.03, -9.2, 2.05, -0.25],
+      [-8.9, 0.03, 7.25, 1.9, 0.5],
+    ] as Array<[number, number, number, number, number]>,
+    []
+  );
+  const tulipPatches = useMemo(
+    () => [
+      [-2.9, 0.46, -8.8, 0.9, -0.3],
+      [5.7, 0.46, -9.15, 0.9, 0.42],
+      [-5.7, 0.46, 9.8, 0.9, 0.18],
+      [10.5, 0.46, 5.2, 0.9, -0.5],
     ] as Array<[number, number, number, number, number]>,
     []
   );
 
   return (
     <group>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.008, -10.55]} receiveShadow>
-        <planeGeometry args={[24, 7]} />
-        <meshStandardMaterial color="#91ad5b" roughness={0.98} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.004, -14.2]} receiveShadow>
+        <planeGeometry args={[58, 22]} />
+        <meshStandardMaterial color="#9ab363" roughness={0.98} />
       </mesh>
-      {buildings.map((building, index) => (
-        <BackgroundCityBuilding key={`roadside-village-${index}`} {...building} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.004, 14.6]} receiveShadow>
+        <planeGeometry args={[58, 25]} />
+        <meshStandardMaterial color="#95b060" roughness={0.98} />
+      </mesh>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.012, -10.25]} receiveShadow>
+        <planeGeometry args={[52, 5.6]} />
+        <meshStandardMaterial color="#8fb258" roughness={0.98} transparent opacity={0.82} />
+      </mesh>
+      {mountains.map(([x, y, z, sx, sy, sz, color, rotation], index) => (
+        <group
+          key={`roadside-mountain-${index}`}
+          position={[x, y + sy * 0.2, z + (z > 0 ? 10.5 : -4.5)]}
+          rotation={[0, rotation, 0]}
+          scale={[sx * 1.22, sy * 1.42, sz * 1.14]}
+        >
+          <mesh castShadow receiveShadow>
+            <coneGeometry args={[0.75, 1, 5]} />
+            <meshStandardMaterial color={color} roughness={1} fog={false} />
+          </mesh>
+          <mesh position={[0, 0.23, 0.02]} scale={[0.42, 0.32, 0.42]} castShadow receiveShadow>
+            <coneGeometry args={[0.75, 1, 5]} />
+            <meshStandardMaterial color="#bdd2b2" roughness={1} transparent opacity={0.82} fog={false} />
+          </mesh>
+        </group>
       ))}
-      <DistantSteeple position={[0.2, 0.03, -11.85]} scale={0.88} />
-      <DistantTower position={[9.85, 0.03, -10.7]} scale={0.62} />
-      {trees.map(([x, y, z, scale, variant], index) => (
+      {treeLine.map(([x, y, z, scale, variant], index) => (
         <WorldTree key={`roadside-tree-${index}`} position={[x, y, z]} scale={scale} variant={variant} />
       ))}
-      <DistantBooth position={[-2.75, 0.02, -8.55]} color="#e9f6f1" />
-      <DistantBooth position={[3.15, 0.02, -8.75]} color="#d84f43" />
-      <DistantBooth position={[5.25, 0.02, -8.95]} color="#edf7ec" />
+      {parkBenches.map(([x, y, z, rotation], index) => (
+        <DownloadedBenchModel
+          key={`roadside-park-bench-${index}`}
+          position={[x, y, z]}
+          scale={0.3}
+          rotation={[0, rotation, 0]}
+        />
+      ))}
+      {hillsideRocks.map(([x, y, z, scale, rotation], index) => (
+        <DownloadedMossyRockModel
+          key={`roadside-hill-rock-${index}`}
+          position={[x, y, z]}
+          scale={scale}
+          rotation={[0, rotation, 0]}
+        />
+      ))}
+      {hillsideGrass.map(([x, y, z, scale, rotation], index) => (
+        <DownloadedGrassModel
+          key={`roadside-hill-grass-${index}`}
+          position={[x, y, z]}
+          scale={scale}
+          rotation={[0, rotation, 0]}
+        />
+      ))}
+      {echinaceaPatches.map(([x, y, z, scale, rotation], index) => (
+        <DownloadedEchinaceaModel
+          key={`roadside-echinacea-${index}`}
+          position={[x, y + scale * 1.15, z]}
+          scale={scale}
+          rotation={[-Math.PI / 2, rotation, 0]}
+        />
+      ))}
+      {flowerPatches.map(([x, y, z, scale, rotation], index) => (
+        <DownloadedFlowerModel
+          key={`roadside-flower-${index}`}
+          position={[x, y, z]}
+          scale={scale}
+          rotation={[0, rotation, 0]}
+        />
+      ))}
+      {tulipPatches.map(([x, y, z, scale, rotation], index) => (
+        <DownloadedTulipModel
+          key={`roadside-tulip-${index}`}
+          position={[x, y, z]}
+          scale={scale}
+          rotation={[0, rotation, 0]}
+        />
+      ))}
+      {festivalBooths.map(([x, y, z, color], index) => (
+        <DistantBooth key={`roadside-festival-booth-${index}`} position={[x, y, z]} color={color} />
+      ))}
       <FestivalRoadsideSign />
       <RoadsideBuntingLine position={[-3.7, 0.02, -8.05]} rotationY={0.08} width={8} />
       <RoadsideBuntingLine position={[4.65, 0.02, -8.2]} rotationY={-0.08} width={7.8} />
@@ -1869,7 +2111,8 @@ function RoadsideFestivalEmergencyScene({
       <CustomAmbulanceModel position={[-4.55, 0.96, -4.78]} scale={3.78} rotation={[0, 0.34, 0]} />
       <AmbulanceLightGlow position={[-4.78, 2.22, -3.78]} />
       <FloatingWalkieTalkie position={[-4.55, 2.78, -3.52]} />
-      <DamagedCar position={[3.85, 0.08, -4.72]} />
+      {/* DamagedCar is intentionally hidden for this focused single-scene pass. */}
+      {/* <DamagedCar position={[3.85, 0.08, -4.72]} /> */}
 
       {cones.map(([x, y, z, rotation], index) => (
         <DownloadedConeModel key={`roadside-cone-${index}`} position={[x, y, z]} scale={0.3} rotation={[0, rotation, 0]} />
@@ -2087,9 +2330,11 @@ function FindingBubble({ text, speaker = "coach" }: { text?: string; speaker?: "
 function CameraDirector({
   focusObject,
   locationId = "ambulance",
+  controlsRef,
 }: {
   focusObject?: SceneInteractiveObject;
   locationId?: ScenarioState["locationId"];
+  controlsRef?: RefObject<any>;
 }) {
   const { camera } = useThree();
   const target = useMemo(() => new THREE.Vector3(), []);
@@ -2114,7 +2359,14 @@ function CameraDirector({
     desiredPosition.set(...(focusObject?.focusPosition ?? fallbackPosition));
     target.set(...(focusObject?.focusTarget ?? fallbackTarget));
     camera.position.lerp(desiredPosition, 0.045);
-    camera.lookAt(target);
+
+    const controls = controlsRef?.current;
+    if (controls?.target) {
+      controls.target.lerp(target, 0.06);
+      controls.update?.();
+    } else {
+      camera.lookAt(target);
+    }
   });
 
   return null;
@@ -2202,14 +2454,104 @@ function SceneViewControls({
   );
 }
 
+function SceneLoadingOverlay() {
+  const { active, errors, progress, total } = useProgress();
+  const [minimumElapsed, setMinimumElapsed] = useState(false);
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setMinimumElapsed(true), 850);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  const complete =
+    minimumElapsed &&
+    !active &&
+    (total === 0 || progress >= 99.5 || errors.length > 0);
+
+  useEffect(() => {
+    if (active) {
+      setVisible(true);
+      return;
+    }
+    if (!complete) return;
+
+    const timer = window.setTimeout(() => setVisible(false), 450);
+    return () => window.clearTimeout(timer);
+  }, [active, complete]);
+
+  if (!visible) return null;
+
+  const displayedProgress =
+    total > 0
+      ? Math.min(100, Math.max(6, Math.round(progress)))
+      : minimumElapsed
+        ? 100
+        : 10;
+
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      aria-label="Preparing EMT training scene"
+      className={`pointer-events-auto absolute inset-0 z-[100] flex items-center justify-center overflow-hidden bg-[#071a29] px-6 transition-opacity duration-500 ${
+        complete ? "opacity-0" : "opacity-100"
+      }`}
+    >
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_35%,rgba(45,212,191,0.14),transparent_42%)]" />
+      <div className="relative flex w-full max-w-sm flex-col items-center text-center">
+        <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-lg border border-teal-300/30 bg-teal-300/10 shadow-lg shadow-black/20">
+          <LoaderCircle
+            aria-hidden="true"
+            className={complete ? "text-teal-200" : "animate-spin text-teal-300"}
+            size={29}
+            strokeWidth={2.2}
+          />
+        </div>
+        <p className="text-[11px] font-black uppercase tracking-[0.22em] text-teal-300">
+          PathoLogix
+        </p>
+        <h2 className="mt-2 text-2xl font-bold text-white">Preparing EMT Scene</h2>
+        <p className="mt-2 text-sm leading-6 text-slate-300">
+          {complete
+            ? "Your training scene is ready."
+            : "Loading the environment and medical assets."}
+        </p>
+
+        <div className="mt-7 w-full">
+          <div className="mb-2 flex items-center justify-between text-xs font-semibold text-slate-300">
+            <span>Scene assets</span>
+            <span className="tabular-nums text-teal-200">{displayedProgress}%</span>
+          </div>
+          <div
+            role="progressbar"
+            aria-label="Scene loading progress"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={displayedProgress}
+            className="h-1.5 overflow-hidden rounded-full bg-white/10"
+          >
+            <div
+              className="h-full rounded-full bg-teal-300 transition-[width] duration-300 ease-out"
+              style={{ width: `${displayedProgress}%` }}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function InteractiveHotspot({
   object,
   selected,
+  suggested,
   accessibilityMode,
   onSelect,
 }: {
   object: SceneInteractiveObject;
   selected: boolean;
+  suggested?: boolean;
   accessibilityMode?: boolean;
   onSelect?: (objectId: string) => void;
 }) {
@@ -2217,11 +2559,11 @@ function InteractiveHotspot({
   const mesh = useRef<THREE.Mesh>(null);
   const color = object.completed ? "#34d399" : object.highlightColor ?? "#2dd4bf";
   const disabled = object.enabled === false;
-  const suggested = !disabled && !object.completed;
-  const highlightVisible = accessibilityMode || hovered || selected || suggested || object.category === "movement";
-  const labelVisible = accessibilityMode || hovered || selected || suggested || object.category === "movement";
+  const isSuggested = Boolean(suggested && !disabled && !object.completed);
+  const highlightVisible = accessibilityMode || hovered || selected || isSuggested || object.category === "movement";
+  const labelVisible = accessibilityMode || hovered || selected || isSuggested || object.category === "movement";
   const compactLabel = object.category === "movement";
-  const labelText = suggested && !selected ? `Select ${object.name}` : object.name;
+  const labelText = isSuggested && !selected ? `Select ${object.name}` : object.name;
 
   useEffect(() => {
     if (!hovered) return;
@@ -2234,7 +2576,7 @@ function InteractiveHotspot({
 
   useFrame(({ clock }) => {
     if (!mesh.current) return;
-    const pulse = 1 + Math.sin(clock.getElapsedTime() * 3.2) * (suggested ? 0.14 : 0.08);
+    const pulse = 1 + Math.sin(clock.getElapsedTime() * 3.2) * (isSuggested ? 0.14 : 0.08);
     mesh.current.scale.setScalar(selected ? pulse * 1.12 : pulse);
   });
 
@@ -2256,9 +2598,9 @@ function InteractiveHotspot({
         <meshStandardMaterial
           color={disabled ? "#64748b" : color}
           emissive={disabled ? "#111827" : color}
-          emissiveIntensity={highlightVisible ? (suggested ? 0.75 : 0.55) : 0.12}
+          emissiveIntensity={highlightVisible ? (isSuggested ? 0.75 : 0.55) : 0.12}
           transparent
-          opacity={highlightVisible ? (disabled ? 0.18 : suggested ? 0.36 : 0.3) : 0.03}
+          opacity={highlightVisible ? (disabled ? 0.18 : isSuggested ? 0.36 : 0.3) : 0.03}
           depthWrite={false}
         />
       </mesh>
@@ -2287,11 +2629,13 @@ function InteractiveHotspot({
 function InteractiveLayer({
   objects,
   selectedObjectId,
+  focusedObjectId,
   accessibilityMode,
   onObjectSelect,
 }: {
   objects: SceneInteractiveObject[];
   selectedObjectId?: string;
+  focusedObjectId?: string;
   accessibilityMode?: boolean;
   onObjectSelect?: (objectId: string) => void;
 }) {
@@ -2302,6 +2646,7 @@ function InteractiveLayer({
           key={object.id}
           object={object}
           selected={object.id === selectedObjectId}
+          suggested={object.id === focusedObjectId}
           accessibilityMode={accessibilityMode}
           onSelect={onObjectSelect}
         />
@@ -2328,13 +2673,18 @@ function BarkingDog({
 
   useFrame(({ clock }) => {
     const t = clock.getElapsedTime();
+    const shouldBarkJump = Boolean(agitated && !secured);
+    const barkCycle = (t % 2.4) / 2.4;
+    const jumpPulse = shouldBarkJump && barkCycle < 0.18 ? Math.sin((barkCycle / 0.18) * Math.PI) : 0;
     if (root.current) {
       root.current.position.x = position[0] + (agitated && !secured ? Math.sin(t * 4.8) * 0.08 : 0);
+      root.current.position.y = position[1] + jumpPulse * 0.18;
       root.current.position.z = position[2] + (agitated && !secured ? Math.cos(t * 4.4) * 0.05 : 0);
+      root.current.rotation.z = jumpPulse * 0.04;
     }
     if (head.current) {
       head.current.rotation.y = Math.sin(t * (secured ? 0.9 : 3.4)) * (secured ? 0.08 : 0.22);
-      head.current.rotation.x = -0.08 + Math.sin(t * 5.5) * (secured ? 0.02 : 0.08);
+      head.current.rotation.x = -0.08 + Math.sin(t * 5.5) * (secured ? 0.02 : 0.08) - jumpPulse * 0.16;
     }
   });
 
@@ -3577,8 +3927,9 @@ export default function ThreeDScene({
   return (
     <div className="relative h-full w-full" style={{ height }}>
       <Canvas shadows dpr={[1, 1.5]} camera={{ position: NORMAL_CAMERA_POSITION, fov: 50 }}>
-        <color attach="background" args={["#86d4ff"]} />
+        <color attach="background" args={["#a9e5ff"]} />
         <fog attach="fog" args={["#dcf4ff", 66, 132]} />
+        <SkyGradient />
         <SoftShadows size={24} samples={12} focus={0.45} />
 
         <ambientLight intensity={0.9} />
@@ -3638,10 +3989,11 @@ export default function ThreeDScene({
         <InteractiveLayer
           objects={interactiveObjects}
           selectedObjectId={selectedObjectId}
+          focusedObjectId={focusedObjectId}
           accessibilityMode={accessibilityMode}
           onObjectSelect={onObjectSelect}
         />
-        <CameraDirector focusObject={focusObject} locationId={locationId} />
+        <CameraDirector focusObject={focusObject} locationId={locationId} controlsRef={orbitControlsRef} />
 
         {/*
           Scene reset baseline, 2026-07-12:
@@ -3669,10 +4021,11 @@ export default function ThreeDScene({
           <InteractiveLayer
             objects={interactiveObjects}
             selectedObjectId={selectedObjectId}
+            focusedObjectId={focusedObjectId}
             accessibilityMode={accessibilityMode}
             onObjectSelect={onObjectSelect}
           />
-          <CameraDirector focusObject={focusObject} locationId={locationId} />
+          <CameraDirector focusObject={focusObject} locationId={locationId} controlsRef={orbitControlsRef} />
         */}
 
         <OrbitControls
@@ -3687,6 +4040,7 @@ export default function ThreeDScene({
           target={NORMAL_CAMERA_TARGET}
         />
       </Canvas>
+      <SceneLoadingOverlay />
       <MobileParamedicGuideDialogue
         step={guideStep}
         userName={guideName}

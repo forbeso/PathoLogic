@@ -26,11 +26,12 @@ export type SceneEvent =
   | "DOG_SELECTED"
   | "DOG_INSPECTED"
   | "DOG_AGITATED"
+  | "CAR_INSPECTED"
+  | "BYSTANDERS_QUESTIONED"
   | "RADIO_SELECTED"
   | "ANIMAL_CONTROL_CALLED"
   | "DOG_SECURED"
   | "MEDICAL_BAG_OPENED"
-  | "GLOVES_COLLECTED"
   | "GLOVES_EQUIPPED"
   | "PPE_EQUIPPED"
   | "PATIENT_APPROACHED"
@@ -39,6 +40,9 @@ export type SceneEvent =
   | "AIRWAY_OPENED"
   | "RESPIRATIONS_COUNTED"
   | "PULSE_CHECKED"
+  | "BLOOD_PRESSURE_OBTAINED"
+  | "SPO2_OBTAINED"
+  | "WORKING_IMPRESSION_SELECTED"
   | "TRANSPORT_SELECTED"
   | "SECONDARY_UNLOCKED";
 
@@ -63,6 +67,7 @@ export type InteractiveObjectConfig = {
   name: string;
   category: ObjectCategory;
   actions: InteractionAction[];
+  optional?: boolean;
   visibleWhen?: string[];
   enabledWhen?: string[];
   completedWhen?: string[];
@@ -89,6 +94,8 @@ export type PatientVitals = {
   spo2: number;
 };
 
+export type PatientVitalKey = keyof PatientVitals;
+
 export type ScenarioState = {
   currentPhase: ScenarioPhase;
   currentObjectiveId: string;
@@ -113,6 +120,7 @@ export type ScenarioState = {
     dogAgitated: boolean;
   };
   patient: {
+    workingImpression?: string;
     responsiveness: string;
     airwayStatus: string;
     breathingStatus: string;
@@ -120,6 +128,8 @@ export type ScenarioState = {
     position: string;
     oxygenApplied: boolean;
     medicationGiven: string[];
+    findingsDiscovered: string[];
+    vitalsRevealed: PatientVitalKey[];
     vitals: PatientVitals;
   };
 };
@@ -149,10 +159,10 @@ export type ScenarioEngineAction =
 
 export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
   id: "anaphylaxis-festival",
-  title: "Allergic Reaction at a Festival",
-  dispatch: "Teen short of breath after eating dessert containing nuts. Respond from the ambulance staging point.",
+  title: "Teen With Shortness of Breath",
+  dispatch: "Teen short of breath at a community festival. Respond from the ambulance staging point.",
   sceneReport:
-    "Outdoor festival first-aid area. The patient is visible near the treatment area, but a barking dog is between you and the patient.",
+    "Outdoor festival first-aid area. The patient is visible near the treatment area. A barking dog is between you and the patient.",
   startingLocation: "ambulance",
   initialPhase: "sceneSafety",
   currentObjectiveId: "inspect-dog",
@@ -164,6 +174,7 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
     dogAgitated: false,
   },
   patientInitialState: {
+    workingImpression: undefined,
     responsiveness: "Alert, anxious, speaking in short phrases",
     airwayStatus: "Patent, throat tightness reported",
     breathingStatus: "Wheezing with increased work of breathing",
@@ -171,6 +182,8 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
     position: "on-ground",
     oxygenApplied: false,
     medicationGiven: [],
+    findingsDiscovered: [],
+    vitalsRevealed: [],
     vitals: {
       heartRate: 128,
       respiratoryRate: 28,
@@ -182,8 +195,8 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
   objectives: [
     {
       id: "inspect-dog",
-      label: "Inspect Hazard",
-      subtleGoal: "Observe from the ambulance staging point and inspect the barking dog.",
+      label: "Scene Size-Up",
+      subtleGoal: "Make the scene safe before approaching the patient.",
       phase: "sceneSafety",
       requiredEvents: ["DOG_INSPECTED"],
       hintLevels: [
@@ -194,8 +207,8 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
     },
     {
       id: "use-radio",
-      label: "Use Radio",
-      subtleGoal: "Use the ambulance radio to request help.",
+      label: "Additional Resources",
+      subtleGoal: "Request the resources needed to control the scene.",
       phase: "sceneSafety",
       requiredEvents: ["RADIO_SELECTED", "ANIMAL_CONTROL_CALLED"],
       hintLevels: [
@@ -273,6 +286,22 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
       hintLevels: ["Check pulse and skin signs.", "Use the wrist hotspot.", "Check the radial pulse."],
     },
     {
+      id: "baseline-vitals",
+      label: "Baseline Vitals",
+      subtleGoal: "Gather baseline vital signs using equipment.",
+      phase: "primaryAssessment",
+      requiredEvents: ["BLOOD_PRESSURE_OBTAINED", "SPO2_OBTAINED"],
+      hintLevels: ["Not all vital signs come from looking.", "Use equipment after the ABCs.", "Use the blood pressure cuff and pulse oximeter."],
+    },
+    {
+      id: "working-impression",
+      label: "Working Impression",
+      subtleGoal: "Use the gathered findings to form a working impression.",
+      phase: "primaryAssessment",
+      requiredEvents: ["WORKING_IMPRESSION_SELECTED"],
+      hintLevels: ["Connect the respiratory distress with the skin findings.", "Consider allergy exposure plus hypotension.", "Choose severe allergic reaction with shock signs."],
+    },
+    {
       id: "transport-priority",
       label: "Transport Priority",
       subtleGoal: "Decide transport urgency from your findings.",
@@ -347,14 +376,36 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
       ],
     },
     {
+      id: "bystanders",
+      name: "Bystanders",
+      category: "bystander",
+      optional: true,
+      visibleWhen: ["DISPATCH_RECEIVED"],
+      completedWhen: ["BYSTANDERS_QUESTIONED"],
+      position: [6.6, 1.0, -2.2],
+      focusPosition: [2.3, 1.8, -0.2],
+      focusTarget: [6.4, 1.0, -2.1],
+      highlightColor: "#c084fc",
+      actions: [
+        {
+          id: "question-bystanders",
+          label: "Ask what happened",
+          description: "Bystanders report the teen ate a dessert, then developed itching, breathing trouble, and became frightened.",
+          successEvents: ["BYSTANDERS_QUESTIONED"],
+          scoreEffect: 3,
+          timeEffect: 12,
+        },
+      ],
+    },
+    {
       id: "ambulance-radio",
       name: "Ambulance Radio",
       category: "vehicle",
       visibleWhen: ["DOG_INSPECTED"],
       completedWhen: ["DOG_SECURED"],
-      position: [-4.55, 2.78, -3.52],
-      focusPosition: [-2.55, 1.95, -1.45],
-      focusTarget: [-4.55, 2.35, -3.52],
+      position: [-4.55, 2.06, -3.52],
+      focusPosition: [-2.45, 1.65, -1.35],
+      focusTarget: [-4.45, 1.72, -3.45],
       highlightColor: "#2dd4bf",
       actions: [
         {
@@ -388,18 +439,10 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
           scoreEffect: 3,
         },
         {
-          id: "collect-gloves",
-          label: "Take gloves",
-          description: "Take clean gloves from inside the medical bag.",
-          requires: ["MEDICAL_BAG_OPENED"],
-          successEvents: ["GLOVES_COLLECTED"],
-          scoreEffect: 3,
-        },
-        {
           id: "equip-gloves",
           label: "Put on gloves",
           description: "Finish BSI/PPE before touching the patient.",
-          requires: ["GLOVES_COLLECTED"],
+          requires: ["MEDICAL_BAG_OPENED"],
           successEvents: ["GLOVES_EQUIPPED", "PPE_EQUIPPED"],
           scoreEffect: 6,
         },
@@ -431,6 +474,7 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
       name: "Patient",
       category: "patient",
       visibleWhen: ["PATIENT_APPROACHED"],
+      completedWhen: ["RESPONSIVENESS_CHECKED"],
       position: [2.2, 0.9, 1.45],
       focusPosition: [4.9, 2.6, 4.7],
       focusTarget: [2.1, 0.8, 1.45],
@@ -448,6 +492,7 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
           id: "introduce-yourself",
           label: "Introduce yourself",
           description: "The patient is alert and answers in short phrases.",
+          requires: ["GENERAL_IMPRESSION_OBSERVED"],
           onSuccessEvents: ["RESPONSIVENESS_CHECKED"],
           scoreEffect: 5,
         },
@@ -517,7 +562,7 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
       id: "transport-decision",
       name: "Transport Decision",
       category: "movement",
-      visibleWhen: ["PULSE_CHECKED"],
+      visibleWhen: ["WORKING_IMPRESSION_SELECTED"],
       position: [3.9, 0.12, 0.95],
       focusPosition: [5.8, 2.8, 4.2],
       focusTarget: [2.4, 0.8, 1.3],
@@ -529,6 +574,27 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
           label: "Urgent transport",
           description: "Primary survey supports urgent transport with respiratory compromise and hypotension.",
           onSuccessEvents: ["TRANSPORT_SELECTED", "SECONDARY_UNLOCKED"],
+          scoreEffect: 8,
+        },
+      ],
+    },
+    {
+      id: "working-impression",
+      name: "Working Impression",
+      category: "patient",
+      visibleWhen: ["BLOOD_PRESSURE_OBTAINED", "SPO2_OBTAINED"],
+      completedWhen: ["WORKING_IMPRESSION_SELECTED"],
+      position: [3.0, 0.4, 1.55],
+      focusPosition: [5.4, 2.45, 4.2],
+      focusTarget: [2.25, 0.85, 1.45],
+      highlightColor: "#f0abfc",
+      enabledWhen: ["BLOOD_PRESSURE_OBTAINED", "SPO2_OBTAINED"],
+      actions: [
+        {
+          id: "suspect-severe-allergic-reaction",
+          label: "Suspect severe allergic reaction",
+          description: "Hives, throat tightness, wheezing, SpO2 89%, and BP 92/60 indicate a high-priority allergic emergency.",
+          onSuccessEvents: ["WORKING_IMPRESSION_SELECTED"],
           scoreEffect: 8,
         },
       ],
@@ -605,6 +671,10 @@ function feedbackForEvent(event: SceneEvent): string {
       return "Hazard identified: the dog is agitated and blocking safe patient access. Use the ambulance radio for trained help.";
     case "DOG_AGITATED":
       return "The dog lunges closer. You step back and lose time. The patient is still not safely reachable.";
+    case "CAR_INSPECTED":
+      return "Vehicle checked from a safe distance. Smoke is present, but this patient appears to be a separate medical call.";
+    case "BYSTANDERS_QUESTIONED":
+      return "Bystanders report itching, trouble breathing, and sudden fear after the teen ate dessert.";
     case "RADIO_SELECTED":
       return "Radio selected. Contact dispatch before approaching the dog or patient.";
     case "ANIMAL_CONTROL_CALLED":
@@ -613,8 +683,6 @@ function feedbackForEvent(event: SceneEvent): string {
       return "A responder secures the dog and leads it away. The path to the patient is now safe.";
     case "MEDICAL_BAG_OPENED":
       return "The medical bag is open. Gloves are visible inside.";
-    case "GLOVES_COLLECTED":
-      return "You take a pair of gloves from the medical bag.";
     case "GLOVES_EQUIPPED":
       return "Gloves on. BSI/PPE is complete before patient contact.";
     case "PPE_EQUIPPED":
@@ -628,14 +696,34 @@ function feedbackForEvent(event: SceneEvent): string {
     case "AIRWAY_OPENED":
       return "Airway is patent. No visible obstruction. Patient reports throat tightness.";
     case "RESPIRATIONS_COUNTED":
-      return "Breathing: RR 28, wheezing, shallow but present chest rise. SpO2 remains 89%.";
+      return "Breathing: RR 28, wheezing, shallow but present chest rise.";
     case "PULSE_CHECKED":
       return "Circulation: rapid radial pulse 128. Skin is warm, flushed, with widespread hives.";
+    case "BLOOD_PRESSURE_OBTAINED":
+      return "Blood pressure obtained: 92/60. This supports poor perfusion.";
+    case "SPO2_OBTAINED":
+      return "Pulse oximeter reading obtained: SpO2 89%. Oxygenation is inadequate.";
+    case "WORKING_IMPRESSION_SELECTED":
+      return "Working impression: severe allergic reaction with respiratory compromise and shock signs.";
     case "TRANSPORT_SELECTED":
       return "Urgent transport selected. Primary assessment is complete; secondary assessment is now unlocked.";
+    case "SECONDARY_UNLOCKED":
+      return "Primary assessment complete. Secondary assessment is now unlocked.";
     default:
       return "Action complete.";
   }
+}
+
+function addFinding(state: ScenarioState, finding: string) {
+  return state.patient.findingsDiscovered.includes(finding)
+    ? state.patient.findingsDiscovered
+    : [...state.patient.findingsDiscovered, finding];
+}
+
+function revealVital(state: ScenarioState, vital: PatientVitalKey) {
+  return state.patient.vitalsRevealed.includes(vital)
+    ? state.patient.vitalsRevealed
+    : [...state.patient.vitalsRevealed, vital];
 }
 
 function applyEvent(state: ScenarioState, event: SceneEvent): ScenarioState {
@@ -653,6 +741,12 @@ function applyEvent(state: ScenarioState, event: SceneEvent): ScenarioState {
   }
   if (event === "DOG_SELECTED") next.focusedObjectId = "dog";
   if (event === "DOG_INSPECTED") next.focusedObjectId = "ambulance-radio";
+  if (event === "CAR_INSPECTED") {
+    next.patient = { ...next.patient, findingsDiscovered: addFinding(next, "Vehicle smoke monitored from a safe distance") };
+  }
+  if (event === "BYSTANDERS_QUESTIONED") {
+    next.patient = { ...next.patient, findingsDiscovered: addFinding(next, "Bystanders report dessert exposure followed by itching and trouble breathing") };
+  }
   if (event === "DOG_AGITATED") {
     next.environment = { ...next.environment, dogAgitated: true };
     next.score = Math.max(0, next.score - 8);
@@ -672,12 +766,8 @@ function applyEvent(state: ScenarioState, event: SceneEvent): ScenarioState {
   if (event === "RESPONSIVENESS_CHECKED") next.focusedObjectId = "airway-hotspot";
   if (event === "AIRWAY_OPENED") next.focusedObjectId = "chest-hotspot";
   if (event === "RESPIRATIONS_COUNTED") next.focusedObjectId = "pulse-hotspot";
-  if (event === "PULSE_CHECKED") next.focusedObjectId = "transport-decision";
+  if (event === "PULSE_CHECKED") next.focusedObjectId = "patient";
   if (event === "MEDICAL_BAG_OPENED") next.focusedObjectId = "medical-bag";
-  if (event === "GLOVES_COLLECTED") {
-    next.inventory = next.inventory.includes("gloves") ? next.inventory : [...next.inventory, "gloves"];
-    next.focusedObjectId = "medical-bag";
-  }
   if (event === "GLOVES_EQUIPPED" || event === "PPE_EQUIPPED") {
     next.inventory = next.inventory.includes("gloves") ? next.inventory : [...next.inventory, "gloves"];
     next.equippedItems = next.equippedItems.includes("gloves") ? next.equippedItems : [...next.equippedItems, "gloves"];
@@ -689,10 +779,30 @@ function applyEvent(state: ScenarioState, event: SceneEvent): ScenarioState {
     next.patient = { ...next.patient, position: "patient-side" };
     next.focusedObjectId = "patient";
   }
+  if (event === "GENERAL_IMPRESSION_OBSERVED") {
+    next.patient = {
+      ...next.patient,
+      findingsDiscovered: addFinding(next, "Anxious teen with visible hives and increased work of breathing"),
+    };
+  }
+  if (event === "RESPONSIVENESS_CHECKED") {
+    next.patient = {
+      ...next.patient,
+      findingsDiscovered: addFinding(next, "Alert, speaking in short phrases, reports throat tightness"),
+    };
+  }
+  if (event === "AIRWAY_OPENED") {
+    next.patient = {
+      ...next.patient,
+      findingsDiscovered: addFinding(next, "Airway patent with reported throat tightness"),
+    };
+  }
   if (event === "RESPIRATIONS_COUNTED") {
     next.patient = {
       ...next.patient,
       breathingStatus: "Wheezing, RR 28, increased work of breathing",
+      findingsDiscovered: addFinding(next, "Wheezing with increased work of breathing"),
+      vitalsRevealed: revealVital(next, "respiratoryRate"),
       vitals: { ...next.patient.vitals, respiratoryRate: 28, spo2: 89 },
     };
   }
@@ -700,8 +810,34 @@ function applyEvent(state: ScenarioState, event: SceneEvent): ScenarioState {
     next.patient = {
       ...next.patient,
       circulationStatus: "Rapid radial pulse, warm flushed skin, hives",
+      findingsDiscovered: addFinding(next, "Rapid radial pulse with warm flushed skin and hives"),
+      vitalsRevealed: revealVital(next, "heartRate"),
       vitals: { ...next.patient.vitals, heartRate: 128, systolicBP: 92, diastolicBP: 60 },
     };
+  }
+  if (event === "BLOOD_PRESSURE_OBTAINED") {
+    next.patient = {
+      ...next.patient,
+      findingsDiscovered: addFinding(next, "Hypotension: BP 92/60"),
+      vitalsRevealed: revealVital({ ...next, patient: { ...next.patient, vitalsRevealed: revealVital(next, "systolicBP") } }, "diastolicBP"),
+    };
+    next.focusedObjectId = "patient";
+  }
+  if (event === "SPO2_OBTAINED") {
+    next.patient = {
+      ...next.patient,
+      findingsDiscovered: addFinding(next, "Low SpO2: 89%"),
+      vitalsRevealed: revealVital(next, "spo2"),
+    };
+    next.focusedObjectId = "working-impression";
+  }
+  if (event === "WORKING_IMPRESSION_SELECTED") {
+    next.patient = {
+      ...next.patient,
+      workingImpression: "Severe allergic reaction with respiratory compromise and shock signs",
+      findingsDiscovered: addFinding(next, "Working impression selected from hives, wheezing, hypoxia, and hypotension"),
+    };
+    next.focusedObjectId = "transport-decision";
   }
   if (event === "TRANSPORT_SELECTED" || event === "SECONDARY_UNLOCKED") {
     next.currentPhase = "secondaryAssessment";
@@ -801,10 +937,12 @@ export function scenarioReducer(
         next = applyEvent(next, event);
       });
 
-      const hasRemainingObjectActions = object.actions.some((action) => !hasEvents(next, getActionSuccessEvents(action)));
+      const hasRemainingObjectActions = object.actions.some(
+        (action) => !hasEvents(next, getActionSuccessEvents(action)) && hasEvents(next, action.requires)
+      );
       const shouldKeepSelection =
         (object.id === "dog" && next.environment.dogAgitated && !next.environment.dogSecured) ||
-        (object.id === "medical-bag" && hasRemainingObjectActions);
+        ((object.id === "medical-bag" || object.id === "patient") && hasRemainingObjectActions);
       const maxScore = next.failedObjectives.includes("dog-hazard") ? 88 : 100;
       next = {
         ...next,
@@ -818,4 +956,81 @@ export function scenarioReducer(
     default:
       return state;
   }
+}
+
+export type ScenarioScoreBreakdown = {
+  safety: number;
+  assessment: number;
+  clinicalDecisions: number;
+  treatment: number;
+  reassessment: number;
+  communication: number;
+  efficiency: number;
+};
+
+export function getScenarioScoreBreakdown(state: ScenarioState): ScenarioScoreBreakdown {
+  const unsafeDog = state.failedObjectives.includes("dog-hazard");
+  const assessmentEvents: SceneEvent[] = [
+    "GENERAL_IMPRESSION_OBSERVED",
+    "RESPONSIVENESS_CHECKED",
+    "AIRWAY_OPENED",
+    "RESPIRATIONS_COUNTED",
+    "PULSE_CHECKED",
+    "BLOOD_PRESSURE_OBTAINED",
+    "SPO2_OBTAINED",
+  ];
+  const completedAssessment = assessmentEvents.filter((event) => state.triggeredEvents.includes(event)).length;
+
+  return {
+    safety: Math.max(55, 100 - (unsafeDog ? 28 : 0) - (state.triggeredEvents.includes("DOG_INSPECTED") ? 0 : 18)),
+    assessment: Math.round((completedAssessment / assessmentEvents.length) * 100),
+    clinicalDecisions: state.triggeredEvents.includes("WORKING_IMPRESSION_SELECTED")
+      ? state.triggeredEvents.includes("TRANSPORT_SELECTED")
+        ? 94
+        : 82
+      : 45,
+    treatment: state.triggeredEvents.includes("TRANSPORT_SELECTED") ? 72 : 35,
+    reassessment: state.currentPhase === "secondaryAssessment" ? 55 : 0,
+    communication: state.triggeredEvents.includes("ANIMAL_CONTROL_CALLED") ? 90 : 52,
+    efficiency: Math.max(45, 100 - state.hintsUsed * 6 - Math.floor(state.elapsedTime / 60) * 3 - (unsafeDog ? 14 : 0)),
+  };
+}
+
+export function buildScenarioDebrief(state: ScenarioState) {
+  const score = getScenarioScoreBreakdown(state);
+  const correct: string[] = [];
+  const missed: string[] = [];
+  const unsafe: string[] = [];
+
+  if (state.triggeredEvents.includes("DOG_INSPECTED")) correct.push("Identified the dog as a scene safety hazard before patient contact.");
+  else missed.push("Scene hazard inspection was not completed.");
+
+  if (state.triggeredEvents.includes("ANIMAL_CONTROL_CALLED")) correct.push("Requested animal control/police support instead of entering an unsafe scene.");
+  else missed.push("Additional resources were not requested for the animal hazard.");
+
+  if (state.triggeredEvents.includes("GLOVES_EQUIPPED")) correct.push("Equipped PPE before touching the patient.");
+  else missed.push("PPE was not equipped before patient contact.");
+
+  if (state.triggeredEvents.includes("BLOOD_PRESSURE_OBTAINED") && state.triggeredEvents.includes("SPO2_OBTAINED")) {
+    correct.push("Obtained baseline BP and SpO2 after the ABC assessment.");
+  } else {
+    missed.push("Baseline vital signs were incomplete.");
+  }
+
+  if (state.triggeredEvents.includes("WORKING_IMPRESSION_SELECTED")) correct.push("Formed a working impression from hives, wheezing, hypoxia, and hypotension.");
+  else missed.push("Working impression was not selected from the gathered findings.");
+
+  if (state.failedObjectives.includes("dog-hazard")) unsafe.push("Approached or ignored the dog before the scene was controlled, costing time and access.");
+
+  return {
+    score,
+    correct,
+    missed,
+    unsafe,
+    findings: state.patient.findingsDiscovered,
+    summary:
+      state.triggeredEvents.includes("TRANSPORT_SELECTED")
+        ? "Primary assessment complete: respiratory distress, skin findings, hypoxia, and hypotension support urgent transport and rapid treatment."
+        : "Scenario in progress. Continue collecting assessment findings before choosing transport priority.",
+  };
 }

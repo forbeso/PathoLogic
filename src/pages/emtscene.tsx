@@ -1,5 +1,5 @@
-import Header from "@/components/Header";
 import Head from "next/head";
+import Link from "next/link";
 import ThreeDScene from "@/components/ThreeDScene";
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { AppShell, StatusPill } from "@/components/AppShell";
@@ -8,22 +8,32 @@ import {
   AlertTriangle,
   Ambulance,
   CheckCircle2,
+  ClipboardCheck,
   ClipboardList,
+  Flame,
   HeartPulse,
   Lightbulb,
   LogOut,
+  MapPin,
+  Menu,
+  Music,
   MousePointerClick,
   PanelRightClose,
   PanelRightOpen,
+  Play,
   RefreshCcw,
   ShieldCheck,
   Siren,
   Star,
   Stethoscope,
   Timer,
+  Trophy,
+  Volume2,
+  Wind,
 } from "lucide-react";
 import {
   anaphylaxisFestivalScenario,
+  buildScenarioDebrief,
   createScenarioState,
   getActionSuccessEvents,
   getCurrentObjective,
@@ -33,9 +43,11 @@ import {
   isInteractiveObjectComplete,
   scenarioReducer,
   type InteractiveObjectConfig,
+  type PatientVitalKey,
 } from "@/lib/emtSceneEngine";
 
 type StageKey = "primary" | "secondary" | "impression" | "interventions" | "transport" | "reassessment";
+type SimulationMode = "guided" | "scenario" | "exam";
 
 type VitalSet = {
   loc: string;
@@ -130,6 +142,22 @@ const PHASE_DOCK_ITEMS = [
   { key: "transport", label: "Transport", icon: Ambulance },
 ] satisfies Array<{ key: StageKey; label: string; icon: typeof Activity }>;
 
+const EQUIPMENT_DOCK_ITEMS = [
+  { id: "gloves", label: "Gloves", icon: ShieldCheck },
+  { id: "bp", label: "BP Cuff", icon: Activity },
+  { id: "pulseox", label: "Pulse Ox", icon: HeartPulse },
+  { id: "oxygen", label: "O2 Tank", icon: Ambulance },
+  { id: "mask", label: "Mask", icon: Wind },
+  { id: "bvm", label: "BVM", icon: Activity },
+] satisfies Array<{ id: string; label: string; icon: typeof Activity }>;
+
+const SITE_NAV_ITEMS = [
+  { href: "/emtrainer", label: "Scenarios" },
+  { href: "/exam/nremt", label: "Exam Mode" },
+  { href: "/flashcards", label: "Flashcards" },
+  { href: "/progress", label: "Progress" },
+];
+
 const PRIMARY_PROMPTS: PrimaryPrompt[] = [
   {
     task: "Scene safety and BSI",
@@ -182,11 +210,11 @@ const PRIMARY_PROMPTS: PrimaryPrompt[] = [
 const SCENARIOS: Scenario[] = [
   {
     id: "anaphylaxis",
-    title: "Allergic Reaction at a Festival",
+    title: "Teen With Shortness of Breath",
     domain: "Medical / Respiratory",
-    dispatch: "Teenager short of breath after eating dessert containing nuts.",
+    dispatch: "Teenager short of breath at a community festival.",
     scene:
-      "Outdoor festival first-aid tent. Bystanders report sudden hives and breathing trouble after dessert.",
+      "Outdoor festival first-aid tent. Bystanders report sudden itching and breathing trouble.",
     patient:
       "17-year-old seated upright, anxious, speaking in short phrases, with lip swelling and hives.",
     priority: "Unstable",
@@ -201,50 +229,6 @@ const SCENARIOS: Scenario[] = [
     },
     cues: ["Nut exposure", "Wheezing", "Hives", "Lip swelling", "Hypotension"],
     fieldImpression: "Anaphylaxis with respiratory compromise and shock signs.",
-  },
-  {
-    id: "spine",
-    title: "Fall With Neurologic Symptoms",
-    domain: "Trauma / Spine",
-    dispatch: "Adult fell from a porch and reports shoulder pain.",
-    scene:
-      "Residential porch. Patient is seated on the ground, intoxicated, with family nearby.",
-    patient:
-      "58-year-old with shoulder pain, denies neck pain, reports tingling in fingers.",
-    priority: "Potentially unstable",
-    vitals: {
-      loc: "Alert, intoxicated",
-      airway: "Patent",
-      breathing: "RR 18, nonlabored",
-      pulse: "Radial 96",
-      bp: "138/84",
-      spo2: "97%",
-      skin: "Warm, dry",
-    },
-    cues: ["Fall mechanism", "Intoxication", "Distracting injury", "Finger tingling"],
-    fieldImpression: "Possible spinal injury requiring motion restriction and neurologic reassessment.",
-  },
-  {
-    id: "chest-pain",
-    title: "Sudden Pleuritic Chest Pain",
-    domain: "Medical / Respiratory",
-    dispatch: "Tall, thin adult with sudden sharp chest pain and mild shortness of breath.",
-    scene:
-      "Quiet sidewalk. Patient stopped walking abruptly and is guarding the right side of the chest.",
-    patient:
-      "22-year-old speaking full sentences, decreased breath sounds on the right, pink and warm.",
-    priority: "Potentially unstable",
-    vitals: {
-      loc: "Alert",
-      airway: "Patent",
-      breathing: "RR 24, pleuritic pain",
-      pulse: "Radial 108",
-      bp: "124/76",
-      spo2: "93%",
-      skin: "Pink, warm, dry",
-    },
-    cues: ["Sudden onset", "Sharp pleuritic pain", "Decreased right breath sounds", "Tall thin habitus"],
-    fieldImpression: "Spontaneous pneumothorax; monitor closely for deterioration.",
   },
 ];
 
@@ -355,15 +339,142 @@ function avpuFromLoc(loc: string) {
   return "U";
 }
 
-function getMonitorVitals(vitals: VitalSet, scenarioId: string) {
+function getMonitorVitals(vitals: VitalSet, scenarioId: string, revealedVitals: PatientVitalKey[]) {
+  const revealed = new Set<PatientVitalKey>(revealedVitals);
+  const hidden = { value: "—", tone: "text-slate-500" };
+
   return [
-    { label: "HR", value: firstNumber(vitals.pulse), unit: "bpm", tone: "text-rose-400" },
-    { label: "BP", value: vitals.bp, unit: "mmHg", tone: "text-amber-300" },
-    { label: "SpO2", value: vitals.spo2, unit: "", tone: "text-rose-400" },
-    { label: "RR", value: firstNumber(vitals.breathing), unit: "/min", tone: "text-amber-300" },
-    { label: "AVPU", value: avpuFromLoc(vitals.loc), unit: "", tone: "text-teal-300" },
-    { label: "TEMP", value: scenarioId === "anaphylaxis" ? "98.2°F" : "98.6°F", unit: "", tone: "text-slate-100" },
+    revealed.has("heartRate")
+      ? { label: "HR", value: firstNumber(vitals.pulse), unit: "bpm", tone: "text-rose-400" }
+      : { label: "HR", unit: "bpm", ...hidden },
+    revealed.has("systolicBP") && revealed.has("diastolicBP")
+      ? { label: "BP", value: vitals.bp, unit: "mmHg", tone: "text-amber-300" }
+      : { label: "BP", unit: "mmHg", ...hidden },
+    revealed.has("spo2")
+      ? { label: "SpO2", value: vitals.spo2, unit: "", tone: "text-rose-400" }
+      : { label: "SpO2", unit: "", ...hidden },
+    revealed.has("respiratoryRate")
+      ? { label: "RR", value: firstNumber(vitals.breathing), unit: "/min", tone: "text-amber-300" }
+      : { label: "RR", unit: "/min", ...hidden },
+    revealed.has("heartRate")
+      ? { label: "AVPU", value: avpuFromLoc(vitals.loc), unit: "", tone: "text-teal-300" }
+      : { label: "AVPU", unit: "", ...hidden },
+    { label: "TEMP", unit: "", ...hidden },
   ];
+}
+
+function SceneTopBar({
+  score,
+  completed,
+  total,
+}: {
+  score: number;
+  completed: number;
+  total: number;
+}) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const levelProgress = total > 0 ? Math.min(100, Math.round((completed / total) * 100)) : 0;
+  const streak = Math.max(1, Math.min(9, 5 + completed));
+
+  return (
+    <header className="relative z-50 flex h-16 items-center justify-between border-b border-white/10 bg-slate-950 px-4 text-white shadow-2xl shadow-slate-950/35">
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="grid h-10 w-10 place-items-center rounded-xl border border-teal-200/35 bg-teal-400/10 text-teal-200">
+          <Ambulance size={23} />
+        </div>
+        <div className="min-w-0">
+          <div className="truncate text-xl font-black tracking-wide">PATHOLOGIX</div>
+          <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-teal-300 lg:hidden">
+            EMT Scene Lab
+          </div>
+        </div>
+      </div>
+
+      <div className="hidden min-w-0 flex-1 items-center justify-center gap-8 lg:flex">
+        <div className="w-[320px]">
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-200">
+            <span>Level 4</span>
+            <span className="text-slate-500">•</span>
+            <span className="normal-case tracking-normal text-slate-300">Outdoor Emergencies</span>
+          </div>
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-700">
+            <div className="h-full rounded-full bg-teal-400" style={{ width: `${Math.max(18, levelProgress)}%` }} />
+          </div>
+        </div>
+        <div className="flex items-center gap-2 text-sm font-black text-teal-200">
+          <Flame size={17} className="text-rose-400" />
+          {score + 70} XP
+        </div>
+        <div className="flex items-center gap-2 text-sm font-black text-slate-100">
+          <Trophy size={17} className="text-amber-300" />
+          Streak: {streak}
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          className="hidden items-center gap-2 rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-xs font-black text-slate-100 transition hover:border-teal-200/50 hover:bg-teal-300/10 md:flex"
+        >
+          <ClipboardCheck size={16} />
+          Objectives
+        </button>
+        <button type="button" aria-label="Music" className="grid h-10 w-10 place-items-center rounded-lg border border-white/15 bg-white/5 text-slate-100 transition hover:border-teal-200/50">
+          <Music size={17} />
+        </button>
+        <button type="button" aria-label="Volume" className="grid h-10 w-10 place-items-center rounded-lg border border-white/15 bg-white/5 text-slate-100 transition hover:border-teal-200/50">
+          <Volume2 size={17} />
+        </button>
+        <div className="relative">
+          <button
+            type="button"
+            aria-label={menuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((open) => !open)}
+            className="grid h-10 w-10 place-items-center rounded-lg border border-white/15 bg-white/5 text-slate-100 transition hover:border-teal-200/50"
+          >
+            {menuOpen ? <PanelRightClose size={18} /> : <Menu size={18} />}
+          </button>
+
+          {menuOpen ? (
+            <div className="absolute right-0 top-12 w-56 overflow-hidden rounded-2xl border border-white/15 bg-slate-950/95 p-2 text-sm shadow-2xl shadow-slate-950/50 backdrop-blur-xl">
+              <div className="px-3 pb-2 pt-1 text-[10px] font-black uppercase tracking-[0.18em] text-teal-300">
+                Navigation
+              </div>
+              <div className="space-y-1">
+                {SITE_NAV_ITEMS.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setMenuOpen(false)}
+                    className="block rounded-xl px-3 py-2 font-bold text-slate-200 transition hover:bg-teal-400/10 hover:text-teal-100"
+                  >
+                    {item.label}
+                  </Link>
+                ))}
+              </div>
+              <div className="mt-2 border-t border-white/10 pt-2">
+                <Link
+                  href="/emtrainer"
+                  onClick={() => setMenuOpen(false)}
+                  className="block rounded-xl bg-teal-500 px-3 py-2 text-center font-black text-slate-950 transition hover:bg-teal-300"
+                >
+                  Practice
+                </Link>
+                <Link
+                  href="/login"
+                  onClick={() => setMenuOpen(false)}
+                  className="mt-1 block rounded-xl border border-white/15 px-3 py-2 text-center font-bold text-slate-100 transition hover:border-teal-200/60 hover:bg-white/10"
+                >
+                  Sign in
+                </Link>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </header>
+  );
 }
 
 function makeOpeningLog(scenario: Scenario): LogEntry[] {
@@ -400,6 +511,7 @@ export default function EMTScene() {
   const [mobileHudOpen, setMobileHudOpen] = useState(false);
   const [isDesktopLayout, setIsDesktopLayout] = useState(true);
   const [sceneHeight, setSceneHeight] = useState(655);
+  const [simulationMode, setSimulationMode] = useState<SimulationMode>("scenario");
   const [primaryStepIndex, setPrimaryStepIndex] = useState(0);
   const [primaryFeedback, setPrimaryFeedback] = useState("Start with the action that protects you, your partner, and the patient.");
   const [sceneFinding, setSceneFinding] = useState("");
@@ -488,9 +600,13 @@ export default function EMTScene() {
   const scenarioTasks = sceneScenario.objectives;
   const scenarioCompletedCount = gameState.completedObjectives.length;
   const scenarioProgressPercent = Math.round((scenarioCompletedCount / scenarioTasks.length) * 100);
+  const debrief = useMemo(() => buildScenarioDebrief(gameState), [gameState]);
   const stageIndex = STAGES.findIndex((item) => item.key === stage);
   const relevantActions = QUICK_ACTIONS.filter((action) => action.stage === stage);
-  const monitorVitals = useMemo(() => getMonitorVitals(vitals, scenario.id), [scenario.id, vitals]);
+  const revealedVitals = gameState.patient.vitalsRevealed;
+  const vitalsPanelVisible = revealedVitals.length > 0;
+  const equipmentDockVisible = hasEvents(gameState, ["DOG_SECURED"]);
+  const monitorVitals = useMemo(() => getMonitorVitals(vitals, scenario.id, revealedVitals), [scenario.id, vitals, revealedVitals]);
   const latestSceneMessage = useMemo(() => {
     for (let index = log.length - 1; index >= 0; index -= 1) {
       if (log[index].who !== "student") return log[index];
@@ -517,13 +633,100 @@ export default function EMTScene() {
   const actionableSceneObjects = sceneObjects.filter(
     (object) => !object.completed || object.id === gameState.selectedObjectId
   );
-  const nextSceneObject = actionableSceneObjects.find((object) => object.enabled !== false);
-  const selectedActions = selectedObject
-    ? selectedObject.actions.filter(
+  const nextSceneObject = actionableSceneObjects.find((object) => object.enabled !== false && !object.optional);
+  const glovesEquipped = hasEvents(gameState, ["GLOVES_EQUIPPED"]);
+  const medicalBagOpened = hasEvents(gameState, ["MEDICAL_BAG_OPENED"]);
+  const availableActionsForObject = (object: InteractiveObjectConfig) =>
+    object.actions.filter(
       (action) => !hasEvents(gameState, getActionSuccessEvents(action)) && hasEvents(gameState, action.requires)
-    )
-    : [];
+    );
+  const selectedActions = selectedObject ? availableActionsForObject(selectedObject) : [];
+  const nextStepActions = nextSceneObject ? availableActionsForObject(nextSceneObject) : [];
+  const currentObjectiveUsesEquipment = currentObjective.id === "baseline-vitals";
+  const currentObjectiveStepAvailable =
+    simulationMode === "guided" && (Boolean(nextSceneObject) || currentObjectiveUsesEquipment);
+  const nextStepButtonLabel = (() => {
+    if (currentObjective.id === "baseline-vitals") return simulationMode === "guided" ? "Gather baseline vitals" : "Gather vitals";
+    if (!nextSceneObject) return "Primary complete";
+    if (simulationMode === "exam") return "Continue";
+    if (simulationMode === "scenario") {
+      if (currentObjective.id === "inspect-dog") return "Assess the scene";
+      if (currentObjective.id === "use-radio") return "Request help";
+      if (currentObjective.id === "baseline-vitals") return "Gather vitals";
+      if (currentObjective.id === "working-impression") return "Choose impression";
+      return "Continue assessment";
+    }
+    if (nextSceneObject.id === "ambulance-radio") return "Use ambulance radio";
+    if (nextSceneObject.id === "medical-bag") return medicalBagOpened ? "Put on gloves" : "Open bag for PPE";
+    if (nextSceneObject.id === "dog") return "Inspect barking dog";
+    return nextStepActions[0]?.label ?? `Select ${nextSceneObject.name}`;
+  })();
+  const currentTaskCards = useMemo(
+    () => {
+      if (!hasEvents(gameState, ["DOG_SECURED"])) {
+        return [
+          {
+            label: "Control hazards",
+            completed: [
+              hasEvents(gameState, ["DOG_INSPECTED"]),
+              hasEvents(gameState, ["ANIMAL_CONTROL_CALLED"]),
+              hasEvents(gameState, ["DOG_SECURED"]),
+            ].filter(Boolean).length,
+            total: 3,
+          },
+          {
+            label: "Secure area",
+            completed: hasEvents(gameState, ["DOG_SECURED"]) ? 1 : 0,
+            total: 1,
+          },
+          {
+            label: "Request additional resources",
+            completed: hasEvents(gameState, ["ANIMAL_CONTROL_CALLED"]) ? 1 : 0,
+            total: 1,
+          },
+        ];
+      }
 
+      return [
+        {
+          label: "BSI / PPE",
+          completed: hasEvents(gameState, ["GLOVES_EQUIPPED"]) ? 1 : 0,
+          total: 1,
+        },
+        {
+          label: "Patient contact",
+          completed: [
+            hasEvents(gameState, ["PATIENT_APPROACHED"]),
+            hasEvents(gameState, ["GENERAL_IMPRESSION_OBSERVED"]),
+            hasEvents(gameState, ["RESPONSIVENESS_CHECKED"]),
+          ].filter(Boolean).length,
+          total: 3,
+        },
+        {
+          label: "Airway / Breathing / Circulation",
+          completed: [
+            hasEvents(gameState, ["AIRWAY_OPENED"]),
+            hasEvents(gameState, ["RESPIRATIONS_COUNTED"]),
+            hasEvents(gameState, ["PULSE_CHECKED"]),
+          ].filter(Boolean).length,
+          total: 3,
+        },
+        {
+          label: "Transport priority",
+          completed: hasEvents(gameState, ["TRANSPORT_SELECTED"]) ? 1 : 0,
+          total: 1,
+        },
+      ];
+    },
+    [gameState.triggeredEvents]
+  );
+  const phaseProgressItems = [
+    { label: "Scene Safety", complete: hasEvents(gameState, ["DOG_SECURED"]) },
+    { label: "Primary Survey", complete: hasEvents(gameState, ["TRANSPORT_SELECTED"]) },
+    { label: "Secondary Survey", complete: gameState.currentPhase === "secondaryAssessment" },
+    { label: "Interventions", complete: gameState.currentPhase === "interventions" },
+    { label: "Transport", complete: hasEvents(gameState, ["TRANSPORT_SELECTED"]) },
+  ];
   const resetScene = (nextScenario = scenario) => {
     dispatchGame({ type: "RESET", scenario: sceneScenario });
     setStage("primary");
@@ -544,6 +747,94 @@ export default function EMTScene() {
       setSceneFinding(action.description ?? "");
     }
     dispatchGame({ type: "RUN_ACTION", objectId: object.id, actionId });
+  };
+
+  const runEquipmentDockAction = (itemId: string) => {
+    if (itemId === "bp" || itemId === "pulseox") {
+      if (!hasEvents(gameState, ["PULSE_CHECKED"])) {
+        const message = "Finish airway, breathing, and circulation before gathering baseline vitals.";
+        setSceneFinding(message);
+        setLog((prev) => [...prev, { who: "coach", text: message }]);
+        return;
+      }
+
+      const event = itemId === "bp" ? "BLOOD_PRESSURE_OBTAINED" : "SPO2_OBTAINED";
+      if (hasEvents(gameState, [event])) {
+        const message = itemId === "bp" ? "Blood pressure is already recorded." : "Pulse oximetry is already recorded.";
+        setSceneFinding(message);
+        setLog((prev) => [...prev, { who: "coach", text: message }]);
+        return;
+      }
+
+      setLog((prev) => [...prev, { who: "student", text: itemId === "bp" ? "Apply blood pressure cuff" : "Apply pulse oximeter" }]);
+      dispatchGame({ type: "APPLY_EVENT", event });
+      return;
+    }
+
+    if (itemId !== "gloves") {
+      const message = "Not needed yet. Finish scene safety, PPE, and the primary assessment first.";
+      setSceneFinding(message);
+      setLog((prev) => [...prev, { who: "coach", text: message }]);
+      return;
+    }
+
+    const medicalBag = sceneObjects.find((object) => object.id === "medical-bag");
+    if (!medicalBag || medicalBag.enabled === false) {
+      const message = "Secure the scene before opening your aid bag for PPE.";
+      setSceneFinding(message);
+      setLog((prev) => [...prev, { who: "coach", text: message }]);
+      dispatchGame({ type: "SELECT_OBJECT", objectId: "medical-bag" });
+      return;
+    }
+
+    if (!medicalBagOpened) {
+      runSceneAction(medicalBag, "open-medical-bag");
+      return;
+    }
+
+    if (!glovesEquipped) {
+      runSceneAction(medicalBag, "equip-gloves");
+      return;
+    }
+
+    const message = "Gloves are already on. Move to the patient when ready.";
+    setSceneFinding(message);
+    setLog((prev) => [...prev, { who: "coach", text: message }]);
+  };
+
+  const runCurrentObjectiveStep = () => {
+    if (currentObjective.id === "baseline-vitals") {
+      if (!hasEvents(gameState, ["BLOOD_PRESSURE_OBTAINED"])) {
+        runEquipmentDockAction("bp");
+        return;
+      }
+      if (!hasEvents(gameState, ["SPO2_OBTAINED"])) {
+        runEquipmentDockAction("pulseox");
+        return;
+      }
+    }
+
+    if (!nextSceneObject) return;
+
+    if (nextSceneObject.id === "medical-bag") {
+      runEquipmentDockAction("gloves");
+      return;
+    }
+
+    if (nextSceneObject.id === "ambulance-radio") {
+      setLog((prev) => [...prev, { who: "student", text: "Ambulance Radio: request animal control" }]);
+      setSceneFinding("Using the radio to request animal control and police support.");
+      dispatchGame({ type: "SELECT_OBJECT", objectId: "ambulance-radio" });
+      return;
+    }
+
+    const nextAction = nextStepActions[0];
+    if (nextAction) {
+      runSceneAction(nextSceneObject, nextAction.id);
+      return;
+    }
+
+    dispatchGame({ type: "SELECT_OBJECT", objectId: nextSceneObject.id });
   };
 
   const markTasks = (tasks: string[]) => {
@@ -621,6 +912,13 @@ export default function EMTScene() {
     const nextScenario = SCENARIOS.find((item) => item.id === id) ?? SCENARIOS[0];
     setScenarioId(nextScenario.id);
     resetScene(nextScenario);
+  };
+
+  const changeSimulationMode = (mode: SimulationMode) => {
+    if (mode === simulationMode) return;
+    setSimulationMode(mode);
+    resetScene();
+    setMobileHudOpen(false);
   };
 
   const controls = (
@@ -795,11 +1093,12 @@ export default function EMTScene() {
       <Head>
         <title>PathoLogix - EMT Scene Lab</title>
       </Head>
-      <Header />
+      <SceneTopBar score={gameState.score} completed={scenarioCompletedCount} total={scenarioTasks.length} />
 
       <main className="relative isolate min-h-0 overflow-hidden bg-slate-950" style={{ height: sceneHeight }}>
         <div className="absolute inset-0">
           <ThreeDScene
+            key={`${scenario.id}-${simulationMode}`}
             height={sceneHeight}
             scenarioId={scenario.id}
             sceneFinding={sceneFinding}
@@ -807,7 +1106,7 @@ export default function EMTScene() {
             interactiveObjects={actionableSceneObjects}
             selectedObjectId={gameState.selectedObjectId}
             focusedObjectId={gameState.focusedObjectId}
-            accessibilityMode={gameState.accessibilityMode}
+            accessibilityMode={gameState.accessibilityMode || simulationMode === "guided"}
             environment={gameState.environment}
             locationId={gameState.locationId}
             inventory={gameState.inventory}
@@ -912,6 +1211,20 @@ export default function EMTScene() {
                 </button>
               </div>
               <h2 className="mt-2 text-lg font-black leading-6 text-white">{currentObjective.subtleGoal}</h2>
+              {currentObjectiveStepAvailable ? (
+                <button
+                  type="button"
+                  data-testid="mobile-current-objective-step-button"
+                  onClick={() => {
+                    runCurrentObjectiveStep();
+                    setMobileHudOpen(false);
+                  }}
+                  className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-teal-200/40 bg-teal-400/15 px-3 py-2.5 text-xs font-black text-teal-50 transition hover:border-teal-200 hover:bg-teal-300/25"
+                >
+                  <MousePointerClick size={14} />
+                  {nextStepButtonLabel}
+                </button>
+              ) : null}
               <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
                 {actionableSceneObjects.map((object) => (
                   <button
@@ -1030,17 +1343,33 @@ export default function EMTScene() {
 
         <section
           data-testid="scene-objective-prompt"
-          className="absolute left-4 top-[330px] z-30 hidden max-h-[172px] w-[min(390px,calc(100%-32px))] overflow-hidden rounded-2xl border border-teal-200/35 bg-slate-950/45 p-3.5 text-white shadow-2xl shadow-slate-950/35 backdrop-blur-md [@media(max-height:760px)]:max-h-[190px] 2xl:max-h-[calc(100%-430px)] lg:block"
+          className="absolute right-4 top-4 z-30 hidden w-[360px] rounded-2xl border border-white/15 bg-slate-950/78 p-4 text-white shadow-2xl shadow-slate-950/45 backdrop-blur-xl lg:block"
         >
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-teal-200">
-              <MousePointerClick size={14} />
-              Current goal
-            </div>
+          <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-teal-300">
+            <ClipboardCheck size={15} />
+            Objective
+          </div>
+          <h2 className="mt-4 text-2xl font-black leading-7 text-white">{currentObjective.label}</h2>
+          <p className="mt-2 text-sm font-medium leading-5 text-slate-300">{currentObjective.subtleGoal}</p>
+
+          {currentObjectiveStepAvailable ? (
+            <button
+              type="button"
+              data-testid="current-objective-step-button"
+              onClick={runCurrentObjectiveStep}
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-teal-200/40 bg-teal-400/15 px-4 py-3 text-sm font-black text-teal-50 transition hover:border-teal-200 hover:bg-teal-300/25"
+            >
+              <MousePointerClick size={16} />
+              {nextStepButtonLabel}
+            </button>
+          ) : null}
+
+          <div className="mt-5 flex items-center justify-between gap-3">
+            <div className="text-[10px] font-black uppercase tracking-[0.18em] text-teal-300">Primary tasks</div>
             <button
               type="button"
               onClick={() => dispatchGame({ type: "TOGGLE_ACCESSIBILITY" })}
-              className={`rounded-full border px-2 py-1 text-[10px] font-black uppercase tracking-wider transition ${gameState.accessibilityMode
+              className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-wider transition ${gameState.accessibilityMode
                 ? "border-teal-200 bg-teal-300 text-slate-950"
                 : "border-white/15 bg-white/10 text-slate-200 hover:border-teal-200/60"
                 }`}
@@ -1048,44 +1377,73 @@ export default function EMTScene() {
               Mark objects
             </button>
           </div>
-          <h2 className="mt-2 text-lg font-black leading-6 text-white xl:text-xl">{currentObjective.subtleGoal}</h2>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => dispatchGame({ type: "USE_HINT" })}
-              className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-xs font-black text-white transition hover:border-amber-200/70 hover:bg-amber-300/15"
-            >
-              <Lightbulb size={14} />
-              Hint
-            </button>
-            <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-xs font-bold text-slate-200">
-              Score {gameState.score} · {Math.floor(gameState.elapsedTime / 60)}:{String(gameState.elapsedTime % 60).padStart(2, "0")}
-            </div>
+
+          <div className="mt-3 space-y-2">
+            {currentTaskCards.map((task) => {
+              const done = task.completed >= task.total;
+              return (
+                <div
+                  key={task.label}
+                  className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-sm transition ${done
+                    ? "border-teal-300/35 bg-teal-400/10 text-teal-50"
+                    : "border-white/12 bg-white/5 text-slate-200"
+                    }`}
+                >
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border ${done ? "border-teal-300 bg-teal-300 text-slate-950" : "border-slate-500 bg-slate-950/30"}`}>
+                      {done ? <CheckCircle2 size={13} /> : null}
+                    </span>
+                    <span className="truncate font-bold">{task.label}</span>
+                  </div>
+                  <span className="text-xs font-black text-slate-300">
+                    {task.completed}/{task.total}
+                  </span>
+                </div>
+              );
+            })}
           </div>
+
           {gameState.failedObjectives.includes("dog-hazard") ? (
             <div className="mt-3 flex items-start gap-2 rounded-xl border border-rose-200/25 bg-rose-500/10 px-3 py-2 text-xs font-bold leading-5 text-rose-50">
               <AlertTriangle className="mt-0.5 shrink-0" size={14} />
-              Unsafe approach consequence: the dog lunged closer, forced you back, and cost scene time.
+              Unsafe approach: the dog forced you back and cost scene time.
             </div>
           ) : null}
+
+          <div className="mt-5 border-t border-white/10 pt-4">
+            <div className="text-[10px] font-black uppercase tracking-[0.18em] text-teal-300">Phase progress</div>
+            <div className="mt-4 flex items-start justify-between gap-2">
+              {phaseProgressItems.map((item, index) => (
+                <div key={item.label} className="flex min-w-0 flex-1 flex-col items-center gap-2 text-center">
+                  <div className="flex w-full items-center">
+                    <span className={`h-3.5 w-3.5 shrink-0 rounded-full border-2 ${item.complete ? "border-teal-200 bg-teal-300" : index === 0 ? "border-teal-200 bg-slate-950" : "border-slate-500 bg-slate-950"}`} />
+                    {index < phaseProgressItems.length - 1 ? (
+                      <span className={`h-0.5 min-w-0 flex-1 ${phaseProgressItems[index + 1].complete ? "bg-teal-300" : "bg-slate-600"}`} />
+                    ) : null}
+                  </div>
+                  <span className="text-[9px] font-bold leading-3 text-slate-300">{item.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </section>
 
         {selectedObject ? (
           <section
             data-testid="scene-decision-prompt"
-            className="absolute bottom-28 left-4 right-4 z-50 rounded-2xl border border-white/15 bg-slate-950/82 p-3.5 text-white shadow-2xl shadow-slate-950/50 backdrop-blur-xl lg:bottom-[156px] xl:left-[424px] xl:right-[416px]"
+            className="absolute bottom-28 left-4 right-4 z-50 rounded-2xl border border-white/15 bg-slate-950/86 p-3 text-white shadow-2xl shadow-slate-950/50 backdrop-blur-xl lg:bottom-auto lg:left-[52%] lg:right-auto lg:top-[46%] lg:w-[230px] lg:-translate-y-1/2 lg:rounded-xl"
           >
             <div className="flex items-center justify-between gap-3">
               <div>
-                <div className="text-[10px] font-black uppercase tracking-[0.2em] text-teal-200">
-                  Selected object
+                <div className="text-[9px] font-black uppercase tracking-[0.18em] text-teal-200">
+                  Actions
                 </div>
-                <h2 className="mt-1 text-lg font-black leading-6 text-white">{selectedObject.name}</h2>
+                <h2 className="mt-0.5 text-sm font-black leading-5 text-white">{selectedObject.name}</h2>
               </div>
               <button
                 type="button"
                 onClick={() => dispatchGame({ type: "SELECT_OBJECT", objectId: undefined })}
-                className="rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-xs font-black text-white transition hover:bg-white/20"
+                className="rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-[10px] font-black text-white transition hover:bg-white/20"
               >
                 Close
               </button>
@@ -1096,9 +1454,9 @@ export default function EMTScene() {
                 {selectedObject.disabledReason}
               </div>
             ) : null}
-            <div className="mt-3 grid gap-2 md:grid-cols-2">
+            <div className="mt-3 grid gap-2">
               {selectedActions.length === 0 ? (
-                <div className="rounded-xl border border-teal-200/25 bg-teal-400/10 px-3 py-3 text-sm font-bold text-teal-50">
+                <div className="rounded-xl border border-teal-200/25 bg-teal-400/10 px-3 py-3 text-xs font-bold text-teal-50">
                   This object is complete. Follow the highlighted next step.
                 </div>
               ) : null}
@@ -1112,12 +1470,12 @@ export default function EMTScene() {
                     data-testid={`scene-action-${action.id}`}
                     onClick={() => runSceneAction(selectedObject, action.id)}
                     disabled={disabled}
-                    className="flex min-h-[58px] items-start justify-between gap-3 rounded-xl border border-white/15 bg-white/5 px-3 py-2.5 text-left text-xs font-black text-white shadow-lg shadow-black/10 transition hover:border-teal-200/80 hover:bg-teal-300/15 disabled:cursor-not-allowed disabled:opacity-45 xl:text-sm"
+                    className="flex min-h-[46px] items-center justify-between gap-3 rounded-xl border border-white/15 bg-slate-950/70 px-3 py-2 text-left text-xs font-black text-white shadow-lg shadow-black/10 transition hover:border-teal-200/80 hover:bg-teal-300/15 disabled:cursor-not-allowed disabled:opacity-45"
                   >
                     <span>
                       {action.label}
                       {action.description ? (
-                        <span className="mt-1 block text-[11px] font-semibold leading-4 text-slate-300">{action.description}</span>
+                        <span className="mt-0.5 hidden text-[10px] font-semibold leading-3 text-slate-300 lg:block">{action.description}</span>
                       ) : null}
                     </span>
                     <CheckCircle2 className="mt-0.5 shrink-0 text-teal-200" size={16} />
@@ -1144,6 +1502,22 @@ export default function EMTScene() {
             <StatusPill tone={scenario.priority === "Unstable" ? "rose" : "amber"}>
               {scenario.priority}
             </StatusPill>
+          </div>
+
+          <div className="mt-3 grid grid-cols-3 gap-1 rounded-xl border border-white/10 bg-black/20 p-1">
+            {(["guided", "scenario", "exam"] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => changeSimulationMode(mode)}
+                className={`rounded-lg px-2 py-1.5 text-[10px] font-black uppercase tracking-wider transition ${simulationMode === mode
+                  ? "bg-teal-300 text-slate-950"
+                  : "text-slate-300 hover:bg-white/10 hover:text-white"
+                  }`}
+              >
+                {mode}
+              </button>
+            ))}
           </div>
 
 
@@ -1174,11 +1548,42 @@ export default function EMTScene() {
 
           <div className="mt-3 border-t border-white/10 pt-3">
             <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-slate-400">
-              <ShieldCheck size={13} />
-              Scene report
+              <MapPin size={13} />
+              Riverside community festival
             </div>
             <p className="mt-1 text-xs leading-5 text-slate-200">{sceneScenario.sceneReport}</p>
           </div>
+
+          <div className="mt-3 flex items-center justify-between border-t border-white/10 pt-3">
+            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+              <Timer size={14} />
+              Time elapsed
+            </div>
+            <div className="text-lg font-black text-white">
+              {Math.floor(gameState.elapsedTime / 60)}:{String(gameState.elapsedTime % 60).padStart(2, "0")}
+            </div>
+          </div>
+        </section>
+
+        <section
+          data-testid="pro-tip-panel"
+          className="absolute left-4 top-[392px] z-20 hidden w-[260px] rounded-2xl border border-white/15 bg-slate-950/76 p-4 text-white shadow-2xl shadow-slate-950/40 backdrop-blur-xl lg:block"
+        >
+          <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-teal-300">
+            <Lightbulb size={15} />
+            Pro tip
+          </div>
+          <p className="mt-3 text-sm font-semibold leading-5 text-slate-200">
+            Scene safety comes first. Address hazards before approaching the patient.
+          </p>
+          <button
+            type="button"
+            onClick={() => dispatchGame({ type: "USE_HINT" })}
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-teal-200/35 bg-teal-400/12 px-3 py-2.5 text-xs font-black text-teal-100 transition hover:border-teal-200 hover:bg-teal-300/20"
+          >
+            <Play size={14} className="fill-teal-200" />
+            Show me
+          </button>
         </section>
 
         <section
@@ -1194,10 +1599,11 @@ export default function EMTScene() {
             End Scenario
           </button>
 
-          <div
-            data-testid="patient-vitals-panel"
-            className="w-[388px] shrink-0 rounded-2xl border border-white/15 bg-slate-950/80 p-3 shadow-2xl shadow-slate-950/40 backdrop-blur-xl 2xl:w-[640px] 2xl:p-4"
-          >
+          {vitalsPanelVisible ? (
+            <div
+              data-testid="patient-vitals-panel"
+              className="w-[360px] shrink-0 rounded-2xl border border-white/15 bg-slate-950/80 p-3 shadow-2xl shadow-slate-950/40 backdrop-blur-xl 2xl:w-[500px] 2xl:p-4"
+            >
             <div className="mb-3 flex items-center justify-between gap-3">
               <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-teal-300">
                 <HeartPulse size={14} />
@@ -1216,48 +1622,55 @@ export default function EMTScene() {
                 </div>
               ))}
             </div>
-          </div>
+            </div>
+          ) : null}
 
-          <div
-            data-testid="phase-dock"
-            className="w-[300px] shrink-0 rounded-2xl border border-white/15 bg-slate-950/80 p-2 shadow-2xl shadow-slate-950/40 backdrop-blur-xl 2xl:w-[390px] 2xl:p-3"
-          >
-            <div className="grid grid-cols-5 gap-1.5 2xl:gap-2">
-              {PHASE_DOCK_ITEMS.map((item) => {
+          {equipmentDockVisible ? (
+            <div
+              data-testid="equipment-dock"
+              className="w-[318px] shrink-0 rounded-2xl border border-white/15 bg-slate-950/80 p-2 shadow-2xl shadow-slate-950/40 backdrop-blur-xl 2xl:w-[340px] 2xl:p-3"
+            >
+            <div className="grid grid-cols-6 gap-1 2xl:gap-2">
+              {EQUIPMENT_DOCK_ITEMS.map((item) => {
                 const Icon = item.icon;
-                const itemIndex = STAGES.findIndex((stageItem) => stageItem.key === item.key);
-                const isActive = item.key === stage;
-                const isPast = itemIndex >= 0 && itemIndex < stageIndex;
+                const active =
+                  (item.id === "gloves" && glovesEquipped) ||
+                  (item.id === "bp" && hasEvents(gameState, ["BLOOD_PRESSURE_OBTAINED"])) ||
+                  (item.id === "pulseox" && hasEvents(gameState, ["SPO2_OBTAINED"]));
+                const available =
+                  (item.id === "gloves" && hasEvents(gameState, ["DOG_SECURED"])) ||
+                  ((item.id === "bp" || item.id === "pulseox") && hasEvents(gameState, ["PULSE_CHECKED"]));
 
                 return (
                   <button
-                    key={item.key}
+                    key={item.id}
                     type="button"
-                    onClick={() => setStage(item.key)}
-                    className={`group flex min-w-0 flex-col items-center gap-1 rounded-xl border px-0.5 py-2 text-center transition 2xl:gap-2 2xl:px-1.5 2xl:py-2.5 ${isActive
-                      ? "border-teal-300 bg-teal-400/15 text-teal-200 shadow-[0_0_28px_rgba(45,212,191,0.18)]"
-                      : isPast
-                        ? "border-teal-400/25 bg-teal-400/10 text-teal-100"
+                    onClick={() => runEquipmentDockAction(item.id)}
+                    className={`group flex min-w-0 flex-col items-center gap-1 rounded-xl border px-0.5 py-2 text-center transition 2xl:gap-2 2xl:px-1.5 2xl:py-2.5 ${active
+                      ? "border-teal-300 bg-teal-400/15 text-teal-200 shadow-[0_0_28px_rgba(45,212,191,0.2)]"
+                      : available
+                        ? "border-teal-300/45 bg-teal-400/10 text-teal-100 hover:border-teal-200"
                         : "border-white/15 bg-white/5 text-slate-200 hover:border-teal-300/50 hover:bg-white/10"
                       }`}
-                    aria-pressed={isActive}
+                    aria-pressed={active}
                   >
                     <span
-                      className={`grid h-8 w-8 place-items-center rounded-lg border transition 2xl:h-10 2xl:w-10 2xl:rounded-xl ${isActive
+                      className={`grid h-7 w-7 place-items-center rounded-lg border transition 2xl:h-10 2xl:w-10 2xl:rounded-xl ${active
                         ? "border-teal-300 bg-teal-400/10 text-teal-200"
                         : "border-white/15 bg-white/5 text-slate-100 group-hover:border-teal-300/50"
                         }`}
                     >
-                      <Icon size={18} strokeWidth={1.8} />
+                      <Icon size={16} strokeWidth={1.8} />
                     </span>
-                    <span className={`max-w-full whitespace-nowrap text-[8px] font-bold leading-none 2xl:text-xs ${isActive ? "text-teal-300" : "text-slate-200"}`}>
+                    <span className={`max-w-full whitespace-nowrap text-[7px] font-bold leading-none 2xl:text-xs ${active ? "text-teal-300" : "text-slate-200"}`}>
                       {item.label}
                     </span>
                   </button>
                 );
               })}
             </div>
-          </div>
+            </div>
+          ) : null}
         </section>
 
         {/*
@@ -1286,36 +1699,71 @@ export default function EMTScene() {
 
         <section
           data-testid="scenario-progress-panel"
-          className="absolute bottom-4 right-4 z-40 hidden h-[156px] w-[380px] rounded-2xl border border-white/15 bg-slate-950/80 p-4 text-white shadow-2xl shadow-slate-950/40 backdrop-blur-xl lg:block"
+          className={`absolute bottom-4 right-4 z-40 hidden w-[380px] rounded-2xl border border-white/15 bg-slate-950/80 p-4 text-white shadow-2xl shadow-slate-950/40 backdrop-blur-xl lg:block ${primaryComplete ? "max-h-[420px] overflow-y-auto" : "h-[156px]"}`}
         >
           <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-teal-300">
             <Star size={15} />
-            Scenario progress
+            {primaryComplete ? "Primary debrief" : "Scenario progress"}
           </div>
-          <div className="mt-4 flex items-center justify-between gap-4">
-            <div className="flex items-center gap-1 text-amber-300">
-              {Array.from({ length: 5 }, (_, index) => {
-                const filled = scenarioProgressPercent >= (index + 1) * 20;
-                return (
-                  <Star
-                    key={index}
-                    size={28}
-                    className={filled ? "fill-amber-300 text-amber-300" : "text-teal-500/50"}
-                  />
-                );
-              })}
+
+          {primaryComplete ? (
+            <div className="mt-3 space-y-3">
+              <p className="text-xs font-semibold leading-5 text-slate-200">{debrief.summary}</p>
+              <div className="grid grid-cols-2 gap-2">
+                {Object.entries(debrief.score).map(([label, value]) => (
+                  <div key={label} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+                    <div className="text-[9px] font-black uppercase tracking-wider text-slate-400">{label}</div>
+                    <div className="mt-1 text-lg font-black text-teal-200">{value}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="space-y-2 text-xs leading-4 text-slate-300">
+                <div>
+                  <div className="font-black uppercase tracking-wider text-teal-300">Good calls</div>
+                  <p className="mt-1">{debrief.correct[0] ?? "Keep assessing to unlock debrief notes."}</p>
+                </div>
+                {debrief.unsafe.length ? (
+                  <div>
+                    <div className="font-black uppercase tracking-wider text-rose-300">Unsafe action</div>
+                    <p className="mt-1">{debrief.unsafe[0]}</p>
+                  </div>
+                ) : null}
+                {debrief.missed.length ? (
+                  <div>
+                    <div className="font-black uppercase tracking-wider text-amber-300">Review</div>
+                    <p className="mt-1">{debrief.missed[0]}</p>
+                  </div>
+                ) : null}
+              </div>
             </div>
-            <div className="text-3xl font-black text-teal-300">{scenarioProgressPercent}%</div>
-          </div>
-          <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/10">
-            <div
-              className="h-full rounded-full bg-teal-400 transition-all duration-300"
-              style={{ width: `${scenarioProgressPercent}%` }}
-            />
-          </div>
-          <div className="mt-3 text-xs font-semibold text-slate-300">
-            {scenarioCompletedCount} of {scenarioTasks.length} scenario objectives complete
-          </div>
+          ) : (
+            <>
+              <div className="mt-4 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-1 text-amber-300">
+                  {Array.from({ length: 5 }, (_, index) => {
+                    const filled = scenarioProgressPercent >= (index + 1) * 20;
+                    return (
+                      <Star
+                        key={index}
+                        size={28}
+                        className={filled ? "fill-amber-300 text-amber-300" : "text-teal-500/50"}
+                      />
+                    );
+                  })}
+                </div>
+                <div className="text-3xl font-black text-teal-300">{scenarioProgressPercent}%</div>
+              </div>
+              <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/10">
+                <div
+                  className="h-full rounded-full bg-teal-400 transition-all duration-300"
+                  style={{ width: `${scenarioProgressPercent}%` }}
+                />
+              </div>
+              <div className="mt-3 text-xs font-semibold text-slate-300">
+                {scenarioCompletedCount} of {scenarioTasks.length} scenario objectives complete
+              </div>
+            </>
+          )}
         </section>
 
         {/*

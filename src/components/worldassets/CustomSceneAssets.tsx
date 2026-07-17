@@ -52,6 +52,18 @@ export function DownloadedGrassModel(props: ModelProps) {
   return <AssetModel url="/models/emt-scene/quaternius_cc0-grass-1072.glb" {...props} />;
 }
 
+export function DownloadedEchinaceaModel(props: ModelProps) {
+  return <AssetModel url="/models/emt-scene/echinacea.glb" enhanceMaterials {...props} />;
+}
+
+export function DownloadedFlowerModel(props: ModelProps) {
+  return <AssetModel url="/models/emt-scene/flower.glb" enhanceMaterials {...props} />;
+}
+
+export function DownloadedTulipModel(props: ModelProps) {
+  return <AssetModel url="/models/emt-scene/tulip.glb" enhanceMaterials {...props} />;
+}
+
 export function DownloadedConeModel(props: ModelProps) {
   return <AssetModel url="/models/emt-scene/cone.glb" {...props} />;
 }
