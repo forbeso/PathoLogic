@@ -8,6 +8,7 @@ import {
   AlertTriangle,
   Ambulance,
   CheckCircle2,
+  ChevronRight,
   ClipboardCheck,
   ClipboardList,
   Flame,
@@ -589,10 +590,11 @@ export default function EMTScene() {
     });
   }, [gameState.patient]);
 
+  const animalControlResponseRequested = hasEvents(gameState, ["ANIMAL_CONTROL_CALLED"]);
+  const animalControlResponseFinished = hasEvents(gameState, ["DOG_SECURED"]);
+
   useEffect(() => {
-    const animalControlCalled = hasEvents(gameState, ["ANIMAL_CONTROL_CALLED"]);
-    const dogSecured = hasEvents(gameState, ["DOG_SECURED"]);
-    if (!animalControlCalled || dogSecured) {
+    if (!animalControlResponseRequested || animalControlResponseFinished) {
       setAnimalControlResponseActive(false);
       return;
     }
@@ -603,15 +605,18 @@ export default function EMTScene() {
     }, 3300);
 
     return () => window.clearTimeout(secureDogTimer);
-  }, [gameState.triggeredEvents]);
+  }, [animalControlResponseFinished, animalControlResponseRequested]);
 
   const currentObjective = getCurrentObjective(sceneScenario, gameState);
-  const cameraFocusObjectId =
-    currentObjective.id === "use-radio" &&
-    hasEvents(gameState, ["DOG_INSPECTED"]) &&
-    !hasEvents(gameState, ["RADIO_SELECTED"])
-      ? "dog"
-      : gameState.focusedObjectId;
+  const userShouldFindNextObject =
+    simulationMode !== "guided" &&
+    ((currentObjective.id === "use-radio" &&
+      hasEvents(gameState, ["DOG_INSPECTED"]) &&
+      !hasEvents(gameState, ["ANIMAL_CONTROL_CALLED"])) ||
+      (currentObjective.id === "bsi-ppe" &&
+        hasEvents(gameState, ["DOG_SECURED"]) &&
+        !hasEvents(gameState, ["GLOVES_EQUIPPED"])));
+  const cameraFocusObjectId = userShouldFindNextObject ? null : gameState.focusedObjectId;
   const phaseObjectives = sceneScenario.objectives.filter((objective) => objective.phase === gameState.currentPhase);
   const activeStage = STAGES.find((item) => item.key === stage) ?? STAGES[0];
   const completedCount = phaseObjectives.filter((objective) => gameState.completedObjectives.includes(objective.id)).length;
@@ -650,9 +655,12 @@ export default function EMTScene() {
     [gameState, sceneScenario]
   );
   const availableActionsForObject = (object: InteractiveObjectConfig) =>
-    object.actions.filter(
-      (action) => !hasEvents(gameState, getActionSuccessEvents(action)) && hasEvents(gameState, action.requires)
-    );
+    object.actions.filter((action) => {
+      if (simulationMode === "guided" && action.outcome === "incorrect") return false;
+      const successEvents = getActionSuccessEvents(action);
+      const completed = successEvents.length > 0 && hasEvents(gameState, successEvents);
+      return !completed && hasEvents(gameState, action.requires);
+    });
   const selectedObject = sceneObjects.find((object) => object.id === gameState.selectedObjectId);
   const animalControlCalled = hasEvents(gameState, ["ANIMAL_CONTROL_CALLED"]);
   const actionableSceneObjects = sceneObjects.filter(
@@ -747,7 +755,7 @@ export default function EMTScene() {
         },
       ];
     },
-    [gameState.triggeredEvents]
+    [gameState]
   );
   const phaseProgressItems = [
     { label: "Scene Safety", complete: hasEvents(gameState, ["DOG_SECURED"]) },
@@ -773,7 +781,11 @@ export default function EMTScene() {
     setLabOpen(isDesktopLayout);
     if (action) {
       setLog((prev) => [...prev, { who: "student", text: `${object.name}: ${action.label}` }]);
-      setSceneFinding(action.description ?? "");
+      setSceneFinding(
+        action.outcome === "incorrect"
+          ? action.feedback ?? "That action does not fit the patient's current presentation."
+          : action.description ?? ""
+      );
     }
     dispatchGame({ type: "RUN_ACTION", objectId: object.id, actionId });
   };
@@ -1349,18 +1361,20 @@ export default function EMTScene() {
                       <Lightbulb size={14} />
                       Hint
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => dispatchGame({ type: "TOGGLE_ACCESSIBILITY" })}
-                      className={`inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs font-black transition ${
-                        gameState.accessibilityMode
-                          ? "border-teal-200 bg-teal-300 text-slate-950"
-                          : "border-white/15 bg-white/10 text-white"
-                      }`}
-                    >
-                      <MousePointerClick size={14} />
-                      Mark objects
-                    </button>
+                    {simulationMode === "guided" ? (
+                      <button
+                        type="button"
+                        onClick={() => dispatchGame({ type: "TOGGLE_ACCESSIBILITY" })}
+                        className={`inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs font-black transition ${
+                          gameState.accessibilityMode
+                            ? "border-teal-200 bg-teal-300 text-slate-950"
+                            : "border-white/15 bg-white/10 text-white"
+                        }`}
+                      >
+                        <MousePointerClick size={14} />
+                        Mark objects
+                      </button>
+                    ) : null}
                   </div>
                 </div>
               ) : null}
@@ -1602,16 +1616,18 @@ export default function EMTScene() {
 
           <div className="mt-5 flex items-center justify-between gap-3">
             <div className="text-[10px] font-black uppercase tracking-[0.18em] text-teal-300">Primary tasks</div>
-            <button
-              type="button"
-              onClick={() => dispatchGame({ type: "TOGGLE_ACCESSIBILITY" })}
-              className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-wider transition ${gameState.accessibilityMode
-                ? "border-teal-200 bg-teal-300 text-slate-950"
-                : "border-white/15 bg-white/10 text-slate-200 hover:border-teal-200/60"
-                }`}
-            >
-              Mark objects
-            </button>
+            {simulationMode === "guided" ? (
+              <button
+                type="button"
+                onClick={() => dispatchGame({ type: "TOGGLE_ACCESSIBILITY" })}
+                className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-wider transition ${gameState.accessibilityMode
+                  ? "border-teal-200 bg-teal-300 text-slate-950"
+                  : "border-white/15 bg-white/10 text-slate-200 hover:border-teal-200/60"
+                  }`}
+              >
+                Mark objects
+              </button>
+            ) : null}
           </div>
 
           <div className="mt-3 space-y-2">
@@ -1667,12 +1683,12 @@ export default function EMTScene() {
         {selectedObject ? (
           <section
             data-testid="scene-decision-prompt"
-            className="absolute bottom-28 left-4 right-4 z-50 rounded-2xl border border-white/15 bg-slate-950/86 p-3 text-white shadow-2xl shadow-slate-950/50 backdrop-blur-xl lg:bottom-auto lg:left-[52%] lg:right-auto lg:top-[46%] lg:w-[230px] lg:-translate-y-1/2 lg:rounded-xl"
+            className="absolute bottom-28 left-4 right-4 z-50 max-h-[min(62vh,520px)] overflow-y-auto rounded-2xl border border-white/15 bg-slate-950/88 p-3 text-white shadow-2xl shadow-slate-950/50 backdrop-blur-xl lg:bottom-auto lg:left-[52%] lg:right-auto lg:top-[46%] lg:w-[300px] lg:-translate-y-1/2 lg:rounded-xl"
           >
             <div className="flex items-center justify-between gap-3">
               <div>
                 <div className="text-[9px] font-black uppercase tracking-[0.18em] text-teal-200">
-                  Actions
+                  Choose an action
                 </div>
                 <h2 className="mt-0.5 text-sm font-black leading-5 text-white">{selectedObject.name}</h2>
               </div>
@@ -1714,7 +1730,7 @@ export default function EMTScene() {
                         <span className="mt-0.5 hidden text-[10px] font-semibold leading-3 text-slate-300 lg:block">{action.description}</span>
                       ) : null}
                     </span>
-                    <CheckCircle2 className="mt-0.5 shrink-0 text-teal-200" size={16} />
+                    <ChevronRight className="mt-0.5 shrink-0 text-teal-200" size={16} />
                   </button>
                 );
               })}
@@ -1864,7 +1880,7 @@ export default function EMTScene() {
           {equipmentDockVisible ? (
             <div
               data-testid="equipment-dock"
-              className="w-[318px] shrink-0 rounded-2xl border border-white/15 bg-slate-950/80 p-2 shadow-2xl shadow-slate-950/40 backdrop-blur-xl 2xl:w-[340px] 2xl:p-3"
+              className="w-[318px] shrink-0 rounded-2xl border border-white/15 bg-slate-950/80 p-2 shadow-2xl shadow-slate-950/40 backdrop-blur-xl 2xl:w-[400px] 2xl:p-3"
             >
             <div className="grid grid-cols-6 gap-1 2xl:gap-2">
               {EQUIPMENT_DOCK_ITEMS.map((item) => {
@@ -1882,7 +1898,7 @@ export default function EMTScene() {
                     key={item.id}
                     type="button"
                     onClick={() => runEquipmentDockAction(item.id)}
-                    className={`group flex min-w-0 flex-col items-center gap-1 rounded-xl border px-0.5 py-2 text-center transition 2xl:gap-2 2xl:px-1.5 2xl:py-2.5 ${active
+                    className={`group flex min-w-0 flex-col items-center gap-1 overflow-hidden rounded-xl border px-0.5 py-2 text-center transition 2xl:gap-2 2xl:px-1.5 2xl:py-2.5 ${active
                       ? "border-teal-300 bg-teal-400/15 text-teal-200 shadow-[0_0_28px_rgba(45,212,191,0.2)]"
                       : available
                         ? "border-teal-300/45 bg-teal-400/10 text-teal-100 hover:border-teal-200"
@@ -1898,7 +1914,7 @@ export default function EMTScene() {
                     >
                       <Icon size={16} strokeWidth={1.8} />
                     </span>
-                    <span className={`max-w-full whitespace-nowrap text-[7px] font-bold leading-none 2xl:text-xs ${active ? "text-teal-300" : "text-slate-200"}`}>
+                    <span className={`flex min-h-4 w-full items-center justify-center whitespace-normal text-center text-[8px] font-bold leading-[1.05] 2xl:text-[11px] ${active ? "text-teal-300" : "text-slate-200"}`}>
                       {item.label}
                     </span>
                   </button>

@@ -50,6 +50,8 @@ export type InteractionAction = {
   id: string;
   label: string;
   description?: string;
+  outcome?: "correct" | "incorrect";
+  feedback?: string;
   icon?: string;
   requires?: string[];
   disabledReason?: string;
@@ -485,16 +487,40 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
           id: "general-impression",
           label: "Observe general impression",
           description: "Teen upright on ground, anxious, flushed skin, visible hives, labored breathing.",
+          outcome: "correct",
           onSuccessEvents: ["GENERAL_IMPRESSION_OBSERVED"],
           scoreEffect: 5,
         },
         {
           id: "introduce-yourself",
-          label: "Introduce yourself",
-          description: "The patient is alert and answers in short phrases.",
+          label: "Introduce yourself and ask what happened",
+          description: "Speak to the patient and assess whether they answer appropriately.",
+          outcome: "correct",
           requires: ["GENERAL_IMPRESSION_OBSERVED"],
           onSuccessEvents: ["RESPONSIVENESS_CHECKED"],
           scoreEffect: 5,
+        },
+        {
+          id: "painful-stimulus-alert-patient",
+          label: "Apply a painful stimulus",
+          description: "Use a trapezius squeeze to assess responsiveness.",
+          outcome: "incorrect",
+          requires: ["GENERAL_IMPRESSION_OBSERVED"],
+          feedback:
+            "The patient is already alert and speaking. A painful stimulus is unnecessary; begin with verbal interaction and assess their response.",
+          scoreEffect: -3,
+          timeEffect: 10,
+        },
+        {
+          id: "skip-responsiveness",
+          label: "Skip directly to vital signs",
+          description: "Begin equipment-based measurements without speaking to the patient.",
+          outcome: "incorrect",
+          requires: ["GENERAL_IMPRESSION_OBSERVED"],
+          feedback:
+            "Responsiveness is part of the primary assessment. Speak to this alert patient first and determine whether their answers are appropriate.",
+          scoreEffect: -3,
+          timeEffect: 10,
         },
       ],
     },
@@ -511,10 +537,41 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
       actions: [
         {
           id: "inspect-airway",
-          label: "Inspect airway",
-          description: "Airway is patent, but the patient reports throat tightness.",
+          label: "Assess speech and inspect the airway",
+          description: "Listen to speech and look for swelling, secretions, or obstruction.",
+          outcome: "correct",
           onSuccessEvents: ["AIRWAY_OPENED"],
           scoreEffect: 5,
+        },
+        {
+          id: "insert-opa-alert-patient",
+          label: "Insert an oropharyngeal airway",
+          description: "Place an OPA before continuing the assessment.",
+          outcome: "incorrect",
+          feedback:
+            "An OPA is contraindicated in an alert patient with an intact gag reflex. The patient is speaking, so assess patency and watch closely for worsening swelling.",
+          scoreEffect: -4,
+          timeEffect: 12,
+        },
+        {
+          id: "blind-finger-sweep",
+          label: "Perform a blind finger sweep",
+          description: "Sweep the mouth for a possible unseen obstruction.",
+          outcome: "incorrect",
+          feedback:
+            "There is no visible foreign body, and a blind finger sweep can push material deeper or injure the airway. Inspect the mouth and listen to speech instead.",
+          scoreEffect: -4,
+          timeEffect: 12,
+        },
+        {
+          id: "immediate-suction",
+          label: "Suction the airway immediately",
+          description: "Begin suction before checking for fluid or secretions.",
+          outcome: "incorrect",
+          feedback:
+            "No blood, vomit, or secretions are present. Suction is not the first action here; assess the patent but threatened airway for allergic swelling.",
+          scoreEffect: -3,
+          timeEffect: 10,
         },
       ],
     },
@@ -531,10 +588,41 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
       actions: [
         {
           id: "count-respirations",
-          label: "Count respirations",
-          description: "RR 28 with wheezing and increased work of breathing.",
+          label: "Assess effort and count respirations",
+          description: "Observe chest rise, rate, depth, effort, and audible breath sounds.",
+          outcome: "correct",
           onSuccessEvents: ["RESPIRATIONS_COUNTED"],
           scoreEffect: 5,
+        },
+        {
+          id: "rescue-breaths-spontaneous",
+          label: "Begin rescue breaths",
+          description: "Ventilate immediately with a bag-mask device.",
+          outcome: "incorrect",
+          feedback:
+            "The patient is breathing spontaneously and speaking. First assess rate, depth, effort, and breath sounds; assisted ventilation is reserved for inadequate breathing.",
+          scoreEffect: -4,
+          timeEffect: 12,
+        },
+        {
+          id: "walking-tolerance-test",
+          label: "Have the patient walk",
+          description: "Test exertional tolerance before deciding how severe the breathing problem is.",
+          outcome: "incorrect",
+          feedback:
+            "Exertion could worsen this unstable patient's respiratory distress. Keep them at rest and assess breathing where they are.",
+          scoreEffect: -5,
+          timeEffect: 15,
+        },
+        {
+          id: "delay-breathing-assessment",
+          label: "Obtain blood pressure first",
+          description: "Delay the breathing assessment until baseline vital signs are recorded.",
+          outcome: "incorrect",
+          feedback:
+            "Breathing is an immediate primary-assessment priority. Assess respiratory effort before moving to baseline vital signs.",
+          scoreEffect: -3,
+          timeEffect: 10,
         },
       ],
     },
@@ -551,10 +639,41 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
       actions: [
         {
           id: "check-radial-pulse",
-          label: "Check radial pulse and skin",
-          description: "Rapid radial pulse at 128. Skin is warm, flushed, and covered with hives.",
+          label: "Check radial pulse, skin, and major bleeding",
+          description: "Assess pulse quality and rate, skin signs, and scan for life-threatening bleeding.",
+          outcome: "correct",
           onSuccessEvents: ["PULSE_CHECKED"],
           scoreEffect: 5,
+        },
+        {
+          id: "temperature-before-circulation",
+          label: "Take an oral temperature",
+          description: "Measure temperature before checking pulse and perfusion.",
+          outcome: "incorrect",
+          feedback:
+            "Temperature is not the immediate circulation priority. Check pulse, skin signs, perfusion, and major bleeding first.",
+          scoreEffect: -3,
+          timeEffect: 10,
+        },
+        {
+          id: "skip-circulation-alert",
+          label: "Skip circulation because the patient is alert",
+          description: "Assume perfusion is adequate based on mental status alone.",
+          outcome: "incorrect",
+          feedback:
+            "An alert patient can still be in shock. This patient is at risk for distributive shock, so pulse quality and skin signs must be assessed.",
+          scoreEffect: -5,
+          timeEffect: 12,
+        },
+        {
+          id: "carotid-only",
+          label: "Check only a carotid pulse",
+          description: "Use a central pulse and move on without assessing skin or bleeding.",
+          outcome: "incorrect",
+          feedback:
+            "A radial pulse provides useful perfusion information in this responsive patient. Circulation also includes skin signs and a major-bleeding scan.",
+          scoreEffect: -3,
+          timeEffect: 10,
         },
       ],
     },
@@ -573,8 +692,29 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
           id: "urgent-transport",
           label: "Urgent transport",
           description: "Primary survey supports urgent transport with respiratory compromise and hypotension.",
+          outcome: "correct",
           onSuccessEvents: ["TRANSPORT_SELECTED", "SECONDARY_UNLOCKED"],
           scoreEffect: 8,
+        },
+        {
+          id: "non-urgent-transport",
+          label: "Routine, non-urgent transport",
+          description: "Complete an extended on-scene assessment before leaving.",
+          outcome: "incorrect",
+          feedback:
+            "Wheezing, throat tightness, hypoxemia, and hypotension make this patient high priority. Minimize scene time and transport urgently.",
+          scoreEffect: -5,
+          timeEffect: 20,
+        },
+        {
+          id: "remain-on-scene",
+          label: "Remain on scene for observation",
+          description: "Watch for improvement before making a transport decision.",
+          outcome: "incorrect",
+          feedback:
+            "This presentation can deteriorate rapidly. Observation without urgent transport is unsafe for a patient with respiratory compromise and hypotension.",
+          scoreEffect: -6,
+          timeEffect: 25,
         },
       ],
     },
@@ -594,8 +734,39 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
           id: "suspect-severe-allergic-reaction",
           label: "Suspect severe allergic reaction",
           description: "Hives, throat tightness, wheezing, SpO2 89%, and BP 92/60 indicate a high-priority allergic emergency.",
+          outcome: "correct",
           onSuccessEvents: ["WORKING_IMPRESSION_SELECTED"],
           scoreEffect: 8,
+        },
+        {
+          id: "suspect-panic-attack",
+          label: "Suspect a panic attack",
+          description: "Attribute the breathing difficulty and anxiety primarily to stress.",
+          outcome: "incorrect",
+          feedback:
+            "Anxiety may be present, but it does not explain hives, throat tightness, wheezing, hypoxemia, and hypotension. This is a severe allergic reaction.",
+          scoreEffect: -5,
+          timeEffect: 15,
+        },
+        {
+          id: "suspect-isolated-asthma",
+          label: "Suspect an isolated asthma attack",
+          description: "Treat the wheezing as a respiratory condition without systemic involvement.",
+          outcome: "incorrect",
+          feedback:
+            "Asthma can cause wheezing, but the hives, throat tightness, allergen exposure, and hypotension indicate systemic anaphylaxis.",
+          scoreEffect: -4,
+          timeEffect: 15,
+        },
+        {
+          id: "suspect-heat-exhaustion",
+          label: "Suspect heat exhaustion",
+          description: "Connect the outdoor setting, flushing, and weakness to heat illness.",
+          outcome: "incorrect",
+          feedback:
+            "The setting alone should not outweigh the clinical pattern. Hives, airway symptoms, wheezing, and hypotension after food exposure indicate anaphylaxis.",
+          scoreEffect: -4,
+          timeEffect: 15,
         },
       ],
     },
@@ -634,7 +805,10 @@ export function getActionSuccessEvents(action: InteractionAction) {
 
 export function isInteractiveObjectComplete(object: InteractiveObjectConfig, state: ScenarioState) {
   if (object.completedWhen) return hasEvents(state, object.completedWhen);
-  return object.actions.some((action) => hasEvents(state, getActionSuccessEvents(action)));
+  return object.actions.some((action) => {
+    const successEvents = getActionSuccessEvents(action);
+    return successEvents.length > 0 && hasEvents(state, successEvents);
+  });
 }
 
 export function getVisibleInteractiveObjects(scenario: SceneScenarioConfig, state: ScenarioState) {
@@ -668,7 +842,7 @@ function feedbackForEvent(event: SceneEvent): string {
     case "DOG_SELECTED":
       return "The dog is barking, tense, and between you and the patient.";
     case "DOG_INSPECTED":
-      return "Hazard identified: the dog is agitated and blocking safe patient access. Use the ambulance radio for trained help.";
+      return "Hazard identified: the dog is blocking safe patient access. Rotate the scene to find the highlighted ambulance radio.";
     case "DOG_AGITATED":
       return "The dog lunges closer. You step back and lose time. The patient is still not safely reachable.";
     case "CAR_INSPECTED":
@@ -680,7 +854,7 @@ function feedbackForEvent(event: SceneEvent): string {
     case "ANIMAL_CONTROL_CALLED":
       return "Radio: Animal control and police support are en route. Hold position until the dog is secured.";
     case "DOG_SECURED":
-      return "A responder secures the dog and leads it away. The path to the patient is now safe.";
+      return "The dog is secured and the path is safe. Rotate the scene to find the highlighted medical bag and put on gloves.";
     case "MEDICAL_BAG_OPENED":
       return "The medical bag is open. Gloves are visible inside.";
     case "GLOVES_EQUIPPED":
@@ -932,13 +1106,30 @@ export function scenarioReducer(
         };
       }
 
+      if (interaction.outcome === "incorrect") {
+        const maxScore = state.failedObjectives.includes("dog-hazard") ? 88 : 100;
+        return {
+          ...state,
+          selectedObjectId: object.id,
+          focusedObjectId: object.id,
+          feedback:
+            interaction.feedback ??
+            "That action does not fit the patient's current presentation. Reassess and choose another option.",
+          elapsedTime: state.elapsedTime + (interaction.timeEffect ?? 10),
+          score: Math.max(0, Math.min(maxScore, state.score + (interaction.scoreEffect ?? -3))),
+        };
+      }
+
       let next = state;
       getActionSuccessEvents(interaction).forEach((event) => {
         next = applyEvent(next, event);
       });
 
       const hasRemainingObjectActions = object.actions.some(
-        (action) => !hasEvents(next, getActionSuccessEvents(action)) && hasEvents(next, action.requires)
+        (action) => {
+          const successEvents = getActionSuccessEvents(action);
+          return successEvents.length > 0 && !hasEvents(next, successEvents) && hasEvents(next, action.requires);
+        }
       );
       const shouldKeepSelection =
         (object.id === "dog" && next.environment.dogAgitated && !next.environment.dogSecured) ||

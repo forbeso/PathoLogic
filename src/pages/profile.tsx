@@ -3,6 +3,7 @@ import { supabase } from "@/lib/supabase";
 import Header from "@/components/Header";
 import { Camera, Loader2, UserRound, Archive, ArrowLeft } from "lucide-react";
 import Seo from "@/components/Seo";
+import Link from "next/link";
 import {
   AppShell,
   PageContainer,
@@ -265,14 +266,14 @@ export default function ProfilePage() {
 
           {/* Helpful links */}
           <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-slate-600">
-            <a href="/my-scenarios" className={secondaryButtonClass}>
+            <Link href="/my-scenarios" className={secondaryButtonClass}>
               <Archive size={16} />
               My Scenarios
-            </a>
-            <a href="/emtrainer" className={secondaryButtonClass}>
+            </Link>
+            <Link href="/emtrainer" className={secondaryButtonClass}>
               <ArrowLeft size={16} />
               Back to Trainer
-            </a>
+            </Link>
           </div>
         </form>
       </PageContainer>

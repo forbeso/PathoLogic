@@ -63,7 +63,7 @@ type ThreeDSceneProps = {
   interactiveObjects?: SceneInteractiveObject[];
   selectedObjectId?: string;
   focusedObjectId?: string;
-  cameraFocusObjectId?: string;
+  cameraFocusObjectId?: string | null;
   accessibilityMode?: boolean;
   environment?: ScenarioState["environment"];
   locationId?: ScenarioState["locationId"];
@@ -110,6 +110,8 @@ const CAMERA_MAX_POLAR_ANGLE = Math.PI / 2 - 0.04;
 const GUIDE_PARAMEDIC_POSITION: Vec3 = [0.35, 0.05, 0.95];
 const STAGED_PARAMEDIC_POSITION: Vec3 = [-2.35, 0.05, -1.15];
 const PATIENT_SIDE_PARAMEDIC_POSITION: Vec3 = [1.02, 0.05, 1.3];
+const STAGED_MEDICAL_BAG_POSITION: Vec3 = [-2.9, 0.06, -0.65];
+const PATIENT_SIDE_MEDICAL_BAG_POSITION: Vec3 = [0.18, 0.06, 1.82];
 const GUIDE_PARAMEDIC_MODEL_SCALE = 0.9;
 const GUIDE_PARAMEDIC_CAMERA_POSITION: Vec3 = [2.35, 1.88, 4.05];
 const GUIDE_PARAMEDIC_CAMERA_TARGET: Vec3 = [0.35, 1.3, 0.95];
@@ -2087,10 +2089,16 @@ function AnimalControlResponse({ active }: { active?: boolean }) {
 function RoadsideFestivalEmergencyScene({
   environment,
   animalControlResponseActive,
+  locationId = "ambulance",
 }: {
   environment?: ScenarioState["environment"];
   animalControlResponseActive?: boolean;
+  locationId?: ScenarioState["locationId"];
 }) {
+  const medicalBagPosition =
+    locationId === "patientSide"
+      ? PATIENT_SIDE_MEDICAL_BAG_POSITION
+      : STAGED_MEDICAL_BAG_POSITION;
   const cones = useMemo(
     () => [
       [-3.35, 0.11, -3.05, 0.1],
@@ -2119,7 +2127,7 @@ function RoadsideFestivalEmergencyScene({
         <DownloadedConeModel key={`roadside-cone-${index}`} position={[x, y, z]} scale={0.3} rotation={[0, rotation, 0]} />
       ))}
 
-      <CustomFirstAidBagModel position={[-2.9, 0.06, -0.65]} scale={0.88} rotation={[0, 0, 0]} />
+      <CustomFirstAidBagModel position={medicalBagPosition} scale={0.88} rotation={[0, 0, 0]} />
       <CustomPatientModel position={[2.28, 0.2, 1.18]} scale={2.0} rotation={[0, -0.16, 0]} />
       <mesh position={[2.28, 0.025, 1.28]} rotation={[-Math.PI / 2, 0, -0.16]} receiveShadow>
         <circleGeometry args={[1.55, 40]} />
@@ -2310,13 +2318,13 @@ function FindingBubble({ text, speaker = "coach" }: { text?: string; speaker?: "
   const label = speaker === "patient" ? "Patient" : "Coach";
   const bubbleClass =
     speaker === "patient"
-      ? "border-teal-200/55 bg-teal-950/78 text-teal-50"
-      : "border-sky-200/55 bg-slate-950/82 text-sky-50";
+      ? "border-teal-200/65 bg-teal-950/95 text-teal-50"
+      : "border-sky-200/65 bg-slate-950/95 text-sky-50";
   const cleanedText = visibleText.replace(/^(Coach|Patient):\s*/i, "");
   const content = (
     <div
       data-testid="scene-finding-bubble"
-      className={`w-[min(230px,calc(100vw-24px))] rounded-lg border px-3 py-2 text-left text-[11px] font-bold leading-4 shadow-xl backdrop-blur transition-opacity duration-[1800ms] sm:w-[210px] sm:px-2.5 sm:py-1.5 sm:text-[10px] ${bubbleClass} ${isVisible ? "opacity-100" : "opacity-0"}`}
+      className={`w-[min(230px,calc(100vw-24px))] rounded-lg border px-3 py-2 text-left text-[11px] font-bold leading-4 shadow-xl backdrop-blur transition-opacity sm:w-[210px] sm:px-2.5 sm:py-1.5 sm:text-[10px] ${bubbleClass} ${isVisible ? "opacity-100 duration-200" : "opacity-0 duration-[1400ms]"}`}
     >
       <div className="mb-0.5 text-[8px] font-black uppercase tracking-[0.16em] opacity-75">
         {label}
@@ -2355,14 +2363,14 @@ function MobileFindingBubble({ text, speaker = "coach" }: { text?: string; speak
   const label = speaker === "patient" ? "Patient" : "Coach";
   const bubbleClass =
     speaker === "patient"
-      ? "border-teal-200/55 bg-teal-950/84 text-teal-50"
-      : "border-sky-200/55 bg-slate-950/88 text-sky-50";
+      ? "border-teal-200/65 bg-teal-950/95 text-white"
+      : "border-sky-200/65 bg-slate-950/95 text-white";
   const cleanedText = visibleText.replace(/^(Coach|Patient):\s*/i, "");
 
   return (
     <div
       data-testid="mobile-scene-finding-bubble"
-      className={`pointer-events-none absolute left-3 top-[68px] z-20 w-[min(230px,calc(100%-24px))] rounded-xl border px-3 py-2 text-left text-[11px] font-bold leading-4 shadow-xl backdrop-blur transition-opacity duration-[1800ms] md:hidden ${bubbleClass} ${isVisible ? "opacity-100" : "opacity-0"}`}
+      className={`pointer-events-none absolute left-3 top-[68px] z-20 w-[min(260px,calc(100%-24px))] rounded-xl border px-3 py-2 text-left text-[11px] font-bold leading-4 shadow-2xl backdrop-blur transition-opacity md:hidden ${bubbleClass} ${isVisible ? "opacity-100 duration-200" : "opacity-0 duration-[1400ms]"}`}
     >
       <div className="mb-0.5 text-[8px] font-black uppercase tracking-[0.16em] opacity-75">
         {label}
@@ -3923,7 +3931,8 @@ export default function ThreeDScene({
 }: ThreeDSceneProps) {
   const activeScenarioId = normalizeSceneVariant(scenarioId);
   const useRoadsideFestivalScene = activeScenarioId === "anaphylaxis";
-  const activeCameraFocusObjectId = cameraFocusObjectId ?? focusedObjectId;
+  const activeCameraFocusObjectId =
+    cameraFocusObjectId === null ? undefined : cameraFocusObjectId ?? focusedObjectId;
   const focusObject =
     interactiveObjects.find((object) => object.id === activeCameraFocusObjectId) ??
     STATIC_FOCUS_OBJECTS[activeCameraFocusObjectId ?? ""];
@@ -4003,6 +4012,7 @@ export default function ThreeDScene({
           <RoadsideFestivalEmergencyScene
             environment={environment}
             animalControlResponseActive={animalControlResponseActive}
+            locationId={locationId}
           />
         ) : (
           <BaselineGroundRightTerrain />
@@ -4016,7 +4026,15 @@ export default function ThreeDScene({
         />
         {!useRoadsideFestivalScene ? (
           <>
-            <CustomFirstAidBagModel position={[-2.9, 0.06, -0.65]} scale={0.88} rotation={[0, 0, 0]} />
+            <CustomFirstAidBagModel
+              position={
+                locationId === "patientSide"
+                  ? PATIENT_SIDE_MEDICAL_BAG_POSITION
+                  : STAGED_MEDICAL_BAG_POSITION
+              }
+              scale={0.88}
+              rotation={[0, 0, 0]}
+            />
             <CustomAmbulanceModel position={[-3.95, 0.52, -0.7]} scale={2.05} rotation={[0, 0.58, 0]} />
           </>
         ) : null}
