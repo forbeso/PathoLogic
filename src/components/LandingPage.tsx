@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import HeroScreenshot from "@/components/HeroScreenshot";
+import { learnArticles } from "@/lib/learnArticles";
 
 type IconComponent = LucideIcon;
 
@@ -430,6 +431,52 @@ export default function LandingPage() {
         </Container>
       </section>
 
+      <section className="border-y border-[#d5e6e1] bg-[#edf8f4] py-16 sm:py-20">
+        <Container>
+          <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+            <SectionIntro
+              eyebrow="Learning Center"
+              title="Review the concept, then practice the decision."
+              subtitle="Source-backed EMT study guides connect assessment sequences and clinical findings to the choices you make in a scenario."
+            />
+            <Link
+              href="/learn"
+              className="inline-flex w-fit items-center gap-2 rounded-md border border-teal-300 bg-white px-4 py-2 text-sm font-bold text-teal-800 shadow-sm transition hover:border-teal-500 hover:bg-teal-50"
+            >
+              Browse all guides
+              <ArrowRight size={16} />
+            </Link>
+          </div>
+
+          <div className="mt-9 grid gap-4 md:grid-cols-3">
+            {learnArticles.slice(0, 3).map((article) => (
+              <article
+                key={article.slug}
+                className="flex flex-col rounded-lg border border-[#c8dcd6] bg-white p-5 shadow-[0_8px_24px_rgba(15,23,42,0.05)]"
+              >
+                <div className="flex items-center justify-between gap-3 text-xs font-bold">
+                  <span className="text-teal-700">{article.category}</span>
+                  <span className="text-slate-500">{article.readTime}</span>
+                </div>
+                <h3 className="mt-4 text-xl font-bold leading-7 text-slate-950">
+                  {article.shortTitle}
+                </h3>
+                <p className="mt-3 flex-1 text-sm leading-6 text-slate-600">
+                  {article.description}
+                </p>
+                <Link
+                  href={`/learn/${article.slug}`}
+                  className="mt-5 inline-flex w-fit items-center gap-2 text-sm font-bold text-teal-700 transition hover:text-teal-500"
+                >
+                  Read guide
+                  <ArrowRight size={15} />
+                </Link>
+              </article>
+            ))}
+          </div>
+        </Container>
+      </section>
+
       <section className="bg-teal-700 py-14 text-white">
         <Container>
           <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
@@ -487,6 +534,9 @@ export default function LandingPage() {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <p>© {new Date().getFullYear()} PathoLogix. EMT practice scenarios.</p>
             <div className="flex items-center gap-5">
+              <Link className="transition hover:text-slate-950" href="/learn">
+                Learn
+              </Link>
               <a className="transition hover:text-slate-950" href="#">
                 Privacy
               </a>

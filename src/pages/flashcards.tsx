@@ -1,11 +1,15 @@
 // pages/flashcards.tsx
 import FlashcardTrainer from "@/components/FlashcardTrainer";
-import Head from "next/head";
+import Seo from "@/components/Seo";
 
 export default function FlashcardsPage() {
   return (
     <>
-      <Head><title>PathoLogix - Flashcards</title></Head>
+      <Seo
+        title="EMT and NREMT Flashcards"
+        description="Review core EMT assessments, pathophysiology, treatment priorities, and NREMT-style concepts with focused flashcards."
+        path="/flashcards"
+      />
       <FlashcardTrainer />
     </>
   );

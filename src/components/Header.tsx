@@ -8,6 +8,7 @@ const navItems = [
   { href: "/emtrainer", label: "Scenarios" },
   { href: "/exam/nremt", label: "Exam Mode" },
   { href: "/flashcards", label: "Flashcards" },
+  { href: "/learn", label: "Learn" },
   { href: "/progress", label: "Progress" },
 ];
 

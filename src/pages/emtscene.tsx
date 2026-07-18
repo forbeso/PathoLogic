@@ -1,4 +1,4 @@
-import Head from "next/head";
+import Seo from "@/components/Seo";
 import Link from "next/link";
 import ThreeDScene from "@/components/ThreeDScene";
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
@@ -378,7 +378,11 @@ function SceneTopBar({
 
   return (
     <header className="relative z-50 flex h-16 items-center justify-between border-b border-white/10 bg-slate-950 px-4 text-white shadow-2xl shadow-slate-950/35">
-      <div className="flex min-w-0 items-center gap-3">
+      <Link
+        href="/"
+        aria-label="PathoLogix home"
+        className="flex min-w-0 items-center gap-3 rounded-lg outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-teal-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+      >
         <div className="grid h-10 w-10 place-items-center rounded-xl border border-teal-200/35 bg-teal-400/10 text-teal-200">
           <Ambulance size={23} />
         </div>
@@ -388,7 +392,7 @@ function SceneTopBar({
             EMT Scene Lab
           </div>
         </div>
-      </div>
+      </Link>
 
       <div className="hidden min-w-0 flex-1 items-center justify-center gap-8 lg:flex">
         <div className="w-[320px]">
@@ -1090,9 +1094,11 @@ export default function EMTScene() {
 
   return (
     <AppShell>
-      <Head>
-        <title>PathoLogix - EMT Scene Lab</title>
-      </Head>
+      <Seo
+        title="Interactive EMT Scene Lab"
+        description="Practice scene safety, primary assessment, patient interaction, and clinical decision-making in an interactive 3D EMT simulation."
+        path="/emtscene"
+      />
       <SceneTopBar score={gameState.score} completed={scenarioCompletedCount} total={scenarioTasks.length} />
 
       <main className="relative isolate min-h-0 overflow-hidden bg-slate-950" style={{ height: sceneHeight }}>

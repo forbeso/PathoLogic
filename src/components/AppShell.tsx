@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ArrowRight, type LucideIcon } from "lucide-react";
 
 export const pageBg =
-  "relative min-h-screen w-full overflow-hidden app-background text-slate-950";
+  "relative min-h-screen w-full overflow-x-hidden app-background text-slate-950";
 
 export const cardClass =
   "rounded-lg border border-[#c8dcd6] bg-white/90 shadow-[0_10px_28px_rgba(15,23,42,0.07)] backdrop-blur";

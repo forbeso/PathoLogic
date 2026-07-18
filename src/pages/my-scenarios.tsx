@@ -3,7 +3,7 @@ import { supabase } from "@/lib/supabase";
 import Header from "@/components/Header";
 import { Search, Filter, ChevronLeft, ChevronRight, ExternalLink, Sparkles } from "lucide-react";
 import Link from "next/link";
-import Head from "next/head";
+import Seo from "@/components/Seo";
 import {
   AppShell,
   PageContainer,
@@ -116,7 +116,12 @@ export default function MyScenariosPage() {
 
   return (
     <AppShell>
-      <Head><title>PathoLogix - My Scenarios</title></Head>
+      <Seo
+        title="My Saved EMT Scenarios"
+        description="Review private EMT training scenarios saved to your PathoLogix account."
+        path="/my-scenarios"
+        noIndex
+      />
       <Header />
 
       <PageContainer className="space-y-6">

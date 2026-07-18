@@ -3,7 +3,7 @@ import Header from "@/components/Header";
 import { supabase } from "@/lib/supabase";
 import { getWeakestTopic } from "@/lib/adaptive";
 import { BarChart2, Target, Flame, Clock, ChevronUp, ChevronDown, Sparkles } from "lucide-react";
-import Head from "next/head";
+import Seo from "@/components/Seo";
 import {
   AppShell,
   PageContainer,
@@ -112,7 +112,12 @@ export default function ProgressPage() {
 
   return (
     <AppShell>
-      <Head><title>PathoLogix - My Progress</title></Head>
+      <Seo
+        title="My EMT Training Progress"
+        description="Review your private PathoLogix practice history, accuracy, and weaker EMT domains."
+        path="/progress"
+        noIndex
+      />
       <Header />
 
       <PageContainer className="space-y-6">

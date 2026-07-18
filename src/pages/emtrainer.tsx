@@ -1,13 +1,17 @@
 import Header from "@/components/Header";
 import EMTScenarioTrainer from "@/components/EmtScenarioTrainer";
-import Head from "next/head";
 import { AppShell, PageContainer, PageIntro } from "@/components/AppShell";
 import { Brain, Timer } from "lucide-react";
+import Seo from "@/components/Seo";
 
 export default function EMTTrainerPage() {
   return (
     <AppShell>
-      <Head><title>PathoLogix - EMT Scenario Trainer</title></Head>
+      <Seo
+        title="EMT Scenario Trainer"
+        description="Practice realistic EMT calls, identify critical patient cues, choose the best next action, and review the clinical reasoning."
+        path="/emtrainer"
+      />
       <Header />
       <PageContainer size="normal" className="space-y-6">
         <PageIntro

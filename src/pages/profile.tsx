@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import Header from "@/components/Header";
 import { Camera, Loader2, UserRound, Archive, ArrowLeft } from "lucide-react";
-import Head from "next/head";
+import Seo from "@/components/Seo";
 import {
   AppShell,
   PageContainer,
@@ -122,7 +122,12 @@ export default function ProfilePage() {
   if (loading) {
     return (
       <AppShell>
-        <Head><title>PathoLogix - Profile</title></Head>
+        <Seo
+          title="Profile"
+          description="Manage your private PathoLogix learner profile."
+          path="/profile"
+          noIndex
+        />
         <Header />
         <PageContainer size="normal" className="text-slate-600">Loading profile...</PageContainer>
       </AppShell>
@@ -131,7 +136,12 @@ export default function ProfilePage() {
 
   return (
     <AppShell>
-      <Head><title>PathoLogix - Profile</title></Head>
+      <Seo
+        title="Profile"
+        description="Manage your private PathoLogix learner profile."
+        path="/profile"
+        noIndex
+      />
       <Header />
 
       <PageContainer size="normal" className="space-y-6">

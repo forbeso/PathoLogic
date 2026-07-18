@@ -4,7 +4,7 @@ import { Auth } from "@supabase/auth-ui-react";
 import { ThemeSupa } from "@supabase/auth-ui-shared";
 import { supabase } from "@/lib/supabase";
 import Header from "@/components/Header";
-import Head from "next/head";
+import Seo from "@/components/Seo";
 import { AppShell, PageContainer, PageIntro, cardClass } from "@/components/AppShell";
 import { ShieldCheck } from "lucide-react";
 
@@ -58,7 +58,12 @@ export default function LoginPage() {
 
   return (
      <AppShell>
-      <Head><title>PathoLogix - Sign in</title></Head>
+      <Seo
+        title="Sign In"
+        description="Sign in to your PathoLogix EMT training account."
+        path="/login"
+        noIndex
+      />
       <Header />
       <PageContainer size="normal" className="grid min-h-[calc(100svh-90px)] place-items-center">
       <div className="w-full max-w-md">

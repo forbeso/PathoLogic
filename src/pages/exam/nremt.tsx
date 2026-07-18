@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import ExamModeDialog, { ExamAnswerPayload } from "@/components/ExamModeDialog";
 import Header from "@/components/Header";
-import Head from "next/head";
+import Seo from "@/components/Seo";
 import {
   AppShell,
   PageContainer,
@@ -174,7 +174,11 @@ export default function NremtExamPage() {
 
   return (
     <AppShell>
-      <Head><title>PathoLogix - NREMT Exam Mode</title></Head>
+      <Seo
+        title="NREMT-Style EMT Exam Practice"
+        description="Build EMT exam pacing and clinical judgment with timed, one-question-at-a-time NREMT-style practice sets."
+        path="/exam/nremt"
+      />
       <Header />
       <PageContainer size="normal" className="space-y-6">
         <PageIntro
