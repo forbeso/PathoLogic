@@ -2287,6 +2287,7 @@ function FloatingLabel({
 }
 
 function FindingBubble({ text, speaker = "coach" }: { text?: string; speaker?: "coach" | "patient" }) {
+  const { size } = useThree();
   const [visibleText, setVisibleText] = useState(text ?? "");
   const [isVisible, setIsVisible] = useState(Boolean(text));
 
@@ -2311,18 +2312,31 @@ function FindingBubble({ text, speaker = "coach" }: { text?: string; speaker?: "
       ? "border-teal-200/55 bg-teal-950/78 text-teal-50"
       : "border-sky-200/55 bg-slate-950/82 text-sky-50";
   const cleanedText = visibleText.replace(/^(Coach|Patient):\s*/i, "");
+  const content = (
+    <div
+      data-testid="scene-finding-bubble"
+      className={`w-[min(230px,calc(100vw-24px))] rounded-lg border px-3 py-2 text-left text-[11px] font-bold leading-4 shadow-xl backdrop-blur transition-opacity duration-[1800ms] sm:w-[210px] sm:px-2.5 sm:py-1.5 sm:text-[10px] ${bubbleClass} ${isVisible ? "opacity-100" : "opacity-0"}`}
+    >
+      <div className="mb-0.5 text-[8px] font-black uppercase tracking-[0.16em] opacity-75">
+        {label}
+      </div>
+      {cleanedText}
+    </div>
+  );
+
+  if (size.width < 768) {
+    return (
+      <Html fullscreen zIndexRange={SCENE_HTML_Z_INDEX_RANGE}>
+        <div className="pointer-events-none absolute left-3 top-[72px]">
+          {content}
+        </div>
+      </Html>
+    );
+  }
 
   return (
     <Html position={[2.15, 2.0, 1.65]} center distanceFactor={6.4} zIndexRange={SCENE_HTML_Z_INDEX_RANGE}>
-      <div
-        data-testid="scene-finding-bubble"
-        className={`w-[210px] rounded-lg border px-2.5 py-1.5 text-left text-[10px] font-bold leading-4 shadow-xl backdrop-blur transition-opacity duration-[1800ms] ${bubbleClass} ${isVisible ? "opacity-100" : "opacity-0"}`}
-      >
-        <div className="mb-0.5 text-[8px] font-black uppercase tracking-[0.16em] opacity-75">
-          {label}
-        </div>
-        {cleanedText}
-      </div>
+      {content}
     </Html>
   );
 }

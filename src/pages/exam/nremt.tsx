@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import ExamModeDialog, { ExamAnswerPayload } from "@/components/ExamModeDialog";
 import Header from "@/components/Header";
 import Seo from "@/components/Seo";
@@ -27,6 +27,8 @@ type DomainStat = {
   total: number;
 };
 
+const MAX_EXAM_QUESTIONS = 25;
+
 export default function NremtExamPage() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [items, setItems] = useState<SeededItem[]>([]);
@@ -41,9 +43,50 @@ export default function NremtExamPage() {
   const [summaryItems, setSummaryItems] = useState<SeededItem[]>([]);
   const [domainStats, setDomainStats] = useState<Record<string, DomainStat>>({});
 
-  const [questionCount, setQuestionCount] = useState(40); // default exam length
+  const [questionCount, setQuestionCount] = useState(MAX_EXAM_QUESTIONS);
+  const [availableQuestionCount, setAvailableQuestionCount] = useState<number | null>(null);
+  const [loadingAvailability, setLoadingAvailability] = useState(true);
 
   const current = items[currentIndex] ?? null;
+  const maxSelectableQuestions = Math.min(
+    MAX_EXAM_QUESTIONS,
+    availableQuestionCount ?? MAX_EXAM_QUESTIONS
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadQuestionAvailability = async () => {
+      try {
+        const res = await fetch("/api/exam/seed");
+        const data = await res.json().catch(() => null);
+        if (!res.ok) {
+          throw new Error(data?.error ?? "Unable to load the exam question pool.");
+        }
+
+        if (cancelled) return;
+
+        const available = Math.max(0, Number(data?.availableCount) || 0);
+        const selectable = Math.min(MAX_EXAM_QUESTIONS, available);
+        setAvailableQuestionCount(available);
+        setQuestionCount(selectable);
+      } catch (err: any) {
+        if (!cancelled) {
+          setError(err.message ?? "Unable to load the exam question pool.");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingAvailability(false);
+        }
+      }
+    };
+
+    void loadQuestionAvailability();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const startExam = useCallback(async () => {
     setError(null);
@@ -69,8 +112,13 @@ export default function NremtExamPage() {
       }
 
       const data = await res.json();
+      const seededItems = data.items ?? [];
+      if (seededItems.length !== questionCount) {
+        throw new Error("The generated exam did not match the selected question count. Please try again.");
+      }
+
       setSessionId(data.sessionId);
-      setItems(data.items ?? []);
+      setItems(seededItems);
     } catch (err: any) {
       setError(err.message ?? "Something went wrong");
     } finally {
@@ -197,34 +245,46 @@ export default function NremtExamPage() {
                   Exam settings
                 </h2>
                 <p className="mt-1 text-xs text-slate-600">
-                  Questions are pulled from your exam-eligible pool.
+                  Choose up to 25 questions from the current exam-eligible pool.
                 </p>
                 <label className="mt-3 block text-xs font-medium text-slate-700">
                   Number of questions
                 </label>
                 <input
                   type="number"
-                  min={10}
-                  max={120}
+                  min={1}
+                  max={Math.max(1, maxSelectableQuestions)}
                   value={questionCount}
+                  disabled={loadingAvailability || maxSelectableQuestions === 0}
                   onChange={(e) =>
                     setQuestionCount(
                       Math.min(
-                        120,
-                        Math.max(10, Number(e.target.value) || 10)
+                        Math.max(1, maxSelectableQuestions),
+                        Math.max(1, Number(e.target.value) || 1)
                       )
                     )
                   }
-                  className={`${inputClass} mt-1 w-28`}
+                  className={`${inputClass} mt-1 w-28 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500`}
                 />
+                <p className="mt-2 text-xs text-slate-500">
+                  {loadingAvailability
+                    ? "Checking available questions..."
+                    : `${availableQuestionCount ?? 0} exam-eligible ${
+                        availableQuestionCount === 1 ? "question is" : "questions are"
+                      } currently available.`}
+                </p>
               </div>
 
               <button
                 onClick={startExam}
-                disabled={starting}
+                disabled={starting || loadingAvailability || maxSelectableQuestions === 0}
                 className={primaryButtonClass}
               >
-                {starting ? "Starting..." : "Start exam"}
+                {starting
+                  ? "Starting..."
+                  : loadingAvailability
+                    ? "Loading questions..."
+                    : "Start exam"}
               </button>
             </div>
 

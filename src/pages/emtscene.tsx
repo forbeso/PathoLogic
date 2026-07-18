@@ -48,6 +48,7 @@ import {
 
 type StageKey = "primary" | "secondary" | "impression" | "interventions" | "transport" | "reassessment";
 type SimulationMode = "guided" | "scenario" | "exam";
+type MobileHudSection = "objective" | "dispatch" | "vitals" | "equipment" | "progress";
 
 type VitalSet = {
   loc: string;
@@ -150,6 +151,14 @@ const EQUIPMENT_DOCK_ITEMS = [
   { id: "mask", label: "Mask", icon: Wind },
   { id: "bvm", label: "BVM", icon: Activity },
 ] satisfies Array<{ id: string; label: string; icon: typeof Activity }>;
+
+const MOBILE_HUD_SECTIONS = [
+  { key: "objective", label: "Goal", icon: ClipboardCheck },
+  { key: "dispatch", label: "Dispatch", icon: Siren },
+  { key: "vitals", label: "Vitals", icon: HeartPulse },
+  { key: "equipment", label: "Gear", icon: ShieldCheck },
+  { key: "progress", label: "Progress", icon: Star },
+] satisfies Array<{ key: MobileHudSection; label: string; icon: typeof Activity }>;
 
 const SITE_NAV_ITEMS = [
   { href: "/emtrainer", label: "Scenarios" },
@@ -513,6 +522,7 @@ export default function EMTScene() {
   const [log, setLog] = useState<LogEntry[]>(() => makeOpeningLog(scenario));
   const [labOpen, setLabOpen] = useState(true);
   const [mobileHudOpen, setMobileHudOpen] = useState(false);
+  const [mobileHudSection, setMobileHudSection] = useState<MobileHudSection>("objective");
   const [isDesktopLayout, setIsDesktopLayout] = useState(true);
   const [sceneHeight, setSceneHeight] = useState(655);
   const [simulationMode, setSimulationMode] = useState<SimulationMode>("scenario");
@@ -529,7 +539,7 @@ export default function EMTScene() {
       setIsDesktopLayout(desktop);
       if (!desktop) setLabOpen(false);
       if (desktop) setMobileHudOpen(false);
-      setSceneHeight(Math.max(window.innerHeight - headerHeight, 520));
+      setSceneHeight(Math.max(window.innerHeight - headerHeight, desktop ? 520 : 320));
     };
     updateSceneHeight();
     window.addEventListener("resize", updateSceneHeight);
@@ -923,6 +933,7 @@ export default function EMTScene() {
     setSimulationMode(mode);
     resetScene();
     setMobileHudOpen(false);
+    setMobileHudSection("objective");
   };
 
   const controls = (
@@ -1130,7 +1141,7 @@ export default function EMTScene() {
           type="button"
           data-testid="mobile-hud-toggle"
           onClick={() => setMobileHudOpen((open) => !open)}
-          className="absolute right-3 top-3 z-[60] inline-flex items-center gap-2 rounded-xl border border-white/15 bg-slate-950/82 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-white shadow-2xl shadow-slate-950/40 backdrop-blur-xl transition hover:border-teal-300/60 hover:bg-teal-400/10 lg:hidden"
+          className="absolute right-3 top-3 z-[80] inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/15 bg-slate-950/86 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-white shadow-2xl shadow-slate-950/40 backdrop-blur-xl transition hover:border-teal-300/60 hover:bg-teal-400/10 lg:hidden"
           aria-expanded={mobileHudOpen}
           aria-controls="mobile-hud-panel"
         >
@@ -1138,211 +1149,405 @@ export default function EMTScene() {
           {mobileHudOpen ? "Close HUD" : "Show HUD"}
         </button>
 
-        {!mobileHudOpen && !selectedObject && nextSceneObject ? (
+        {!mobileHudOpen && !selectedObject ? (
           <button
             type="button"
             data-testid="mobile-next-scene-object"
-            onClick={() => dispatchGame({ type: "SELECT_OBJECT", objectId: nextSceneObject.id })}
-            className="absolute inset-x-3 bottom-[112px] z-40 rounded-2xl border border-teal-200/45 bg-slate-950/82 p-3 text-left text-white shadow-2xl shadow-slate-950/45 backdrop-blur-xl transition active:scale-[0.99] lg:hidden"
+            onClick={() => {
+              if (nextSceneObject) {
+                dispatchGame({ type: "SELECT_OBJECT", objectId: nextSceneObject.id });
+                return;
+              }
+              setMobileHudSection(currentObjectiveUsesEquipment ? "equipment" : "objective");
+              setMobileHudOpen(true);
+            }}
+            className="absolute inset-x-3 bottom-3 z-40 flex min-h-[72px] items-center justify-between gap-3 rounded-2xl border border-teal-200/45 bg-slate-950/86 px-4 py-3 text-left text-white shadow-2xl shadow-slate-950/45 backdrop-blur-xl transition active:scale-[0.99] lg:hidden"
           >
-            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-teal-200">
-              <MousePointerClick size={13} />
-              Start here
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.18em] text-teal-200">
+                <ClipboardCheck size={13} />
+                Current goal
+              </div>
+              <div className="mt-1 truncate text-sm font-black leading-5">{currentObjective.label}</div>
+              <div className="truncate text-[11px] font-semibold text-slate-300">
+                {nextSceneObject ? `Tap ${nextSceneObject.name}` : nextStepButtonLabel}
+              </div>
             </div>
-            <div className="mt-1 text-base font-black leading-5">Tap {nextSceneObject.name}</div>
-            <div className="mt-1 line-clamp-2 text-xs font-semibold leading-4 text-slate-300">
-              {currentObjective.subtleGoal}
-            </div>
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-teal-200/35 bg-teal-400/15 text-teal-100">
+              <MousePointerClick size={18} />
+            </span>
           </button>
+        ) : null}
+
+        {mobileHudOpen ? (
+          <button
+            type="button"
+            aria-label="Close mobile HUD"
+            onClick={() => setMobileHudOpen(false)}
+            className="absolute inset-0 z-[55] bg-slate-950/45 backdrop-blur-[1px] lg:hidden"
+          />
         ) : null}
 
         {mobileHudOpen ? (
           <section
             id="mobile-hud-panel"
             data-testid="mobile-hud-panel"
-            className="absolute inset-x-3 top-[58px] z-50 max-h-[calc(100%-74px)] overflow-y-auto rounded-2xl border border-white/15 bg-slate-950/88 p-3 text-white shadow-2xl shadow-slate-950/50 backdrop-blur-xl lg:hidden"
+            className="absolute inset-x-0 bottom-0 z-[70] flex max-h-[72%] flex-col overflow-hidden rounded-t-2xl border-x border-t border-white/15 bg-slate-950/94 pb-[env(safe-area-inset-bottom)] text-white shadow-2xl shadow-slate-950/60 backdrop-blur-xl lg:hidden"
           >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-teal-300">
-                  <Siren size={13} />
-                  Active dispatch
-                </div>
-                <h2 className="mt-1 text-base font-black leading-5">{scenario.title}</h2>
-                <p className="mt-1 text-xs leading-5 text-slate-300">{sceneScenario.dispatch}</p>
-              </div>
-              <StatusPill tone={scenario.priority === "Unstable" ? "rose" : "amber"}>
-                {scenario.priority}
-              </StatusPill>
-            </div>
-
-            <div className="mt-3">
-              <select
-                value={scenario.id}
-                onChange={(event) => selectScenario(event.target.value)}
-                className="w-full rounded-lg border border-white/15 bg-black/30 px-3 py-2 text-xs font-bold text-white outline-none focus:border-teal-400"
-                aria-label="Select scenario"
-              >
-                {SCENARIOS.map((item) => (
-                  <option key={item.id} value={item.id} className="bg-slate-900">
-                    {item.title}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="mt-3 border-t border-white/10 pt-3">
-              <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-slate-400">
-                <ShieldCheck size={13} />
-                Scene report
-              </div>
-              <p className="mt-1 text-xs leading-5 text-slate-200">{sceneScenario.sceneReport}</p>
-            </div>
-
-            <div className="mt-3 border-t border-white/10 pt-3">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-teal-200">
-                  <MousePointerClick size={13} />
-                  Current goal
-                </div>
-                <button
-                  type="button"
-                  onClick={() => dispatchGame({ type: "TOGGLE_ACCESSIBILITY" })}
-                  className={`rounded-full border px-2 py-1 text-[10px] font-black uppercase tracking-wider transition ${gameState.accessibilityMode
-                    ? "border-teal-200 bg-teal-300 text-slate-950"
-                    : "border-white/15 bg-white/10 text-slate-200 hover:border-teal-200/60"
-                    }`}
-                >
-                  Mark objects
-                </button>
-              </div>
-              <h2 className="mt-2 text-lg font-black leading-6 text-white">{currentObjective.subtleGoal}</h2>
-              {currentObjectiveStepAvailable ? (
-                <button
-                  type="button"
-                  data-testid="mobile-current-objective-step-button"
-                  onClick={() => {
-                    runCurrentObjectiveStep();
-                    setMobileHudOpen(false);
-                  }}
-                  className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-teal-200/40 bg-teal-400/15 px-3 py-2.5 text-xs font-black text-teal-50 transition hover:border-teal-200 hover:bg-teal-300/25"
-                >
-                  <MousePointerClick size={14} />
-                  {nextStepButtonLabel}
-                </button>
-              ) : null}
-              <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-                {actionableSceneObjects.map((object) => (
-                  <button
-                    key={object.id}
-                    type="button"
-                    data-testid={`mobile-scene-object-${object.id}`}
-                    onClick={() => {
-                      dispatchGame({ type: "SELECT_OBJECT", objectId: object.id });
-                      setMobileHudOpen(false);
-                    }}
-                    className={`shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-black transition ${object.id === gameState.selectedObjectId
-                      ? "border-teal-200 bg-teal-300 text-slate-950"
-                      : object.enabled === false
-                        ? "border-white/10 bg-white/5 text-slate-400"
-                        : "border-white/15 bg-white/10 text-white hover:border-teal-200/70"
-                      }`}
-                  >
-                    {object.name}
-                  </button>
-                ))}
-              </div>
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => dispatchGame({ type: "USE_HINT" })}
-                  className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-xs font-black text-white transition hover:border-amber-200/70 hover:bg-amber-300/15"
-                >
-                  <Lightbulb size={14} />
-                  Hint
-                </button>
-                <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-xs font-bold text-slate-200">
-                  Score {gameState.score} · {Math.floor(gameState.elapsedTime / 60)}:{String(gameState.elapsedTime % 60).padStart(2, "0")}
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-3 border-t border-white/10 pt-3">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-teal-300">
-                  <HeartPulse size={14} />
-                  Patient vitals
-                </div>
-                <div className="text-[11px] font-medium text-slate-400">Live monitor</div>
-              </div>
-              <div className="grid grid-cols-3 gap-3">
-                {monitorVitals.map((item) => (
-                  <div key={item.label} className="min-w-0">
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{item.label}</div>
-                    <div className={`mt-1 whitespace-nowrap text-xl font-black leading-none ${item.tone}`} title={item.value}>
-                      {item.value}
-                    </div>
-                    {item.unit ? <div className="mt-1 text-[11px] font-semibold text-slate-300">{item.unit}</div> : null}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="mt-3 border-t border-white/10 pt-3">
-              <div className="grid grid-cols-5 gap-1.5">
-                {PHASE_DOCK_ITEMS.map((item) => {
+            <div className="shrink-0 border-b border-white/10 px-3 pb-2 pt-2">
+              <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-white/25" />
+              <div className="grid grid-cols-5 gap-1">
+                {MOBILE_HUD_SECTIONS.map((item) => {
                   const Icon = item.icon;
-                  const itemIndex = STAGES.findIndex((stageItem) => stageItem.key === item.key);
-                  const isActive = item.key === stage;
-                  const isPast = itemIndex >= 0 && itemIndex < stageIndex;
+                  const active = item.key === mobileHudSection;
+                  const hasVitals = item.key !== "vitals" || vitalsPanelVisible;
+                  const hasEquipment = item.key !== "equipment" || equipmentDockVisible;
 
                   return (
                     <button
                       key={item.key}
                       type="button"
-                      onClick={() => setStage(item.key)}
-                      className={`group flex min-w-0 flex-col items-center gap-1 rounded-xl border px-0.5 py-2 text-center transition ${isActive
-                        ? "border-teal-300 bg-teal-400/15 text-teal-200 shadow-[0_0_28px_rgba(45,212,191,0.18)]"
-                        : isPast
-                          ? "border-teal-400/25 bg-teal-400/10 text-teal-100"
-                          : "border-white/15 bg-white/5 text-slate-200 hover:border-teal-300/50 hover:bg-white/10"
-                        }`}
-                      aria-pressed={isActive}
+                      onClick={() => setMobileHudSection(item.key)}
+                      className={`flex min-h-[52px] min-w-0 flex-col items-center justify-center gap-1 rounded-xl border px-1 text-[9px] font-black transition ${
+                        active
+                          ? "border-teal-300 bg-teal-400/15 text-teal-200"
+                          : "border-transparent text-slate-300 hover:border-white/15 hover:bg-white/5"
+                      }`}
+                      aria-pressed={active}
                     >
-                      <span
-                        className={`grid h-8 w-8 place-items-center rounded-lg border transition ${isActive
-                          ? "border-teal-300 bg-teal-400/10 text-teal-200"
-                          : "border-white/15 bg-white/5 text-slate-100 group-hover:border-teal-300/50"
-                          }`}
-                      >
-                        <Icon size={17} strokeWidth={1.8} />
+                      <span className="relative">
+                        <Icon size={17} />
+                        {(!hasVitals || !hasEquipment) && !active ? (
+                          <span className="absolute -right-1 -top-1 h-1.5 w-1.5 rounded-full bg-slate-500" />
+                        ) : null}
                       </span>
-                      <span className={`max-w-full whitespace-nowrap text-[8px] font-bold leading-none ${isActive ? "text-teal-300" : "text-slate-200"}`}>
-                        {item.label}
-                      </span>
+                      <span className="truncate">{item.label}</span>
                     </button>
                   );
                 })}
               </div>
             </div>
 
-            <div className="mt-3 border-t border-white/10 pt-3">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-teal-300">
-                  <Star size={14} />
-                  Scenario progress
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
+              {mobileHudSection === "objective" ? (
+                <div>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-teal-300">
+                        <ClipboardCheck size={14} />
+                        Current objective
+                      </div>
+                      <h2 className="mt-2 text-xl font-black leading-6 text-white">{currentObjective.label}</h2>
+                      <p className="mt-1 text-xs font-semibold leading-5 text-slate-300">{currentObjective.subtleGoal}</p>
+                    </div>
+                    <div className="shrink-0 text-2xl font-black text-teal-300">{progressPercent}%</div>
+                  </div>
+
+                  {currentObjectiveStepAvailable ? (
+                    <button
+                      type="button"
+                      data-testid="mobile-current-objective-step-button"
+                      onClick={() => {
+                        runCurrentObjectiveStep();
+                        setMobileHudOpen(false);
+                      }}
+                      className="mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-teal-200/40 bg-teal-400/15 px-3 py-2.5 text-xs font-black text-teal-50 transition hover:border-teal-200 hover:bg-teal-300/25"
+                    >
+                      <MousePointerClick size={15} />
+                      {nextStepButtonLabel}
+                    </button>
+                  ) : null}
+
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    {actionableSceneObjects.map((object) => (
+                      <button
+                        key={object.id}
+                        type="button"
+                        data-testid={`mobile-scene-object-${object.id}`}
+                        onClick={() => {
+                          dispatchGame({ type: "SELECT_OBJECT", objectId: object.id });
+                          setMobileHudOpen(false);
+                        }}
+                        className={`flex min-h-11 items-center justify-between gap-2 rounded-xl border px-3 py-2 text-left text-xs font-black transition ${
+                          object.enabled === false
+                            ? "border-white/10 bg-white/5 text-slate-500"
+                            : "border-white/15 bg-white/10 text-white hover:border-teal-200/70"
+                        }`}
+                      >
+                        <span className="truncate">{object.name}</span>
+                        <MousePointerClick className="shrink-0 text-teal-200" size={14} />
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="mt-4 space-y-2">
+                    {currentTaskCards.map((task) => {
+                      const done = task.completed >= task.total;
+                      return (
+                        <div
+                          key={task.label}
+                          className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-xs ${
+                            done
+                              ? "border-teal-300/35 bg-teal-400/10 text-teal-50"
+                              : "border-white/10 bg-white/5 text-slate-200"
+                          }`}
+                        >
+                          <div className="flex min-w-0 items-center gap-2">
+                            <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border ${
+                              done
+                                ? "border-teal-300 bg-teal-300 text-slate-950"
+                                : "border-slate-500 bg-slate-950/30"
+                            }`}>
+                              {done ? <CheckCircle2 size={13} /> : null}
+                            </span>
+                            <span className="truncate font-bold">{task.label}</span>
+                          </div>
+                          <span className="font-black text-slate-300">{task.completed}/{task.total}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {gameState.failedObjectives.includes("dog-hazard") ? (
+                    <div className="mt-3 flex items-start gap-2 rounded-xl border border-rose-200/25 bg-rose-500/10 px-3 py-2 text-xs font-bold leading-5 text-rose-50">
+                      <AlertTriangle className="mt-0.5 shrink-0" size={14} />
+                      Unsafe approach: the dog forced you back and cost scene time.
+                    </div>
+                  ) : null}
+
+                  <div className="mt-4 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => dispatchGame({ type: "USE_HINT" })}
+                      className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-xs font-black text-white"
+                    >
+                      <Lightbulb size={14} />
+                      Hint
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => dispatchGame({ type: "TOGGLE_ACCESSIBILITY" })}
+                      className={`inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs font-black transition ${
+                        gameState.accessibilityMode
+                          ? "border-teal-200 bg-teal-300 text-slate-950"
+                          : "border-white/15 bg-white/10 text-white"
+                      }`}
+                    >
+                      <MousePointerClick size={14} />
+                      Mark objects
+                    </button>
+                  </div>
                 </div>
-                <div className="text-2xl font-black text-teal-300">{scenarioProgressPercent}%</div>
-              </div>
-              <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10">
-                <div
-                  className="h-full rounded-full bg-teal-400 transition-all duration-300"
-                  style={{ width: `${scenarioProgressPercent}%` }}
-                />
-              </div>
-              <div className="mt-2 text-xs font-semibold text-slate-300">
-                {scenarioCompletedCount} of {scenarioTasks.length} scenario objectives complete
-              </div>
+              ) : null}
+
+              {mobileHudSection === "dispatch" ? (
+                <div>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-teal-300">
+                        <Siren size={14} />
+                        Active dispatch
+                      </div>
+                      <h2 className="mt-2 text-xl font-black leading-6 text-white">{scenario.title}</h2>
+                      <p className="mt-2 text-sm leading-5 text-slate-300">{sceneScenario.dispatch}</p>
+                    </div>
+                    <StatusPill tone={scenario.priority === "Unstable" ? "rose" : "amber"}>
+                      {scenario.priority}
+                    </StatusPill>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-3 gap-1 rounded-xl border border-white/10 bg-black/20 p-1">
+                    {(["guided", "scenario", "exam"] as const).map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => changeSimulationMode(mode)}
+                        className={`min-h-10 rounded-lg px-2 py-2 text-[10px] font-black uppercase tracking-wider transition ${
+                          simulationMode === mode
+                            ? "bg-teal-300 text-slate-950"
+                            : "text-slate-300 hover:bg-white/10 hover:text-white"
+                        }`}
+                      >
+                        {mode}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3">
+                    <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                      <MapPin size={13} />
+                      Riverside community festival
+                    </div>
+                    <p className="mt-2 text-xs leading-5 text-slate-200">{sceneScenario.sceneReport}</p>
+                  </div>
+
+                  <div className="mt-4 flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-3">
+                    <div className="flex items-center gap-2 text-xs font-black text-slate-300">
+                      <Timer size={15} />
+                      Time elapsed
+                    </div>
+                    <div className="text-lg font-black text-white">
+                      {Math.floor(gameState.elapsedTime / 60)}:{String(gameState.elapsedTime % 60).padStart(2, "0")}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      resetScene();
+                      setMobileHudOpen(false);
+                    }}
+                    className="mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-rose-300/30 bg-rose-500/10 px-3 py-2 text-xs font-black text-rose-100"
+                  >
+                    <LogOut size={16} />
+                    End scenario
+                  </button>
+                </div>
+              ) : null}
+
+              {mobileHudSection === "vitals" ? (
+                <div>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-teal-300">
+                      <HeartPulse size={14} />
+                      Patient vitals
+                    </div>
+                    <div className="text-[11px] font-medium text-slate-400">Live monitor</div>
+                  </div>
+
+                  {vitalsPanelVisible ? (
+                    <div className="mt-4 grid grid-cols-2 gap-2">
+                      {monitorVitals.map((item) => (
+                        <div key={item.label} className="min-w-0 rounded-xl border border-white/10 bg-white/5 p-3">
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{item.label}</div>
+                          <div className={`mt-2 whitespace-nowrap text-2xl font-black leading-none ${item.tone}`} title={item.value}>
+                            {item.value}
+                          </div>
+                          {item.unit ? <div className="mt-1 text-[11px] font-semibold text-slate-300">{item.unit}</div> : null}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="mt-4 rounded-xl border border-dashed border-white/15 bg-white/5 px-4 py-8 text-center">
+                      <HeartPulse className="mx-auto text-slate-500" size={28} />
+                      <p className="mt-3 text-sm font-black text-slate-200">No vitals recorded</p>
+                      <p className="mt-1 text-xs leading-5 text-slate-400">Complete the primary checks to unlock the monitor.</p>
+                    </div>
+                  )}
+                </div>
+              ) : null}
+
+              {mobileHudSection === "equipment" ? (
+                <div>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-teal-300">
+                      <ShieldCheck size={14} />
+                      Equipment
+                    </div>
+                    <div className="text-[11px] font-medium text-slate-400">
+                      {equipmentDockVisible ? "Aid bag ready" : "Secure the scene first"}
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-3 gap-2">
+                    {EQUIPMENT_DOCK_ITEMS.map((item) => {
+                      const Icon = item.icon;
+                      const active =
+                        (item.id === "gloves" && glovesEquipped) ||
+                        (item.id === "bp" && hasEvents(gameState, ["BLOOD_PRESSURE_OBTAINED"])) ||
+                        (item.id === "pulseox" && hasEvents(gameState, ["SPO2_OBTAINED"]));
+                      const available =
+                        (item.id === "gloves" && hasEvents(gameState, ["DOG_SECURED"])) ||
+                        ((item.id === "bp" || item.id === "pulseox") && hasEvents(gameState, ["PULSE_CHECKED"]));
+
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => {
+                            runEquipmentDockAction(item.id);
+                            setMobileHudOpen(false);
+                          }}
+                          className={`flex min-h-[88px] min-w-0 flex-col items-center justify-center gap-2 rounded-xl border px-2 py-3 text-center transition ${
+                            active
+                              ? "border-teal-300 bg-teal-400/15 text-teal-200"
+                              : available
+                                ? "border-teal-300/45 bg-teal-400/10 text-teal-100"
+                                : "border-white/10 bg-white/5 text-slate-500"
+                          }`}
+                          aria-pressed={active}
+                        >
+                          <Icon size={22} strokeWidth={1.8} />
+                          <span className="truncate text-[11px] font-black">{item.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
+
+              {mobileHudSection === "progress" ? (
+                <div>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-teal-300">
+                      <Star size={14} />
+                      {primaryComplete ? "Primary debrief" : "Scenario progress"}
+                    </div>
+                    <div className="text-3xl font-black text-teal-300">{scenarioProgressPercent}%</div>
+                  </div>
+
+                  <div className="mt-4 flex items-center gap-1 text-amber-300">
+                    {Array.from({ length: 5 }, (_, index) => {
+                      const filled = scenarioProgressPercent >= (index + 1) * 20;
+                      return (
+                        <Star
+                          key={index}
+                          size={30}
+                          className={filled ? "fill-amber-300 text-amber-300" : "text-teal-500/50"}
+                        />
+                      );
+                    })}
+                  </div>
+                  <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/10">
+                    <div
+                      className="h-full rounded-full bg-teal-400 transition-all duration-300"
+                      style={{ width: `${scenarioProgressPercent}%` }}
+                    />
+                  </div>
+                  <div className="mt-2 text-xs font-semibold text-slate-300">
+                    {scenarioCompletedCount} of {scenarioTasks.length} scenario objectives complete
+                  </div>
+
+                  <div className="mt-5 grid grid-cols-5 gap-1">
+                    {phaseProgressItems.map((item) => (
+                      <div key={item.label} className="flex min-w-0 flex-col items-center gap-2 text-center">
+                        <span className={`h-3.5 w-3.5 rounded-full border-2 ${
+                          item.complete ? "border-teal-200 bg-teal-300" : "border-slate-500 bg-slate-950"
+                        }`} />
+                        <span className="text-[8px] font-bold leading-3 text-slate-400">{item.label}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {primaryComplete ? (
+                    <div className="mt-5 space-y-3 border-t border-white/10 pt-4">
+                      <p className="text-xs font-semibold leading-5 text-slate-200">{debrief.summary}</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {Object.entries(debrief.score).map(([label, value]) => (
+                          <div key={label} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+                            <div className="text-[9px] font-black uppercase tracking-wider text-slate-400">{label}</div>
+                            <div className="mt-1 text-lg font-black text-teal-200">{value}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <div className="mt-4 rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-xs font-bold text-slate-300">
+                    Score {gameState.score} · {Math.floor(gameState.elapsedTime / 60)}:{String(gameState.elapsedTime % 60).padStart(2, "0")}
+                  </div>
+                </div>
+              ) : null}
             </div>
           </section>
         ) : null}

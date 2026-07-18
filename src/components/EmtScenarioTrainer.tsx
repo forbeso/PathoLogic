@@ -13,9 +13,7 @@ import {
   ChevronRight,
   Shuffle,
   Sparkles,
-  TestTubeDiagonal,
 } from "lucide-react";
-import AssessmentSidebar from "./AssessmentSidebar";
 import ExamModeDialog, { ExamAnswerPayload } from "./ExamModeDialog";
 import { recordResult, getWeakestTopic, getCachedGeneratedScenario } from "@/lib/adaptive";
 import { supabase } from "@/lib/supabase";
@@ -180,7 +178,6 @@ export default function EMTScenarioTrainer() {
   const [showCues, setShowCues] = useState(true);
   const [showRationale, setShowRationale] = useState(false);
   const [showElims, setShowElims] = useState(false);
-  const [assessmentOpen, setAssessmentOpen] = useState(false);
   const [adaptiveLoading, setAdaptiveLoading] = useState(false);
 
   // Dialog exam state (NREMT-style inside EMTrainer)
@@ -498,9 +495,6 @@ export default function EMTScenarioTrainer() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 rounded-lg border border-[#c8dcd6] bg-white/58 p-4 shadow-[0_18px_42px_rgba(45,86,89,0.12)] backdrop-blur">
-      {/* Sidebar */}
-      <AssessmentSidebar item={item} open={assessmentOpen} onClose={() => setAssessmentOpen(false)} />
-
       {/* Scenario metadata + nav */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-2">
@@ -577,16 +571,6 @@ export default function EMTScenarioTrainer() {
           >
             <Sparkles size={16} />
             {adaptiveLoading ? "Finding scenario..." : "Train on similar questions"}
-          </button>
-
-          {/* Assessment Mode */}
-          <button
-            onClick={() => setAssessmentOpen(true)}
-            className={secondaryButtonClass}
-          >
-            <span className="relative z-10 flex items-center gap-1 text-slate-900 text-sm">
-              <TestTubeDiagonal size={16} /> Assessment Mode
-            </span>
           </button>
 
           {/* NREMT Exam Mode (dialog) */}
