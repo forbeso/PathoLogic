@@ -8,12 +8,10 @@ import {
   Brain,
   Shuffle,
   Filter,
-  CheckCircle2,
   RotateCcw,
   BookOpen,
   ChevronLeft,
   ChevronRight,
-  X,
 } from "lucide-react";
 import Header from "./Header";
 import {
@@ -22,7 +20,6 @@ import {
   PageIntro,
   cardClass,
   inputClass,
-  primaryButtonClass,
   secondaryButtonClass,
   StatusPill,
 } from "@/components/AppShell";
@@ -67,11 +64,6 @@ export default function FlashcardTrainer() {
   const [shuffleMode, setShuffleMode] = useState(false);
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
-
-  // tracking mastery in-session
-  const [seenIds, setSeenIds] = useState<Set<string>>(new Set());
-  const [masteredIds, setMasteredIds] = useState<Set<string>>(new Set());
-  const [reviewIds, setReviewIds] = useState<Set<string>>(new Set());
 
   // Load flashcards from Supabase
   useEffect(() => {
@@ -127,36 +119,6 @@ export default function FlashcardTrainer() {
   const total = filtered.length;
   const current = filtered[index] ?? null;
 
-  const masteredCount = masteredIds.size;
-  const seenCount = seenIds.size;
-  const reviewCount = reviewIds.size;
-
-  const handleMark = (type: "got-it" | "again") => {
-    if (!current) return;
-
-    setSeenIds((prev) => new Set(prev).add(current.id));
-    setFlipped(false);
-
-    setMasteredIds((prev) => {
-      const next = new Set(prev);
-      if (type === "got-it") next.add(current.id);
-      if (type === "again") next.delete(current.id);
-      return next;
-    });
-
-    setReviewIds((prev) => {
-      const next = new Set(prev);
-      if (type === "again") next.add(current.id);
-      if (type === "got-it") next.delete(current.id);
-      return next;
-    });
-
-    const nextIndex = index + 1;
-    if (nextIndex < total) {
-      setIndex(nextIndex);
-    }
-  };
-
   const goPrev = () => {
     if (!total) return;
     setFlipped(false);
@@ -168,34 +130,6 @@ export default function FlashcardTrainer() {
     setFlipped(false);
     setIndex((prev) => (prev + 1) % total);
   };
-
-  const resetSession = () => {
-    setSeenIds(new Set());
-    setMasteredIds(new Set());
-    setReviewIds(new Set());
-    setIndex(0);
-    setFlipped(false);
-  };
-
-  const masteryPercent =
-    total > 0 ? Math.round((masteredCount / total) * 100) : 0;
-
-  let masteryLabel = "Just getting started";
-  let masteryDetail =
-    "Keep flipping cards. Aim for mastery on high-yield airway, breathing, circulation, and trauma content.";
-  if (masteryPercent >= 85) {
-    masteryLabel = "Exam-ready in this deck";
-    masteryDetail =
-      "You are retaining most of this content. Now mix in timed NREMT exam mode and scenario work.";
-  } else if (masteryPercent >= 65) {
-    masteryLabel = "Solid progress";
-    masteryDetail =
-      "You have got a handle on a lot of this. Target cards marked Again and trauma/airway weak spots.";
-  } else if (masteryPercent >= 40) {
-    masteryLabel = "Foundation building";
-    masteryDetail =
-      "Reps matter. Use these cards alongside scenarios and pathophys breakdowns for deeper retention.";
-  }
 
   // Loading / empty states
   if (loading) {
@@ -227,36 +161,18 @@ export default function FlashcardTrainer() {
   return (
     <AppShell>
         <Header/>
-      <PageContainer size="normal" className="space-y-6">
-        {/* Header */}
+      <PageContainer size="normal" className="space-y-5">
         <PageIntro
           eyebrow="Flashcard Lab"
-          title="High-yield EMT flashcards"
-          description="Rapid-fire review for core EMS concepts, NREMT patterns, and the details that deserve one more repetition."
+          title="EMT flashcards"
+          description="Choose a deck, move at your own pace, and flip each card when you are ready to check the answer."
           icon={Brain}
-          actions={
-            <div className={`${cardClass} min-w-48 p-3`}>
-              <div className="text-xs font-semibold text-slate-500">Deck mastery</div>
-              <div className="mt-2 flex items-center gap-2">
-                <div className="h-2 w-32 overflow-hidden rounded-full bg-slate-200">
-                  <div
-                    className="h-full rounded-full bg-teal-500"
-                    style={{ width: `${masteryPercent}%` }}
-                  />
-                </div>
-                <span className="text-sm font-semibold text-slate-900">
-                  {masteryPercent}%
-                </span>
-              </div>
-              <div className="mt-1 text-[11px] text-slate-500">
-                {masteredCount} mastered / {reviewCount} to review
-              </div>
-            </div>
-          }
         />
 
-        {/* Controls */}
-        <section className={`${cardClass} flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between`}>
+        <section
+          className={`${cardClass} mx-auto flex w-full max-w-4xl flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between`}
+          aria-label="Flashcard deck controls"
+        >
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative">
               <Filter size={14} className="pointer-events-none absolute left-3 top-2.5 text-slate-400" />
@@ -288,191 +204,116 @@ export default function FlashcardTrainer() {
               }`}
             >
               <Shuffle size={14} />
-              {shuffleMode ? "Shuffling" : "Order by deck"}
+              {shuffleMode ? "Shuffled" : "Shuffle"}
             </button>
+          </div>
+
+          <div className="flex items-center gap-2 text-xs font-medium text-slate-600">
+            <BookOpen size={14} className="text-teal-700" />
+            {total} {total === 1 ? "card" : "cards"}
+          </div>
+        </section>
+
+        <section className="mx-auto w-full max-w-4xl">
+          <div className="mb-3 flex items-center justify-between gap-3 text-xs text-slate-600">
+            <span className="font-semibold">
+              Card {total === 0 ? 0 : index + 1} of {total}
+            </span>
+            {current?.difficulty && (
+              <span
+                className={`inline-flex items-center rounded-md border px-2 py-1 text-[11px] font-semibold ${difficultyChip(
+                  current.difficulty
+                )}`}
+              >
+                {current.difficulty}
+              </span>
+            )}
+          </div>
+
+          <div className="grid min-h-[360px] w-full sm:min-h-[430px]">
+            <AnimatePresence mode="wait" initial={false}>
+              {current ? (
+                <motion.button
+                  key={`${current.id}-${flipped ? "back" : "front"}`}
+                  type="button"
+                  initial={{ rotateY: 78, opacity: 0 }}
+                  animate={{ rotateY: 0, opacity: 1 }}
+                  exit={{ rotateY: -78, opacity: 0 }}
+                  transition={{ duration: 0.22, ease: "easeOut" }}
+                  onClick={() => setFlipped((value) => !value)}
+                  aria-pressed={flipped}
+                  aria-label={flipped ? "Show the question" : "Reveal the answer"}
+                  className={`col-start-1 row-start-1 min-h-[360px] w-full select-none rounded-lg border p-6 text-left shadow-[0_18px_50px_rgba(15,23,42,0.14)] transition focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-4 sm:min-h-[430px] sm:p-10 ${
+                    flipped
+                      ? "border-teal-300 bg-[#edf8f5]"
+                      : "border-slate-200 bg-white"
+                  }`}
+                >
+                  <div className="flex h-full flex-col">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <StatusPill tone="teal">{current.domain}</StatusPill>
+                      <StatusPill>{current.topic}</StatusPill>
+                      {current.tags?.slice(0, 2).map((tag) => (
+                        <StatusPill key={tag}>{tag}</StatusPill>
+                      ))}
+                    </div>
+
+                    <div className="flex flex-1 flex-col justify-center py-8 sm:px-6">
+                      <div className="text-xs font-bold uppercase text-teal-700">
+                        {flipped ? "Answer" : "Question"}
+                      </div>
+                      <p className="mt-4 whitespace-pre-line text-xl font-semibold leading-relaxed text-slate-950 sm:text-2xl">
+                        {flipped ? current.back : current.front}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-center gap-2 border-t border-slate-200/80 pt-4 text-sm font-semibold text-slate-600">
+                      <RotateCcw size={16} />
+                      {flipped ? "Click to see the question" : "Click to reveal the answer"}
+                    </div>
+                  </div>
+                </motion.button>
+              ) : (
+                <div className="col-start-1 row-start-1 grid min-h-[360px] place-items-center rounded-lg border border-dashed border-slate-300 bg-white text-sm text-slate-500 sm:min-h-[430px]">
+                  No cards in this deck yet.
+                </div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          <div className="mt-5 grid grid-cols-[auto_1fr_auto] items-center gap-3">
+            <button
+              type="button"
+              onClick={goPrev}
+              disabled={!total}
+              className={`${secondaryButtonClass} min-h-11 disabled:opacity-40`}
+              aria-label="Previous flashcard"
+            >
+              <ChevronLeft size={17} />
+              <span className="hidden sm:inline">Previous</span>
+            </button>
+
+            <div className="h-2 overflow-hidden rounded-full bg-slate-200" aria-hidden="true">
+              <div
+                className="h-full rounded-full bg-teal-500 transition-[width] duration-300"
+                style={{ width: total ? `${((index + 1) / total) * 100}%` : "0%" }}
+              />
+            </div>
 
             <button
               type="button"
-              onClick={resetSession}
-              className={secondaryButtonClass}
+              onClick={goNext}
+              disabled={!total}
+              className={`${secondaryButtonClass} min-h-11 disabled:opacity-40`}
+              aria-label="Next flashcard"
             >
-              <RotateCcw size={14} />
-              Reset session
+              <span className="hidden sm:inline">Next</span>
+              <ChevronRight size={17} />
             </button>
           </div>
-
-          <div className="flex items-center justify-between gap-3 text-xs text-slate-500 sm:justify-end">
-            <div className="flex flex-col text-right">
-              <span>
-                Seen:{" "}
-                <span className="font-semibold text-slate-900">{seenCount}</span>
-              </span>
-              <span>
-                Total in deck:{" "}
-                <span className="font-semibold text-slate-900">{total}</span>
-              </span>
-            </div>
-          </div>
         </section>
 
-        {/* Card + actions */}
-        <section className="grid gap-4 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-          {/* Flashcard */}
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center justify-between text-xs text-slate-500">
-              <div className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 border border-slate-200">
-                <BookOpen size={12} />
-                <span>
-                  Card {total === 0 ? 0 : index + 1} / {total || 0}
-                </span>
-              </div>
-
-              {current && current.difficulty && (
-                <span
-                  className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] ${difficultyChip(
-                    current.difficulty
-                  )}`}
-                >
-                  Difficulty: {current.difficulty}
-                </span>
-              )}
-            </div>
-
-            <div className="relative h-64 w-full cursor-pointer select-none">
-              <AnimatePresence mode="wait" initial={false}>
-                {current ? (
-                  <motion.div
-                    key={current.id + String(flipped)}
-                    initial={{ rotateY: 90, opacity: 0 }}
-                    animate={{ rotateY: 0, opacity: 1 }}
-                    exit={{ rotateY: -90, opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                    onClick={() => setFlipped((f) => !f)}
-                    className="absolute inset-0 rounded-lg border border-slate-200 bg-white p-5 shadow-md"
-                  >
-                    <div className="flex h-full flex-col justify-between">
-                      <div className="space-y-2">
-                        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                          <StatusPill tone="teal">{current.domain}</StatusPill>
-                          <StatusPill>{current.topic}</StatusPill>
-                          {current.tags?.slice(0, 2).map((t) => (
-                            <StatusPill key={t}>{t}</StatusPill>
-                          ))}
-                        </div>
-
-                        <h2 className="mt-2 text-sm font-semibold uppercase text-slate-400">
-                          {flipped ? "Answer / Key points" : "Prompt"}
-                        </h2>
-                        <p className="mt-1 text-base leading-relaxed text-slate-900 whitespace-pre-line">
-                          {flipped ? current.back : current.front}
-                        </p>
-                      </div>
-
-                      <div className="flex items-center justify-between text-[11px] text-slate-500">
-                        <span>Tap to flip card</span>
-                        <span className="font-medium text-emerald-700">
-                        Built for NREMT participants
-                        </span>
-                      </div>
-                    </div>
-                  </motion.div>
-                ) : (
-                  <div className="absolute inset-0 grid place-items-center rounded-lg border border-dashed border-slate-300 bg-white text-sm text-slate-500">
-                    No cards in this deck yet.
-                  </div>
-                )}
-              </AnimatePresence>
-            </div>
-
-            {/* Know / Don't know buttons */}
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={goPrev}
-                  disabled={!total}
-                  className={`${secondaryButtonClass} disabled:opacity-40`}
-                >
-                  <ChevronLeft size={14} /> Prev
-                </button>
-                <button
-                  type="button"
-                  onClick={goNext}
-                  disabled={!total}
-                  className={`${secondaryButtonClass} disabled:opacity-40`}
-                >
-                  Next <ChevronRight size={14} />
-                </button>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleMark("again")}
-                  disabled={!current}
-                  className="inline-flex items-center gap-2 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-40"
-                >
-                  <X size={14} />
-                  Again / Not yet
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleMark("got-it")}
-                  disabled={!current}
-                  className={primaryButtonClass}
-                >
-                  <CheckCircle2 size={14} />
-                  Got it
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Right side: feedback + tips */}
-          <aside className="space-y-4">
-            <div className={`${cardClass} p-4`}>
-              <div className="text-xs font-semibold uppercase text-slate-500">
-                Session snapshot
-              </div>
-              <div className="mt-2 text-sm text-slate-700">
-                <div className="flex items-center justify-between">
-                  <span>Mastered this deck</span>
-                  <span className="font-semibold text-emerald-600">
-                    {masteryPercent}%
-                  </span>
-                </div>
-                <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
-                  <span>Seen cards</span>
-                  <span>{seenCount}</span>
-                </div>
-                <div className="mt-1 flex items-center justify-between text-xs text-slate-500">
-                  <span>Marked &quot;Again&quot;</span>
-                  <span>{reviewCount}</span>
-                </div>
-              </div>
-              <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
-                <div className="text-[11px] font-semibold uppercase text-slate-500">
-                  {masteryLabel}
-                </div>
-                <p className="mt-1 text-[11px] leading-relaxed">
-                  {masteryDetail}
-                </p>
-              </div>
-            </div>
-
-            <div className={`${cardClass} p-4 text-xs text-slate-600`}>
-              <div className="mb-1 text-xs font-semibold uppercase text-slate-500">
-                How to use this for NREMT
-              </div>
-              <ul className="list-disc space-y-1 pl-4">
-                <li>Warm up with 10–15 cards, then jump into timed NREMT exam mode.</li>
-                <li>Notice patterns: airway, shock, and chest pain show up a lot.</li>
-              </ul>
-            </div>
-          </aside>
-        </section>
-
-        <footer className="pt-2 text-[11px] text-slate-500">
+        <footer className="mx-auto w-full max-w-4xl pt-1 text-center text-[11px] text-slate-500">
           Built for EMT / med students. Use alongside your textbook, protocols, and formal training - this is a supplement, not a replacement.
         </footer>
       </PageContainer>

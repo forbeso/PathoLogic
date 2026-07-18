@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { X, Clock3, CheckCircle2, XCircle } from "lucide-react";
+import { AlertTriangle, X, Clock3, CheckCircle2, XCircle } from "lucide-react";
 import {
   cardClass,
   iconButtonClass,
@@ -64,6 +64,7 @@ export default function ExamModeDialog({
   const [expired, setExpired] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState<number>(QUESTION_DURATION_SECONDS);
   const [hasReported, setHasReported] = useState(false);
+  const [exitConfirmationOpen, setExitConfirmationOpen] = useState(false);
 
   // Reset every time you open or the item changes
   useEffect(() => {
@@ -73,12 +74,13 @@ export default function ExamModeDialog({
     setExpired(false);
     setTimeRemaining(QUESTION_DURATION_SECONDS);
     setHasReported(false);
+    setExitConfirmationOpen(false);
   }, [open, item.id]);
 
   // Timer
   useEffect(() => {
     if (!open) return;
-    if (submitted || expired) return;
+    if (submitted || expired || exitConfirmationOpen) return;
 
     const id = window.setInterval(() => {
       setTimeRemaining((prev) => {
@@ -106,7 +108,7 @@ export default function ExamModeDialog({
     }, 1000);
 
     return () => window.clearInterval(id);
-  }, [open, submitted, expired, selectedChoiceId, hasReported, item, onSubmitAnswer]);
+  }, [open, submitted, expired, exitConfirmationOpen, selectedChoiceId, hasReported, item, onSubmitAnswer]);
 
   const fireReportIfNeeded = (expiredFlag: boolean) => {
     if (hasReported) return;
@@ -138,8 +140,22 @@ const handleAdvance = () => {
     fireReportIfNeeded(false);
   };
 
+  const requestExit = () => {
+    setExitConfirmationOpen(true);
+  };
+
+  const confirmExit = () => {
+    setExitConfirmationOpen(false);
+    onClose();
+  };
+
   const closeOnEsc = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.key === "Escape") onClose();
+    if (e.key !== "Escape") return;
+    if (exitConfirmationOpen) {
+      setExitConfirmationOpen(false);
+      return;
+    }
+    requestExit();
   };
 
   if (!open) return null;
@@ -233,7 +249,7 @@ const handleAdvance = () => {
             </div>
 
             <button
-              onClick={onClose}
+              onClick={requestExit}
               className={iconButtonClass}
               aria-label="Exit exam"
               title="Exit exam"
@@ -345,6 +361,49 @@ const handleAdvance = () => {
           </aside>
         </div>
       </div>
+
+      {exitConfirmationOpen && (
+        <div
+          className="fixed inset-0 z-[70] grid place-items-center bg-slate-950/45 p-4 backdrop-blur-sm"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="end-exam-title"
+          aria-describedby="end-exam-description"
+        >
+          <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-5 shadow-2xl">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-100 text-rose-700">
+                <AlertTriangle size={20} aria-hidden="true" />
+              </div>
+              <div>
+                <h2 id="end-exam-title" className="text-lg font-semibold text-slate-950">
+                  End this exam?
+                </h2>
+                <p id="end-exam-description" className="mt-1 text-sm leading-6 text-slate-600">
+                  Your current exam progress will be discarded. This action cannot be undone.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setExitConfirmationOpen(false)}
+                className={secondaryButtonClass}
+              >
+                Continue exam
+              </button>
+              <button
+                type="button"
+                onClick={confirmExit}
+                className="inline-flex min-h-10 items-center justify-center rounded-md bg-rose-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2"
+              >
+                End exam
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -606,6 +606,12 @@ export default function EMTScene() {
   }, [gameState.triggeredEvents]);
 
   const currentObjective = getCurrentObjective(sceneScenario, gameState);
+  const cameraFocusObjectId =
+    currentObjective.id === "use-radio" &&
+    hasEvents(gameState, ["DOG_INSPECTED"]) &&
+    !hasEvents(gameState, ["RADIO_SELECTED"])
+      ? "dog"
+      : gameState.focusedObjectId;
   const phaseObjectives = sceneScenario.objectives.filter((objective) => objective.phase === gameState.currentPhase);
   const activeStage = STAGES.find((item) => item.key === stage) ?? STAGES[0];
   const completedCount = phaseObjectives.filter((objective) => gameState.completedObjectives.includes(objective.id)).length;
@@ -643,23 +649,32 @@ export default function EMTScene() {
       }),
     [gameState, sceneScenario]
   );
-  const selectedObject = sceneObjects.find((object) => object.id === gameState.selectedObjectId);
-  const actionableSceneObjects = sceneObjects.filter(
-    (object) => !object.completed || object.id === gameState.selectedObjectId
-  );
-  const nextSceneObject = actionableSceneObjects.find((object) => object.enabled !== false && !object.optional);
-  const glovesEquipped = hasEvents(gameState, ["GLOVES_EQUIPPED"]);
-  const medicalBagOpened = hasEvents(gameState, ["MEDICAL_BAG_OPENED"]);
   const availableActionsForObject = (object: InteractiveObjectConfig) =>
     object.actions.filter(
       (action) => !hasEvents(gameState, getActionSuccessEvents(action)) && hasEvents(gameState, action.requires)
     );
+  const selectedObject = sceneObjects.find((object) => object.id === gameState.selectedObjectId);
+  const animalControlCalled = hasEvents(gameState, ["ANIMAL_CONTROL_CALLED"]);
+  const actionableSceneObjects = sceneObjects.filter(
+    (object) =>
+      object.id === gameState.selectedObjectId ||
+      (!object.completed &&
+        (availableActionsForObject(object).length > 0 ||
+          (object.id === "ambulance-radio" && !animalControlCalled)))
+  );
+  const nextSceneObject = actionableSceneObjects.find((object) => object.enabled !== false && !object.optional);
+  const glovesEquipped = hasEvents(gameState, ["GLOVES_EQUIPPED"]);
+  const medicalBagOpened = hasEvents(gameState, ["MEDICAL_BAG_OPENED"]);
+  const animalControlPending =
+    animalControlCalled &&
+    !hasEvents(gameState, ["DOG_SECURED"]);
   const selectedActions = selectedObject ? availableActionsForObject(selectedObject) : [];
   const nextStepActions = nextSceneObject ? availableActionsForObject(nextSceneObject) : [];
   const currentObjectiveUsesEquipment = currentObjective.id === "baseline-vitals";
   const currentObjectiveStepAvailable =
     simulationMode === "guided" && (Boolean(nextSceneObject) || currentObjectiveUsesEquipment);
   const nextStepButtonLabel = (() => {
+    if (animalControlPending) return "Animal control responding";
     if (currentObjective.id === "baseline-vitals") return simulationMode === "guided" ? "Gather baseline vitals" : "Gather vitals";
     if (!nextSceneObject) return "Primary complete";
     if (simulationMode === "exam") return "Continue";
@@ -1123,6 +1138,7 @@ export default function EMTScene() {
             interactiveObjects={actionableSceneObjects}
             selectedObjectId={gameState.selectedObjectId}
             focusedObjectId={gameState.focusedObjectId}
+            cameraFocusObjectId={cameraFocusObjectId}
             accessibilityMode={gameState.accessibilityMode || simulationMode === "guided"}
             environment={gameState.environment}
             locationId={gameState.locationId}
@@ -1154,6 +1170,11 @@ export default function EMTScene() {
             type="button"
             data-testid="mobile-next-scene-object"
             onClick={() => {
+              if (animalControlPending) {
+                setMobileHudSection("objective");
+                setMobileHudOpen(true);
+                return;
+              }
               if (nextSceneObject) {
                 dispatchGame({ type: "SELECT_OBJECT", objectId: nextSceneObject.id });
                 return;
@@ -1170,11 +1191,15 @@ export default function EMTScene() {
               </div>
               <div className="mt-1 truncate text-sm font-black leading-5">{currentObjective.label}</div>
               <div className="truncate text-[11px] font-semibold text-slate-300">
-                {nextSceneObject ? `Tap ${nextSceneObject.name}` : nextStepButtonLabel}
+                {animalControlPending
+                  ? "Animal control responding"
+                  : nextSceneObject
+                    ? `Tap ${nextSceneObject.name}`
+                    : nextStepButtonLabel}
               </div>
             </div>
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-teal-200/35 bg-teal-400/15 text-teal-100">
-              <MousePointerClick size={18} />
+              {animalControlPending ? <Timer size={18} /> : <MousePointerClick size={18} />}
             </span>
           </button>
         ) : null}

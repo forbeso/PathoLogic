@@ -503,9 +503,9 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
       name: "Airway",
       category: "patient",
       visibleWhen: ["RESPONSIVENESS_CHECKED"],
-      position: [1.25, 1.2, 1.45],
+      position: [1.82, 0.46, 1.18],
       focusPosition: [3.7, 2.0, 3.2],
-      focusTarget: [1.25, 1.0, 1.45],
+      focusTarget: [1.82, 0.42, 1.18],
       highlightColor: "#fbbf24",
       enabledWhen: ["RESPONSIVENESS_CHECKED"],
       actions: [
@@ -523,9 +523,9 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
       name: "Chest / Breathing",
       category: "patient",
       visibleWhen: ["AIRWAY_OPENED"],
-      position: [1.8, 1.08, 1.45],
+      position: [2.45, 0.48, 1.28],
       focusPosition: [4.3, 2.2, 3.6],
-      focusTarget: [1.8, 0.95, 1.45],
+      focusTarget: [2.45, 0.42, 1.28],
       highlightColor: "#38bdf8",
       enabledWhen: ["AIRWAY_OPENED"],
       actions: [

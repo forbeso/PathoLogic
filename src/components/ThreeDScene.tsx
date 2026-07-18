@@ -63,6 +63,7 @@ type ThreeDSceneProps = {
   interactiveObjects?: SceneInteractiveObject[];
   selectedObjectId?: string;
   focusedObjectId?: string;
+  cameraFocusObjectId?: string;
   accessibilityMode?: boolean;
   environment?: ScenarioState["environment"];
   locationId?: ScenarioState["locationId"];
@@ -2324,20 +2325,50 @@ function FindingBubble({ text, speaker = "coach" }: { text?: string; speaker?: "
     </div>
   );
 
-  if (size.width < 768) {
-    return (
-      <Html fullscreen zIndexRange={SCENE_HTML_Z_INDEX_RANGE}>
-        <div className="pointer-events-none absolute left-3 top-[72px]">
-          {content}
-        </div>
-      </Html>
-    );
-  }
+  if (size.width < 768) return null;
 
   return (
     <Html position={[2.15, 2.0, 1.65]} center distanceFactor={6.4} zIndexRange={SCENE_HTML_Z_INDEX_RANGE}>
       {content}
     </Html>
+  );
+}
+
+function MobileFindingBubble({ text, speaker = "coach" }: { text?: string; speaker?: "coach" | "patient" }) {
+  const [visibleText, setVisibleText] = useState(text ?? "");
+  const [isVisible, setIsVisible] = useState(Boolean(text));
+
+  useEffect(() => {
+    if (!text) {
+      setIsVisible(false);
+      return;
+    }
+
+    setVisibleText(text);
+    setIsVisible(true);
+    const fadeTimer = window.setTimeout(() => setIsVisible(false), 4600);
+    return () => window.clearTimeout(fadeTimer);
+  }, [text]);
+
+  if (!visibleText) return null;
+
+  const label = speaker === "patient" ? "Patient" : "Coach";
+  const bubbleClass =
+    speaker === "patient"
+      ? "border-teal-200/55 bg-teal-950/84 text-teal-50"
+      : "border-sky-200/55 bg-slate-950/88 text-sky-50";
+  const cleanedText = visibleText.replace(/^(Coach|Patient):\s*/i, "");
+
+  return (
+    <div
+      data-testid="mobile-scene-finding-bubble"
+      className={`pointer-events-none absolute left-3 top-[68px] z-20 w-[min(230px,calc(100%-24px))] rounded-xl border px-3 py-2 text-left text-[11px] font-bold leading-4 shadow-xl backdrop-blur transition-opacity duration-[1800ms] md:hidden ${bubbleClass} ${isVisible ? "opacity-100" : "opacity-0"}`}
+    >
+      <div className="mb-0.5 text-[8px] font-black uppercase tracking-[0.16em] opacity-75">
+        {label}
+      </div>
+      {cleanedText}
+    </div>
   );
 }
 
@@ -3880,6 +3911,7 @@ export default function ThreeDScene({
   interactiveObjects = [],
   selectedObjectId,
   focusedObjectId,
+  cameraFocusObjectId,
   accessibilityMode,
   environment,
   locationId = "ambulance",
@@ -3891,7 +3923,10 @@ export default function ThreeDScene({
 }: ThreeDSceneProps) {
   const activeScenarioId = normalizeSceneVariant(scenarioId);
   const useRoadsideFestivalScene = activeScenarioId === "anaphylaxis";
-  const focusObject = interactiveObjects.find((object) => object.id === focusedObjectId) ?? STATIC_FOCUS_OBJECTS[focusedObjectId ?? ""];
+  const activeCameraFocusObjectId = cameraFocusObjectId ?? focusedObjectId;
+  const focusObject =
+    interactiveObjects.find((object) => object.id === activeCameraFocusObjectId) ??
+    STATIC_FOCUS_OBJECTS[activeCameraFocusObjectId ?? ""];
   const medicPosition = locationId === "patientSide" ? PATIENT_SIDE_PARAMEDIC_POSITION : STAGED_PARAMEDIC_POSITION;
   const patientPosition: Vec3 = [2.18, 0.08, 1.55];
   const orbitControlsRef = useRef<any>(null);
@@ -4055,6 +4090,7 @@ export default function ThreeDScene({
         />
       </Canvas>
       <SceneLoadingOverlay />
+      <MobileFindingBubble text={sceneFinding} speaker={sceneSpeaker} />
       <MobileParamedicGuideDialogue
         step={guideStep}
         userName={guideName}

@@ -1,20 +1,21 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/router";
 import ExamModeDialog, { ExamAnswerPayload } from "@/components/ExamModeDialog";
 import Header from "@/components/Header";
 import Seo from "@/components/Seo";
+import { supabase } from "@/lib/supabase";
 import {
   AppShell,
   PageContainer,
   PageIntro,
   MetricCard,
   cardClass,
-  inputClass,
   primaryButtonClass,
   secondaryButtonClass,
 } from "@/components/AppShell";
-import { BarChart3, Clock3, FileQuestion, ShieldCheck, Target } from "lucide-react";
+import { BarChart3, Clock3, FileQuestion, LoaderCircle, ShieldCheck, Target } from "lucide-react";
 
 type SeededItem = {
   orderIndex: number;
@@ -30,6 +31,8 @@ type DomainStat = {
 const MAX_EXAM_QUESTIONS = 25;
 
 export default function NremtExamPage() {
+  const router = useRouter();
+  const [authStatus, setAuthStatus] = useState<"checking" | "authenticated" | "signed-out">("checking");
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [items, setItems] = useState<SeededItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -43,17 +46,51 @@ export default function NremtExamPage() {
   const [summaryItems, setSummaryItems] = useState<SeededItem[]>([]);
   const [domainStats, setDomainStats] = useState<Record<string, DomainStat>>({});
 
-  const [questionCount, setQuestionCount] = useState(MAX_EXAM_QUESTIONS);
   const [availableQuestionCount, setAvailableQuestionCount] = useState<number | null>(null);
   const [loadingAvailability, setLoadingAvailability] = useState(true);
 
   const current = items[currentIndex] ?? null;
-  const maxSelectableQuestions = Math.min(
+  const examQuestionCount = Math.min(
     MAX_EXAM_QUESTIONS,
-    availableQuestionCount ?? MAX_EXAM_QUESTIONS
+    availableQuestionCount ?? 0
   );
 
   useEffect(() => {
+    let active = true;
+
+    const redirectToLogin = () => {
+      localStorage.setItem("pathologix:redirect_after_login", "/exam/nremt");
+      setAuthStatus("signed-out");
+      void router.replace("/login");
+    };
+
+    void supabase.auth.getSession().then(({ data }) => {
+      if (!active) return;
+      if (data.session) {
+        setAuthStatus("authenticated");
+        return;
+      }
+      redirectToLogin();
+    });
+
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!active) return;
+      if (session) {
+        setAuthStatus("authenticated");
+      } else if (event === "SIGNED_OUT") {
+        redirectToLogin();
+      }
+    });
+
+    return () => {
+      active = false;
+      listener.subscription.unsubscribe();
+    };
+  }, [router]);
+
+  useEffect(() => {
+    if (authStatus !== "authenticated") return;
+
     let cancelled = false;
 
     const loadQuestionAvailability = async () => {
@@ -67,9 +104,7 @@ export default function NremtExamPage() {
         if (cancelled) return;
 
         const available = Math.max(0, Number(data?.availableCount) || 0);
-        const selectable = Math.min(MAX_EXAM_QUESTIONS, available);
         setAvailableQuestionCount(available);
-        setQuestionCount(selectable);
       } catch (err: any) {
         if (!cancelled) {
           setError(err.message ?? "Unable to load the exam question pool.");
@@ -86,7 +121,7 @@ export default function NremtExamPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [authStatus]);
 
   const startExam = useCallback(async () => {
     setError(null);
@@ -103,7 +138,7 @@ export default function NremtExamPage() {
       const res = await fetch("/api/exam/seed", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ itemCount: questionCount }),
+        body: JSON.stringify({ itemCount: examQuestionCount }),
       });
 
       if (!res.ok) {
@@ -113,8 +148,8 @@ export default function NremtExamPage() {
 
       const data = await res.json();
       const seededItems = data.items ?? [];
-      if (seededItems.length !== questionCount) {
-        throw new Error("The generated exam did not match the selected question count. Please try again.");
+      if (seededItems.length !== examQuestionCount) {
+        throw new Error("The generated exam did not match the expected question count. Please try again.");
       }
 
       setSessionId(data.sessionId);
@@ -124,7 +159,7 @@ export default function NremtExamPage() {
     } finally {
       setStarting(false);
     }
-  }, [questionCount]);
+  }, [examQuestionCount]);
 
   const handleSubmitAnswer = useCallback(
     async (payload: ExamAnswerPayload) => {
@@ -199,7 +234,7 @@ export default function NremtExamPage() {
   };
 
   const totalQuestions =
-    summaryItems.length || items.length || questionCount;
+    summaryItems.length || items.length || examQuestionCount;
   const percent =
     totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
 
@@ -219,6 +254,25 @@ export default function NremtExamPage() {
   const domainEntries = Object.entries(domainStats).sort(
     (a, b) => (b[1].total || 0) - (a[1].total || 0)
   );
+
+  if (authStatus !== "authenticated") {
+    return (
+      <AppShell>
+        <Seo
+          title="NREMT-Style EMT Exam Practice"
+          description="Build EMT exam pacing and clinical judgment with timed, one-question-at-a-time NREMT-style practice sets."
+          path="/exam/nremt"
+        />
+        <Header />
+        <PageContainer size="normal" className="grid min-h-[calc(100svh-90px)] place-items-center">
+          <div className={`${cardClass} flex items-center gap-3 px-5 py-4 text-sm text-slate-700`} role="status">
+            <LoaderCircle className="animate-spin text-teal-600" size={20} />
+            {authStatus === "checking" ? "Checking your account..." : "Redirecting to sign in..."}
+          </div>
+        </PageContainer>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>
@@ -242,42 +296,25 @@ export default function NremtExamPage() {
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <h2 className="text-sm font-semibold text-slate-900">
-                  Exam settings
+                  Exam details
                 </h2>
                 <p className="mt-1 text-xs text-slate-600">
-                  Choose up to 25 questions from the current exam-eligible pool.
+                  Each exam includes up to 25 questions from the current exam-eligible pool.
                 </p>
-                <label className="mt-3 block text-xs font-medium text-slate-700">
-                  Number of questions
-                </label>
-                <input
-                  type="number"
-                  min={1}
-                  max={Math.max(1, maxSelectableQuestions)}
-                  value={questionCount}
-                  disabled={loadingAvailability || maxSelectableQuestions === 0}
-                  onChange={(e) =>
-                    setQuestionCount(
-                      Math.min(
-                        Math.max(1, maxSelectableQuestions),
-                        Math.max(1, Number(e.target.value) || 1)
-                      )
-                    )
-                  }
-                  className={`${inputClass} mt-1 w-28 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500`}
-                />
                 <p className="mt-2 text-xs text-slate-500">
                   {loadingAvailability
                     ? "Checking available questions..."
-                    : `${availableQuestionCount ?? 0} exam-eligible ${
-                        availableQuestionCount === 1 ? "question is" : "questions are"
-                      } currently available.`}
+                    : examQuestionCount > 0
+                      ? `This exam will contain ${examQuestionCount} ${
+                          examQuestionCount === 1 ? "question" : "questions"
+                        }.`
+                      : "No exam-eligible questions are currently available."}
                 </p>
               </div>
 
               <button
                 onClick={startExam}
-                disabled={starting || loadingAvailability || maxSelectableQuestions === 0}
+                disabled={starting || loadingAvailability || examQuestionCount === 0}
                 className={primaryButtonClass}
               >
                 {starting
