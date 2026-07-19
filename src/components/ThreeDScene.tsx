@@ -10,7 +10,15 @@ import {
   useGLTF,
   useProgress,
 } from "@react-three/drei";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type Ref, type RefObject } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Ref,
+  type RefObject,
+} from "react";
 import * as THREE from "three";
 import type { Group } from "three";
 // import { EMTCharacter } from "@/components/EMTCharacter";
@@ -65,6 +73,7 @@ type ThreeDSceneProps = {
   focusedObjectId?: string;
   cameraFocusObjectId?: string | null;
   accessibilityMode?: boolean;
+  showSelectionPrompt?: boolean;
   environment?: ScenarioState["environment"];
   locationId?: ScenarioState["locationId"];
   inventory?: string[];
@@ -75,7 +84,7 @@ type ThreeDSceneProps = {
 };
 
 type Vec3 = [number, number, number];
-type SceneVariant = "anaphylaxis" | "spine" | "chest-pain";
+type SceneVariant = "anaphylaxis" | "spine" | "chest-pain" | "car-accident";
 type InterventionState = "none" | "oxygen" | "positioning" | "medication";
 type PatientState = "stable" | "distressed" | "improving" | "critical";
 type SceneInteractiveObject = InteractiveObjectConfig & {
@@ -120,6 +129,15 @@ const MOBILE_GUIDE_CAMERA_POSITION: Vec3 = [0.35, 1.54, 2.92];
 const MOBILE_GUIDE_CAMERA_TARGET: Vec3 = [0.35, 1.32, 0.95];
 const MOBILE_NORMAL_CAMERA_POSITION: Vec3 = [-1.95, 1.48, -0.72];
 const MOBILE_NORMAL_CAMERA_TARGET: Vec3 = [5.0, 0.75, 1.25];
+const CRASH_CAMERA_POSITION: Vec3 = [-2.7, 3.4, 10.6];
+const CRASH_CAMERA_TARGET: Vec3 = [0.35, 0.52, 1.15];
+const MOBILE_CRASH_CAMERA_POSITION: Vec3 = [-0.65, 2.35, 7.7];
+const MOBILE_CRASH_CAMERA_TARGET: Vec3 = [1.2, 1.02, 0.2];
+const CRASH_STAGED_PARAMEDIC_POSITION: Vec3 = [-1.25, 0.05, 4.02];
+const CRASH_PATIENT_SIDE_PARAMEDIC_POSITION: Vec3 = [0.72, 0.05, 2.1];
+const CRASH_STAGED_MEDICAL_BAG_POSITION: Vec3 = [-0.38, 0.06, 4.08];
+const CRASH_PATIENT_SIDE_MEDICAL_BAG_POSITION: Vec3 = [0.05, 0.06, 2.45];
+const CRASH_RESPONSE_ROTATION_Y = 2.4;
 
 type GuideStep = "welcome" | "name" | "named" | "done" | "soon";
 type CameraMode = "guide" | "normal" | "free";
@@ -132,7 +150,9 @@ function formatGuideDisplayName(value: string) {
 }
 
 function normalizeSceneVariant(scenarioId?: string): SceneVariant {
-  if (scenarioId === "spine" || scenarioId === "chest-pain") return scenarioId;
+  if (scenarioId === "spine" || scenarioId === "chest-pain" || scenarioId === "car-accident") {
+    return scenarioId;
+  }
   return "anaphylaxis";
 }
 
@@ -1978,6 +1998,10 @@ function AmbulanceLightGlow({ position }: { position: Vec3 }) {
 
   return (
     <group position={position}>
+      <mesh position={[0, -0.06, 0]} castShadow>
+        <boxGeometry args={[0.64, 0.04, 0.16]} />
+        <meshStandardMaterial color="#1f2937" metalness={0.45} roughness={0.38} />
+      </mesh>
       <mesh position={[-0.18, 0, 0]} castShadow>
         <boxGeometry args={[0.24, 0.09, 0.12]} />
         <meshStandardMaterial ref={redRef} color="#ef4444" emissive="#ef4444" emissiveIntensity={0.9} roughness={0.35} />
@@ -1990,7 +2014,29 @@ function AmbulanceLightGlow({ position }: { position: Vec3 }) {
   );
 }
 
-function FloatingWalkieTalkie({ position }: { position: Vec3 }) {
+function SceneAmbulance({
+  position,
+  scale,
+  rotationY,
+}: {
+  position: Vec3;
+  scale: number;
+  rotationY: number;
+}) {
+  const roofY = 0.2438 * scale + 0.07;
+  const cabX = 0.22 * scale;
+
+  return (
+    <group position={position} rotation={[0, rotationY, 0]}>
+      <CustomAmbulanceModel scale={scale} />
+      <group position={[cabX, roofY, 0]} rotation={[0, Math.PI / 2, 0]}>
+        <AmbulanceLightGlow position={[0, 0, 0]} />
+      </group>
+    </group>
+  );
+}
+
+function FloatingWalkieTalkie({ position, scale = 0.52 }: { position: Vec3; scale?: number }) {
   const root = useRef<THREE.Group>(null);
 
   useFrame(({ clock }) => {
@@ -2000,7 +2046,7 @@ function FloatingWalkieTalkie({ position }: { position: Vec3 }) {
   });
 
   return (
-    <group ref={root} position={position} rotation={[0.18, -0.45, -0.08]} scale={0.52}>
+    <group ref={root} position={position} rotation={[0.18, -0.45, -0.08]} scale={scale}>
       <mesh castShadow>
         <boxGeometry args={[0.34, 0.62, 0.14]} />
         <meshStandardMaterial color="#1f2937" roughness={0.58} />
@@ -2117,8 +2163,7 @@ function RoadsideFestivalEmergencyScene({
       <RoadsideFestivalGround />
       <RoadsideVillageBackdrop />
 
-      <CustomAmbulanceModel position={[-4.55, 0.96, -4.78]} scale={3.78} rotation={[0, 0.34, 0]} />
-      <AmbulanceLightGlow position={[-4.78, 2.22, -3.78]} />
+      <SceneAmbulance position={[-4.55, 0.96, -4.78]} scale={3.78} rotationY={0.34} />
       <FloatingWalkieTalkie position={[-4.55, 2.78, -3.52]} />
       {/* DamagedCar is intentionally hidden for this focused single-scene pass. */}
       {/* <DamagedCar position={[3.85, 0.08, -4.72]} /> */}
@@ -2127,7 +2172,11 @@ function RoadsideFestivalEmergencyScene({
         <DownloadedConeModel key={`roadside-cone-${index}`} position={[x, y, z]} scale={0.3} rotation={[0, rotation, 0]} />
       ))}
 
-      <CustomFirstAidBagModel position={medicalBagPosition} scale={0.88} rotation={[0, 0, 0]} />
+      <CustomFirstAidBagModel
+        position={medicalBagPosition}
+        scale={0.88}
+        rotation={[0, 0, 0]}
+      />
       <CustomPatientModel position={[2.28, 0.2, 1.18]} scale={2.0} rotation={[0, -0.16, 0]} />
       <mesh position={[2.28, 0.025, 1.28]} rotation={[-Math.PI / 2, 0, -0.16]} receiveShadow>
         <circleGeometry args={[1.55, 40]} />
@@ -2148,6 +2197,229 @@ function RoadsideFestivalEmergencyScene({
       <ReferenceFence position={[6.3, 0.05, -1.9]} rotationY={0.02} segments={5} />
       <DownloadedMossyRockModel position={[-7.85, 0.04, 2.85]} scale={0.44} rotation={[0, -0.2, 0]} />
       <DownloadedMossyRockModel position={[6.8, 0.04, 2.78]} scale={0.36} rotation={[0, 0.45, 0]} />
+    </group>
+  );
+}
+
+function CarAccidentGround() {
+  const roadMarkers = useMemo(
+    () => Array.from({ length: 19 }, (_, index) => -17.5 + index * 2),
+    []
+  );
+  const grassPatches = useMemo(
+    () =>
+      [
+        [-12.8, 0.05, 6.5, 0.34, 0.2],
+        [-10.1, 0.05, 9.0, 0.38, -0.4],
+        [-7.2, 0.05, 7.3, 0.28, 0.7],
+        [-4.6, 0.05, 10.4, 0.36, -0.2],
+        [-1.8, 0.05, 6.9, 0.3, 0.5],
+        [1.1, 0.05, 9.6, 0.34, -0.65],
+        [4.0, 0.05, 7.5, 0.27, 0.1],
+        [6.8, 0.05, 10.2, 0.38, 0.45],
+        [9.7, 0.05, 6.8, 0.31, -0.3],
+        [12.5, 0.05, 9.1, 0.35, 0.8],
+        [-14.5, 0.05, 12.2, 0.34, -0.45],
+        [-8.6, 0.05, 13.4, 0.32, 0.18],
+        [-2.8, 0.05, 12.6, 0.36, -0.2],
+        [3.2, 0.05, 13.2, 0.3, 0.62],
+        [8.8, 0.05, 12.5, 0.34, -0.5],
+        [14.0, 0.05, 13.4, 0.32, 0.28],
+      ] as Array<[number, number, number, number, number]>,
+    []
+  );
+  const rocks = useMemo(
+    () =>
+      [
+        [-13.7, 0.04, 8.2, 0.33, 0.2],
+        [-9.0, 0.04, 11.4, 0.42, -0.35],
+        [-5.7, 0.04, 7.9, 0.28, 0.72],
+        [-0.8, 0.04, 11.2, 0.36, -0.18],
+        [5.3, 0.04, 8.5, 0.31, 0.5],
+        [10.8, 0.04, 11.0, 0.43, -0.6],
+        [14.2, 0.04, 7.6, 0.3, 0.28],
+      ] as Array<[number, number, number, number, number]>,
+    []
+  );
+
+  return (
+    <group>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.045, 2.5]} receiveShadow>
+        <planeGeometry args={[54, 34]} />
+        <meshStandardMaterial color="#73a34f" roughness={0.99} />
+      </mesh>
+
+      <mesh position={[0, 0.055, 0]} receiveShadow>
+        <boxGeometry args={[42, 0.12, 8.4]} />
+        <meshStandardMaterial color="#323b40" roughness={0.94} />
+      </mesh>
+      <mesh position={[0, 0.085, -4.44]} receiveShadow>
+        <boxGeometry args={[42.4, 0.08, 0.62]} />
+        <meshStandardMaterial color="#b6a47e" roughness={0.98} />
+      </mesh>
+      <mesh position={[0, 0.085, 4.44]} receiveShadow>
+        <boxGeometry args={[42.4, 0.08, 0.62]} />
+        <meshStandardMaterial color="#a88f69" roughness={0.98} />
+      </mesh>
+      <mesh position={[0, 0.145, -4.93]} receiveShadow>
+        <boxGeometry args={[42.4, 0.12, 1.0]} />
+        <meshStandardMaterial color="#aeb5b2" roughness={0.92} />
+      </mesh>
+      <mesh position={[0, 0.12, -3.88]} receiveShadow>
+        <boxGeometry args={[42, 0.018, 0.07]} />
+        <meshStandardMaterial color="#f8fafc" roughness={0.75} />
+      </mesh>
+      <mesh position={[0, 0.12, 3.88]} receiveShadow>
+        <boxGeometry args={[42, 0.018, 0.07]} />
+        <meshStandardMaterial color="#f8fafc" roughness={0.75} />
+      </mesh>
+      {roadMarkers.map((x) => (
+        <group key={`crash-road-center-${x}`}>
+          <mesh position={[x, 0.13, -0.1]} receiveShadow>
+            <boxGeometry args={[1.25, 0.018, 0.07]} />
+            <meshStandardMaterial color="#f0c84b" roughness={0.72} />
+          </mesh>
+          <mesh position={[x, 0.13, 0.1]} receiveShadow>
+            <boxGeometry args={[1.25, 0.018, 0.07]} />
+            <meshStandardMaterial color="#f0c84b" roughness={0.72} />
+          </mesh>
+        </group>
+      ))}
+
+      {grassPatches.map(([x, y, z, scale, rotation], index) => (
+        <DownloadedGrassModel
+          key={`crash-grass-${index}`}
+          position={[x, y, z]}
+          scale={scale}
+          rotation={[0, rotation, 0]}
+        />
+      ))}
+      {rocks.map(([x, y, z, scale, rotation], index) => (
+        <DownloadedMossyRockModel
+          key={`crash-rock-${index}`}
+          position={[x, y, z]}
+          scale={scale}
+          rotation={[0, rotation, 0]}
+        />
+      ))}
+    </group>
+  );
+}
+
+function ResidentialRoadEdge() {
+  const houses = useMemo<BackgroundCityBuildingSpec[]>(
+    () =>
+      Array.from({ length: 22 }, (_, index) => ({
+        kind: (["small", "standard", "small", "large"] as const)[index % 4],
+        position: [-13.7 + index * 1.32, 0.18, -7.5] as Vec3,
+        rotationY: index % 5 === 0 ? 0.04 : 0,
+        scale: index % 4 === 3 ? 0.43 : 0.5,
+      })),
+    []
+  );
+
+  return (
+    <group>
+      <mesh position={[0, 0.04, -8.4]} receiveShadow>
+        <boxGeometry args={[44, 0.06, 7]} />
+        <meshStandardMaterial color="#7e9c58" roughness={0.99} />
+      </mesh>
+      {houses.map((house, index) => (
+        <BackgroundCityBuilding key={`crash-house-${index}`} {...house} />
+      ))}
+      {[-14.5, -8.4, -2.2, 4.0, 10.2, 15.8].map((x, index) => (
+        <Tree
+          key={`crash-house-tree-${index}`}
+          position={[x, 0.12, -10.4]}
+          scale={0.58 + (index % 2) * 0.07}
+          tint={index % 2 ? "#5f8052" : "#6f9257"}
+        />
+      ))}
+    </group>
+  );
+}
+
+function CrashSceneSupport({ active }: { active: boolean }) {
+  if (!active) return null;
+
+  return (
+    <group>
+      <TinyPerson position={[0.15, 0.14, -2.55]} shirt="#d97706" rotation={1.1} scale={1.04} />
+      <TinyPerson position={[3.7, 0.14, -2.15]} shirt="#b91c1c" rotation={-1.35} scale={1.02} />
+      <mesh position={[7.15, 0.5, 2.9]} castShadow>
+        <boxGeometry args={[4.4, 0.16, 0.14]} />
+        <meshStandardMaterial color="#f59e0b" roughness={0.8} />
+      </mesh>
+      {[5.2, 9.1].map((x) => (
+        <mesh key={`traffic-barrier-leg-${x}`} position={[x, 0.28, 2.9]} castShadow>
+          <boxGeometry args={[0.12, 0.56, 0.12]} />
+          <meshStandardMaterial color="#e2e8f0" roughness={0.85} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+function CarAccidentEmergencyScene({
+  environment,
+  locationId = "ambulance",
+}: {
+  environment?: ScenarioState["environment"];
+  locationId?: ScenarioState["locationId"];
+}) {
+  const medicalBagPosition =
+    locationId === "patientSide"
+      ? CRASH_PATIENT_SIDE_MEDICAL_BAG_POSITION
+      : CRASH_STAGED_MEDICAL_BAG_POSITION;
+  const cones = useMemo(
+    () =>
+      [
+        [-8.8, 0.15, 3.25, 0.05],
+        [-5.5, 0.15, 3.18, -0.12],
+        [0.15, 0.15, 3.1, 0.08],
+        [5.7, 0.15, 3.15, -0.06],
+        [8.3, 0.15, 3.22, 0.12],
+      ] as Array<[number, number, number, number]>,
+    []
+  );
+
+  return (
+    <group>
+      <CloudCluster position={[-9.5, 7.4, -16.8]} scale={0.7} drift={0.072} driftVector={[0.8, 0.04, 0.2]} />
+      <CloudCluster position={[2.2, 8.0, -18.5]} scale={0.58} drift={0.06} driftVector={[-0.65, 0.03, 0.22]} phase={1.6} />
+      <CloudCluster position={[10.5, 7.5, -15.4]} scale={0.64} drift={0.077} driftVector={[0.62, 0.04, -0.15]} phase={3.1} />
+      <CarAccidentGround />
+      <ResidentialRoadEdge />
+
+      <SceneAmbulance position={[-2.8, 0.94, 1.15]} scale={3.45} rotationY={0.06} />
+      <FloatingWalkieTalkie position={[-0.9, 2.62, 2.65]} scale={0.36} />
+      <DamagedCar position={[2.6, 0.12, 0]} rotationY={0.02} showDriver />
+      <CustomFirstAidBagModel
+        position={medicalBagPosition}
+        scale={0.88}
+        rotation={[0, CRASH_RESPONSE_ROTATION_Y, 0]}
+      />
+
+      {cones.map(([x, y, z, rotation], index) => (
+        <DownloadedConeModel
+          key={`crash-cone-${index}`}
+          position={[x, y, z]}
+          scale={0.3}
+          rotation={[0, rotation, 0]}
+        />
+      ))}
+      <CrashSceneSupport active={Boolean(environment?.trafficStopped && environment?.fireControlled)} />
+
+      {[-13.0, -8.2, -3.0, 2.6, 8.0, 13.0].map((x, index) => (
+        <Tree
+          key={`crash-meadow-tree-${index}`}
+          position={[x, 0.02, 13.1 + (index % 2) * 1.2]}
+          scale={0.68 + (index % 3) * 0.07}
+          tint={index % 2 ? "#547c4d" : "#699257"}
+        />
+      ))}
+      <ReferenceFence position={[-14.5, 0.04, 11.3]} rotationY={0} segments={6} />
+      <ReferenceFence position={[5.5, 0.04, 11.3]} rotationY={0} segments={6} />
     </group>
   );
 }
@@ -2389,7 +2661,7 @@ function CameraDirector({
   locationId?: ScenarioState["locationId"];
   controlsRef?: RefObject<any>;
 }) {
-  const { camera } = useThree();
+  const { camera, size } = useThree();
   const target = useMemo(() => new THREE.Vector3(), []);
   const desiredPosition = useMemo(() => new THREE.Vector3(), []);
 
@@ -2409,8 +2681,17 @@ function CameraDirector({
           ? [0.2, 0.9, 1.2]
           : [1.1, 1.15, -1.6];
 
-    desiredPosition.set(...(focusObject?.focusPosition ?? fallbackPosition));
-    target.set(...(focusObject?.focusTarget ?? fallbackTarget));
+    if (size.width < 768 && focusObject.id === "ambulance-radio") {
+      desiredPosition.set(
+        focusObject.position[0] + 0.3,
+        focusObject.position[1] + 0.75,
+        focusObject.position[2] + 4.25
+      );
+      target.set(...focusObject.position);
+    } else {
+      desiredPosition.set(...(focusObject?.focusPosition ?? fallbackPosition));
+      target.set(...(focusObject?.focusTarget ?? fallbackTarget));
+    }
     camera.position.lerp(desiredPosition, 0.045);
 
     const controls = controlsRef?.current;
@@ -2429,10 +2710,18 @@ function GuideCameraRig({
   mode,
   controlsRef,
   onNormalSettled,
+  normalDesktopPosition = NORMAL_CAMERA_POSITION,
+  normalDesktopTarget = NORMAL_CAMERA_TARGET,
+  normalMobilePosition = MOBILE_NORMAL_CAMERA_POSITION,
+  normalMobileTarget = MOBILE_NORMAL_CAMERA_TARGET,
 }: {
   mode: CameraMode;
   controlsRef: RefObject<any>;
   onNormalSettled: () => void;
+  normalDesktopPosition?: Vec3;
+  normalDesktopTarget?: Vec3;
+  normalMobilePosition?: Vec3;
+  normalMobileTarget?: Vec3;
 }) {
   const { camera, size } = useThree();
   const isMobile = size.width < 768;
@@ -2445,8 +2734,8 @@ function GuideCameraRig({
 
     const guidePosition = isMobile ? MOBILE_GUIDE_CAMERA_POSITION : GUIDE_PARAMEDIC_CAMERA_POSITION;
     const guideTarget = isMobile ? MOBILE_GUIDE_CAMERA_TARGET : GUIDE_PARAMEDIC_CAMERA_TARGET;
-    const normalPosition = isMobile ? MOBILE_NORMAL_CAMERA_POSITION : NORMAL_CAMERA_POSITION;
-    const normalTarget = isMobile ? MOBILE_NORMAL_CAMERA_TARGET : NORMAL_CAMERA_TARGET;
+    const normalPosition = isMobile ? normalMobilePosition : normalDesktopPosition;
+    const normalTarget = isMobile ? normalMobileTarget : normalDesktopTarget;
 
     desiredPosition.set(...(mode === "guide" ? guidePosition : normalPosition));
     desiredTarget.set(...(mode === "guide" ? guideTarget : normalTarget));
@@ -2600,12 +2889,14 @@ function InteractiveHotspot({
   selected,
   suggested,
   accessibilityMode,
+  showSelectionPrompt = true,
   onSelect,
 }: {
   object: SceneInteractiveObject;
   selected: boolean;
   suggested?: boolean;
   accessibilityMode?: boolean;
+  showSelectionPrompt?: boolean;
   onSelect?: (objectId: string) => void;
 }) {
   const [hovered, setHovered] = useState(false);
@@ -2614,9 +2905,16 @@ function InteractiveHotspot({
   const disabled = object.enabled === false;
   const isSuggested = Boolean(suggested && !disabled && !object.completed);
   const highlightVisible = accessibilityMode || hovered || selected || isSuggested || object.category === "movement";
-  const labelVisible = accessibilityMode || hovered || selected || isSuggested || object.category === "movement";
-  const compactLabel = object.category === "movement";
-  const labelText = isSuggested && !selected ? `Select ${object.name}` : object.name;
+  const labelVisible =
+    !selected && (accessibilityMode || hovered || isSuggested || object.category === "movement");
+  const compactLabel =
+    object.category === "movement" ||
+    object.id === "ambulance-radio" ||
+    object.id === "medical-bag";
+  const labelText =
+    isSuggested && !selected && showSelectionPrompt
+      ? `Select ${object.name}`
+      : object.name;
 
   useEffect(() => {
     if (!hovered) return;
@@ -2658,7 +2956,18 @@ function InteractiveHotspot({
         />
       </mesh>
       {labelVisible ? (
-        <Html center distanceFactor={compactLabel ? 12 : 9} position={[0, compactLabel ? 0.46 : 0.58, 0]} zIndexRange={SCENE_HTML_Z_INDEX_RANGE}>
+        <Html
+          center
+          distanceFactor={
+            object.id === "ambulance-radio" || object.id === "medical-bag"
+              ? 7
+              : compactLabel
+                ? 12
+                : 9
+          }
+          position={[0, compactLabel ? 0.46 : 0.58, 0]}
+          zIndexRange={SCENE_HTML_Z_INDEX_RANGE}
+        >
           <div
             onClick={(event) => {
               event.stopPropagation();
@@ -2684,12 +2993,14 @@ function InteractiveLayer({
   selectedObjectId,
   focusedObjectId,
   accessibilityMode,
+  showSelectionPrompt,
   onObjectSelect,
 }: {
   objects: SceneInteractiveObject[];
   selectedObjectId?: string;
   focusedObjectId?: string;
   accessibilityMode?: boolean;
+  showSelectionPrompt?: boolean;
   onObjectSelect?: (objectId: string) => void;
 }) {
   return (
@@ -2701,6 +3012,7 @@ function InteractiveLayer({
           selected={object.id === selectedObjectId}
           suggested={object.id === focusedObjectId}
           accessibilityMode={accessibilityMode}
+          showSelectionPrompt={showSelectionPrompt}
           onSelect={onObjectSelect}
         />
       ))}
@@ -3481,7 +3793,15 @@ function SmokePlume({ position }: { position: Vec3 }) {
   );
 }
 
-function DamagedCar({ position = [5.9, 0, -5.6] as Vec3 }) {
+function DamagedCar({
+  position = [5.9, 0, -5.6] as Vec3,
+  rotationY = -0.34,
+  showDriver = false,
+}: {
+  position?: Vec3;
+  rotationY?: number;
+  showDriver?: boolean;
+}) {
   const wheelPositions: Vec3[] = [
     [-1.05, 0.4, -0.72],
     [1.05, 0.4, -0.72],
@@ -3490,15 +3810,62 @@ function DamagedCar({ position = [5.9, 0, -5.6] as Vec3 }) {
   ];
 
   return (
-    <group position={position} rotation={[0, -0.34, 0]} scale={0.92}>
+    <group position={position} rotation={[0, rotationY, 0]} scale={0.92}>
       <mesh position={[0, 0.72, 0]} castShadow receiveShadow>
         <boxGeometry args={[3.0, 0.62, 1.48]} />
         <meshStandardMaterial color="#7c3f32" roughness={0.83} />
       </mesh>
-      <mesh position={[-0.4, 1.18, 0]} castShadow>
-        <boxGeometry args={[1.45, 0.68, 1.3]} />
-        <meshStandardMaterial color="#8b4a3a" roughness={0.8} />
-      </mesh>
+      {showDriver ? (
+        <>
+          <mesh position={[-0.42, 1.52, 0]} castShadow>
+            <boxGeometry args={[1.55, 0.13, 1.34]} />
+            <meshStandardMaterial color="#7a3d31" roughness={0.82} />
+          </mesh>
+          {[-1.08, 0.22].map((x) =>
+            [-0.62, 0.62].map((z) => (
+              <mesh key={`crash-cabin-pillar-${x}-${z}`} position={[x, 1.22, z]} castShadow>
+                <boxGeometry args={[0.1, 0.62, 0.1]} />
+                <meshStandardMaterial color="#6f342a" roughness={0.86} />
+              </mesh>
+            ))
+          )}
+          <mesh position={[-0.42, 1.26, 0.665]}>
+            <boxGeometry args={[1.18, 0.46, 0.025]} />
+            <meshStandardMaterial
+              color="#7290a0"
+              transparent
+              opacity={0.36}
+              roughness={0.3}
+              depthWrite={false}
+            />
+          </mesh>
+          <mesh position={[-0.42, 1.26, -0.665]}>
+            <boxGeometry args={[1.18, 0.46, 0.025]} />
+            <meshStandardMaterial
+              color="#273746"
+              transparent
+              opacity={0.48}
+              roughness={0.32}
+              depthWrite={false}
+            />
+          </mesh>
+          <mesh position={[-0.64, 0.97, 0.18]} castShadow>
+            <boxGeometry args={[0.55, 0.16, 0.72]} />
+            <meshStandardMaterial color="#202733" roughness={0.9} />
+          </mesh>
+          <group position={[-0.48, 1.16, 0.32]} rotation={[0, 0, -0.38]}>
+            <CustomPatientModel
+              scale={0.9}
+              rotation={[0.04, Math.PI / 2, 0]}
+            />
+          </group>
+        </>
+      ) : (
+        <mesh position={[-0.4, 1.18, 0]} castShadow>
+          <boxGeometry args={[1.45, 0.68, 1.3]} />
+          <meshStandardMaterial color="#8b4a3a" roughness={0.8} />
+        </mesh>
+      )}
       <mesh position={[-0.42, 1.26, -0.665]} castShadow>
         <boxGeometry args={[1.05, 0.42, 0.03]} />
         <meshStandardMaterial color="#273746" roughness={0.32} />
@@ -3921,6 +4288,7 @@ export default function ThreeDScene({
   focusedObjectId,
   cameraFocusObjectId,
   accessibilityMode,
+  showSelectionPrompt = true,
   environment,
   locationId = "ambulance",
   inventory = [],
@@ -3931,12 +4299,21 @@ export default function ThreeDScene({
 }: ThreeDSceneProps) {
   const activeScenarioId = normalizeSceneVariant(scenarioId);
   const useRoadsideFestivalScene = activeScenarioId === "anaphylaxis";
+  const useCarAccidentScene = activeScenarioId === "car-accident";
   const activeCameraFocusObjectId =
     cameraFocusObjectId === null ? undefined : cameraFocusObjectId ?? focusedObjectId;
   const focusObject =
     interactiveObjects.find((object) => object.id === activeCameraFocusObjectId) ??
     STATIC_FOCUS_OBJECTS[activeCameraFocusObjectId ?? ""];
-  const medicPosition = locationId === "patientSide" ? PATIENT_SIDE_PARAMEDIC_POSITION : STAGED_PARAMEDIC_POSITION;
+  const medicPosition = useCarAccidentScene
+    ? locationId === "patientSide"
+      ? CRASH_PATIENT_SIDE_PARAMEDIC_POSITION
+      : CRASH_STAGED_PARAMEDIC_POSITION
+    : locationId === "patientSide"
+      ? PATIENT_SIDE_PARAMEDIC_POSITION
+      : STAGED_PARAMEDIC_POSITION;
+  const normalCameraPosition = useCarAccidentScene ? CRASH_CAMERA_POSITION : NORMAL_CAMERA_POSITION;
+  const normalCameraTarget = useCarAccidentScene ? CRASH_CAMERA_TARGET : NORMAL_CAMERA_TARGET;
   const patientPosition: Vec3 = [2.18, 0.08, 1.55];
   const orbitControlsRef = useRef<any>(null);
   const [guideStep, setGuideStep] = useState<GuideStep>(showGuideIntro ? "welcome" : "done");
@@ -3984,7 +4361,7 @@ export default function ThreeDScene({
 
   return (
     <div className="relative h-full w-full" style={{ height }}>
-      <Canvas shadows dpr={[1, 1.5]} camera={{ position: NORMAL_CAMERA_POSITION, fov: 50 }}>
+      <Canvas shadows dpr={[1, 1.5]} camera={{ position: normalCameraPosition, fov: 50 }}>
         <color attach="background" args={["#a9e5ff"]} />
         <fog attach="fog" args={["#dcf4ff", 66, 132]} />
         <SkyGradient />
@@ -4014,17 +4391,19 @@ export default function ThreeDScene({
             animalControlResponseActive={animalControlResponseActive}
             locationId={locationId}
           />
+        ) : useCarAccidentScene ? (
+          <CarAccidentEmergencyScene environment={environment} locationId={locationId} />
         ) : (
           <BaselineGroundRightTerrain />
         )}
         <GLBParamedicGuide
           position={medicPosition}
-          rotationY={0.58}
+          rotationY={useCarAccidentScene ? CRASH_RESPONSE_ROTATION_Y : 0.58}
           onClick={focusGuideParamedic}
           showGuidePulse={showGuideIntro && guideStep === "done"}
           hasGloves={equippedItems.includes("gloves")}
         />
-        {!useRoadsideFestivalScene ? (
+        {!useRoadsideFestivalScene && !useCarAccidentScene ? (
           <>
             <CustomFirstAidBagModel
               position={
@@ -4048,9 +4427,13 @@ export default function ThreeDScene({
           onReturn={returnToScene}
         />
         <GuideCameraRig
-          mode={cameraMode}
+          mode={focusObject && cameraMode !== "guide" ? "free" : cameraMode}
           controlsRef={orbitControlsRef}
           onNormalSettled={() => setCameraMode("free")}
+          normalDesktopPosition={normalCameraPosition}
+          normalDesktopTarget={normalCameraTarget}
+          normalMobilePosition={useCarAccidentScene ? MOBILE_CRASH_CAMERA_POSITION : MOBILE_NORMAL_CAMERA_POSITION}
+          normalMobileTarget={useCarAccidentScene ? MOBILE_CRASH_CAMERA_TARGET : MOBILE_NORMAL_CAMERA_TARGET}
         />
         <FindingBubble text={sceneFinding} speaker={sceneSpeaker} />
         <InteractiveLayer
@@ -4058,6 +4441,7 @@ export default function ThreeDScene({
           selectedObjectId={selectedObjectId}
           focusedObjectId={focusedObjectId}
           accessibilityMode={accessibilityMode}
+          showSelectionPrompt={showSelectionPrompt}
           onObjectSelect={onObjectSelect}
         />
         <CameraDirector focusObject={focusObject} locationId={locationId} controlsRef={orbitControlsRef} />
@@ -4104,7 +4488,7 @@ export default function ThreeDScene({
           minDistance={CAMERA_MIN_DISTANCE}
           maxDistance={CAMERA_MAX_DISTANCE}
           maxPolarAngle={CAMERA_MAX_POLAR_ANGLE}
-          target={NORMAL_CAMERA_TARGET}
+          target={normalCameraTarget}
         />
       </Canvas>
       <SceneLoadingOverlay />

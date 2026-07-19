@@ -27,6 +27,9 @@ export type SceneEvent =
   | "DOG_INSPECTED"
   | "DOG_AGITATED"
   | "CAR_INSPECTED"
+  | "CRASH_SCENE_INSPECTED"
+  | "FIRE_RESCUE_CALLED"
+  | "TRAFFIC_CONTROLLED"
   | "BYSTANDERS_QUESTIONED"
   | "RADIO_SELECTED"
   | "ANIMAL_CONTROL_CALLED"
@@ -99,6 +102,7 @@ export type PatientVitals = {
 export type PatientVitalKey = keyof PatientVitals;
 
 export type ScenarioState = {
+  scenarioId: string;
   currentPhase: ScenarioPhase;
   currentObjectiveId: string;
   completedObjectives: string[];
@@ -773,15 +777,549 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
   ],
 };
 
+export const carAccidentScenario: SceneScenarioConfig = {
+  id: "car-accident",
+  title: "Driver Trapped After Collision",
+  dispatch:
+    "Single-vehicle collision on a residential roadway. Smoke is coming from the engine compartment and the driver remains inside.",
+  sceneReport:
+    "A damaged sedan is blocking one lane. Traffic is still moving past the crash, the vehicle is not stabilized, and an adult driver is slumped behind the wheel.",
+  startingLocation: "ambulance",
+  initialPhase: "sceneSafety",
+  currentObjectiveId: "inspect-crash",
+  environmentInitialState: {
+    dogSecured: true,
+    fireControlled: false,
+    trafficStopped: false,
+    sceneSafe: false,
+    dogAgitated: false,
+  },
+  patientInitialState: {
+    workingImpression: undefined,
+    responsiveness: "Responds to voice, confused about the collision",
+    airwayStatus: "Patent, cervical spine risk present",
+    breathingStatus: "Shallow respirations with left chest pain",
+    circulationStatus: "Rapid weak radial pulse, pale cool skin",
+    position: "driver-seat",
+    oxygenApplied: false,
+    medicationGiven: [],
+    findingsDiscovered: [],
+    vitalsRevealed: [],
+    vitals: {
+      heartRate: 112,
+      respiratoryRate: 24,
+      systolicBP: 104,
+      diastolicBP: 68,
+      spo2: 94,
+    },
+  },
+  objectives: [
+    {
+      id: "inspect-crash",
+      label: "Crash Scene Size-Up",
+      subtleGoal: "Identify immediate roadway and vehicle hazards before approaching.",
+      phase: "sceneSafety",
+      requiredEvents: ["CRASH_SCENE_INSPECTED"],
+      hintLevels: [
+        "Start outside the damaged vehicle.",
+        "Look for traffic, smoke, leaking fluids, and vehicle instability.",
+        "Select the smoking car and inspect the crash from the ambulance staging point.",
+      ],
+    },
+    {
+      id: "request-crash-resources",
+      label: "Request Resources",
+      subtleGoal: "Request the resources needed to control traffic and stabilize the vehicle.",
+      phase: "sceneSafety",
+      requiredEvents: ["RADIO_SELECTED", "FIRE_RESCUE_CALLED"],
+      hintLevels: [
+        "Do not enter an uncontrolled crash scene alone.",
+        "Fire-rescue and police are needed.",
+        "Rotate to the ambulance radio and request fire-rescue and police.",
+      ],
+    },
+    {
+      id: "secure-crash-scene",
+      label: "Roadway Secured",
+      subtleGoal: "Wait until traffic is stopped and the vehicle is stabilized.",
+      phase: "sceneSafety",
+      requiredEvents: ["TRAFFIC_CONTROLLED"],
+      hintLevels: [
+        "Hold at staging while support controls the hazards.",
+        "The vehicle and traffic must be secured first.",
+        "Wait for police and fire-rescue to finish scene control.",
+      ],
+    },
+    {
+      id: "bsi-ppe",
+      label: "BSI / PPE",
+      subtleGoal: "Open the medical bag and equip gloves before patient contact.",
+      phase: "primaryAssessment",
+      requiredEvents: ["GLOVES_EQUIPPED"],
+      hintLevels: ["Prepare PPE at the ambulance.", "Open the medical bag.", "Put on gloves before approaching the driver."],
+    },
+    {
+      id: "approach-patient",
+      label: "Approach Driver",
+      subtleGoal: "Bring the aid bag to the secured driver side.",
+      phase: "primaryAssessment",
+      requiredEvents: ["PATIENT_APPROACHED"],
+      hintLevels: ["Use the protected shoulder.", "Approach on the stabilized driver side.", "Select the approach point beside the driver door."],
+    },
+    {
+      id: "general-impression",
+      label: "General Impression",
+      subtleGoal: "Form an initial impression from mechanism and visible findings.",
+      phase: "primaryAssessment",
+      requiredEvents: ["GENERAL_IMPRESSION_OBSERVED"],
+      hintLevels: ["Consider the collision mechanism and patient position.", "Look for pallor, guarding, and mentation.", "Select the driver and observe the general impression."],
+    },
+    {
+      id: "responsiveness",
+      label: "Responsiveness",
+      subtleGoal: "Determine how the driver responds without unnecessary movement.",
+      phase: "primaryAssessment",
+      requiredEvents: ["RESPONSIVENESS_CHECKED"],
+      hintLevels: ["Begin verbally.", "Ask the driver to remain still and identify themselves.", "Use the patient interaction menu."],
+    },
+    {
+      id: "airway",
+      label: "Airway With Spinal Precautions",
+      subtleGoal: "Assess airway while protecting the cervical spine.",
+      phase: "primaryAssessment",
+      requiredEvents: ["AIRWAY_OPENED"],
+      hintLevels: ["The mechanism creates spinal risk.", "Stabilize the head before manipulating the airway.", "Use manual stabilization and a jaw-thrust assessment."],
+    },
+    {
+      id: "breathing",
+      label: "Breathing",
+      subtleGoal: "Assess chest movement, effort, and injury.",
+      phase: "primaryAssessment",
+      requiredEvents: ["RESPIRATIONS_COUNTED"],
+      hintLevels: ["Inspect the chest after airway.", "Compare chest movement and count respirations.", "Select the chest hotspot."],
+    },
+    {
+      id: "circulation",
+      label: "Circulation",
+      subtleGoal: "Assess pulse, perfusion, and major bleeding.",
+      phase: "primaryAssessment",
+      requiredEvents: ["PULSE_CHECKED"],
+      hintLevels: ["Trauma patients can compensate before pressure falls.", "Check pulse, skin, and major bleeding.", "Select the wrist hotspot."],
+    },
+    {
+      id: "baseline-vitals",
+      label: "Baseline Vitals",
+      subtleGoal: "Obtain baseline blood pressure and oxygen saturation.",
+      phase: "primaryAssessment",
+      requiredEvents: ["BLOOD_PRESSURE_OBTAINED", "SPO2_OBTAINED"],
+      hintLevels: ["Use monitoring equipment after the ABCs.", "Record perfusion and oxygenation.", "Use the BP cuff and pulse oximeter."],
+    },
+    {
+      id: "working-impression",
+      label: "Working Impression",
+      subtleGoal: "Identify the likely trauma pattern from mechanism and findings.",
+      phase: "primaryAssessment",
+      requiredEvents: ["WORKING_IMPRESSION_SELECTED"],
+      hintLevels: ["Do not anchor on one painful area.", "Consider spine, chest, and internal injury.", "Choose multisystem trauma with possible compensated shock."],
+    },
+    {
+      id: "transport-priority",
+      label: "Transport Priority",
+      subtleGoal: "Choose urgency and destination for the trapped trauma patient.",
+      phase: "primaryAssessment",
+      requiredEvents: ["TRANSPORT_SELECTED"],
+      hintLevels: ["Use mechanism, mentation, breathing, and perfusion.", "Coordinate extrication while minimizing scene time.", "Choose rapid transport to an appropriate trauma center."],
+    },
+  ],
+  interactiveObjects: [
+    {
+      id: "crash-vehicle",
+      name: "Smoking Crash Vehicle",
+      category: "hazard",
+      visibleWhen: ["DISPATCH_RECEIVED"],
+      completedWhen: ["CRASH_SCENE_INSPECTED"],
+      position: [2.6, 1.15, 0],
+      focusPosition: [-2.2, 2.7, 7.4],
+      focusTarget: [2.4, 0.95, 0],
+      highlightColor: "#fb923c",
+      actions: [
+        {
+          id: "inspect-crash-from-distance",
+          label: "Inspect from a safe distance",
+          description: "Scan traffic, smoke, vehicle position, leaking fluids, and access routes.",
+          outcome: "correct",
+          successEvents: ["CRASH_SCENE_INSPECTED"],
+          scoreEffect: 5,
+          timeEffect: 8,
+        },
+        {
+          id: "rush-to-driver",
+          label: "Run directly to the driver",
+          description: "Cross the active lane and enter the unstable vehicle immediately.",
+          outcome: "incorrect",
+          feedback:
+            "Moving traffic, engine smoke, and an unstabilized vehicle make that approach unsafe. Complete the scene size-up and request specialized resources first.",
+          scoreEffect: -8,
+          timeEffect: 20,
+        },
+        {
+          id: "open-smoking-hood",
+          label: "Open the smoking hood",
+          description: "Approach the engine compartment to investigate the smoke.",
+          outcome: "incorrect",
+          feedback:
+            "Do not place yourself over a smoking engine compartment. Keep distance, identify the hazards, and request fire-rescue.",
+          scoreEffect: -6,
+          timeEffect: 15,
+        },
+      ],
+    },
+    {
+      id: "ambulance-radio",
+      name: "Ambulance Radio",
+      category: "vehicle",
+      visibleWhen: ["CRASH_SCENE_INSPECTED"],
+      completedWhen: ["TRAFFIC_CONTROLLED"],
+      position: [-0.9, 2.25, 2.65],
+      focusPosition: [2.4, 2.35, 5.7],
+      focusTarget: [-0.85, 1.85, 2.55],
+      highlightColor: "#2dd4bf",
+      actions: [
+        {
+          id: "request-fire-rescue",
+          label: "Request fire-rescue and police",
+          description: "Request traffic control, vehicle stabilization, and extrication support.",
+          requires: ["RADIO_SELECTED"],
+          successEvents: ["FIRE_RESCUE_CALLED"],
+          scoreEffect: 10,
+          timeEffect: 35,
+        },
+      ],
+    },
+    {
+      id: "medical-bag",
+      name: "Medical Bag",
+      category: "equipment",
+      visibleWhen: ["TRAFFIC_CONTROLLED"],
+      completedWhen: ["GLOVES_EQUIPPED"],
+      position: [-0.38, 0.55, 4.08],
+      focusPosition: [1.8, 1.7, 6.8],
+      focusTarget: [-0.38, 0.45, 4.08],
+      highlightColor: "#5eead4",
+      enabledWhen: ["TRAFFIC_CONTROLLED"],
+      actions: [
+        {
+          id: "open-medical-bag",
+          label: "Open medical bag",
+          description: "Open the aid bag and locate PPE before entering the crash area.",
+          successEvents: ["MEDICAL_BAG_OPENED"],
+          scoreEffect: 3,
+        },
+        {
+          id: "equip-gloves",
+          label: "Put on gloves",
+          description: "Complete BSI/PPE before touching the driver.",
+          requires: ["MEDICAL_BAG_OPENED"],
+          successEvents: ["GLOVES_EQUIPPED", "PPE_EQUIPPED"],
+          scoreEffect: 6,
+        },
+      ],
+    },
+    {
+      id: "patient-approach",
+      name: "Approach Driver",
+      category: "movement",
+      visibleWhen: ["PPE_EQUIPPED"],
+      completedWhen: ["PATIENT_APPROACHED"],
+      position: [1.25, 0.12, 2.15],
+      focusPosition: [7.4, 3.3, 7.8],
+      focusTarget: [2.25, 1.0, 0.35],
+      highlightColor: "#67e8f9",
+      enabledWhen: ["TRAFFIC_CONTROLLED", "PPE_EQUIPPED"],
+      actions: [
+        {
+          id: "approach-driver",
+          label: "Move to the driver side",
+          description: "Bring the aid bag along the protected shoulder to the stabilized vehicle.",
+          onSuccessEvents: ["PATIENT_APPROACHED"],
+          scoreEffect: 4,
+        },
+      ],
+    },
+    {
+      id: "patient",
+      name: "Trapped Driver",
+      category: "patient",
+      visibleWhen: ["PATIENT_APPROACHED"],
+      completedWhen: ["RESPONSIVENESS_CHECKED"],
+      position: [2.0, 1.45, 0.62],
+      focusPosition: [5.9, 2.8, 5.3],
+      focusTarget: [2.0, 1.25, 0.45],
+      highlightColor: "#fda4af",
+      enabledWhen: ["PATIENT_APPROACHED"],
+      actions: [
+        {
+          id: "observe-trauma-impression",
+          label: "Observe mechanism and general impression",
+          description: "Driver slumped, pale, confused, guarding the left chest, with significant frontal vehicle damage.",
+          outcome: "correct",
+          onSuccessEvents: ["GENERAL_IMPRESSION_OBSERVED"],
+          scoreEffect: 5,
+        },
+        {
+          id: "verbal-responsiveness-trauma",
+          label: "Introduce yourself and ask the driver to remain still",
+          description: "Use verbal interaction to assess orientation while limiting cervical movement.",
+          outcome: "correct",
+          requires: ["GENERAL_IMPRESSION_OBSERVED"],
+          onSuccessEvents: ["RESPONSIVENESS_CHECKED"],
+          scoreEffect: 5,
+        },
+        {
+          id: "pull-driver-out",
+          label: "Pull the driver out immediately",
+          description: "Remove the patient before fire-rescue completes a controlled extrication.",
+          outcome: "incorrect",
+          requires: ["GENERAL_IMPRESSION_OBSERVED"],
+          feedback:
+            "There is no immediate fire or airway failure requiring emergency movement. Uncontrolled removal can worsen spinal and internal injuries; assess and coordinate extrication.",
+          scoreEffect: -7,
+          timeEffect: 15,
+        },
+        {
+          id: "shake-driver",
+          label: "Shake the driver's shoulders",
+          description: "Use physical movement to test responsiveness.",
+          outcome: "incorrect",
+          requires: ["GENERAL_IMPRESSION_OBSERVED"],
+          feedback:
+            "The collision mechanism creates cervical spine risk. Begin with voice and avoid moving the head, neck, or shoulders.",
+          scoreEffect: -5,
+          timeEffect: 10,
+        },
+      ],
+    },
+    {
+      id: "airway-hotspot",
+      name: "Airway",
+      category: "patient",
+      visibleWhen: ["RESPONSIVENESS_CHECKED"],
+      position: [1.72, 1.58, 0.62],
+      focusPosition: [4.4, 2.45, 4.0],
+      focusTarget: [1.72, 1.5, 0.58],
+      highlightColor: "#fbbf24",
+      enabledWhen: ["RESPONSIVENESS_CHECKED"],
+      actions: [
+        {
+          id: "jaw-thrust-with-stabilization",
+          label: "Stabilize the head and assess with a jaw-thrust",
+          description: "Maintain manual cervical stabilization while checking speech, the mouth, and airway patency.",
+          outcome: "correct",
+          onSuccessEvents: ["AIRWAY_OPENED"],
+          scoreEffect: 6,
+        },
+        {
+          id: "head-tilt-trauma",
+          label: "Use a head-tilt chin-lift",
+          description: "Extend the neck to open the airway.",
+          outcome: "incorrect",
+          feedback:
+            "Use a jaw-thrust while maintaining manual stabilization when trauma suggests cervical spine injury. Avoid unnecessary neck extension.",
+          scoreEffect: -5,
+          timeEffect: 12,
+        },
+        {
+          id: "remove-driver-for-airway",
+          label: "Remove the driver before checking the airway",
+          description: "Delay airway assessment until the patient is outside the vehicle.",
+          outcome: "incorrect",
+          feedback:
+            "Airway is assessed immediately where the patient is found. Maintain stabilization and assess patency while extrication is prepared.",
+          scoreEffect: -5,
+          timeEffect: 12,
+        },
+      ],
+    },
+    {
+      id: "chest-hotspot",
+      name: "Chest / Breathing",
+      category: "patient",
+      visibleWhen: ["AIRWAY_OPENED"],
+      position: [2.15, 1.28, 0.72],
+      focusPosition: [5.0, 2.55, 4.4],
+      focusTarget: [2.15, 1.22, 0.65],
+      highlightColor: "#38bdf8",
+      enabledWhen: ["AIRWAY_OPENED"],
+      actions: [
+        {
+          id: "assess-trauma-breathing",
+          label: "Expose and assess chest movement and breathing",
+          description: "Count respirations and compare chest rise, effort, tenderness, and visible injury.",
+          outcome: "correct",
+          onSuccessEvents: ["RESPIRATIONS_COUNTED"],
+          scoreEffect: 5,
+        },
+        {
+          id: "sit-driver-up",
+          label: "Sit the driver upright",
+          description: "Reposition the patient to make breathing easier.",
+          outcome: "incorrect",
+          feedback:
+            "Avoid unnecessary movement with a significant mechanism and possible spinal injury. Assess breathing in position while maintaining stabilization.",
+          scoreEffect: -5,
+          timeEffect: 12,
+        },
+        {
+          id: "skip-chest-assessment",
+          label: "Skip to blood pressure",
+          description: "Use the monitor before inspecting breathing and chest movement.",
+          outcome: "incorrect",
+          feedback:
+            "Breathing and chest injury are immediate primary-assessment priorities after airway. Assess them before baseline vital signs.",
+          scoreEffect: -4,
+          timeEffect: 10,
+        },
+      ],
+    },
+    {
+      id: "pulse-hotspot",
+      name: "Radial Pulse",
+      category: "patient",
+      visibleWhen: ["RESPIRATIONS_COUNTED"],
+      position: [2.38, 1.05, 0.78],
+      focusPosition: [5.1, 2.25, 4.2],
+      focusTarget: [2.3, 1.0, 0.72],
+      highlightColor: "#f472b6",
+      enabledWhen: ["RESPIRATIONS_COUNTED"],
+      actions: [
+        {
+          id: "assess-trauma-circulation",
+          label: "Check pulse, skin, perfusion, and major bleeding",
+          description: "Assess radial pulse and skin while scanning for life-threatening external hemorrhage.",
+          outcome: "correct",
+          onSuccessEvents: ["PULSE_CHECKED"],
+          scoreEffect: 5,
+        },
+        {
+          id: "assume-no-shock",
+          label: "Rule out shock because the patient is talking",
+          description: "Treat normal speech as proof of adequate perfusion.",
+          outcome: "incorrect",
+          feedback:
+            "Trauma patients can remain responsive during compensated shock. Assess pulse quality, skin, perfusion, and bleeding.",
+          scoreEffect: -5,
+          timeEffect: 12,
+        },
+        {
+          id: "check-carotid-only-trauma",
+          label: "Check only a carotid pulse",
+          description: "Confirm a central pulse and move on.",
+          outcome: "incorrect",
+          feedback:
+            "A radial pulse and skin signs add important perfusion information in this responsive patient. Also scan for major bleeding.",
+          scoreEffect: -3,
+          timeEffect: 10,
+        },
+      ],
+    },
+    {
+      id: "working-impression",
+      name: "Working Impression",
+      category: "patient",
+      visibleWhen: ["BLOOD_PRESSURE_OBTAINED", "SPO2_OBTAINED"],
+      completedWhen: ["WORKING_IMPRESSION_SELECTED"],
+      position: [2.8, 1.25, 0.85],
+      focusPosition: [5.6, 2.7, 4.8],
+      focusTarget: [2.2, 1.2, 0.6],
+      highlightColor: "#f0abfc",
+      enabledWhen: ["BLOOD_PRESSURE_OBTAINED", "SPO2_OBTAINED"],
+      actions: [
+        {
+          id: "multisystem-trauma",
+          label: "Suspect multisystem trauma",
+          description: "Mechanism, confusion, neck pain, chest pain, shallow breathing, tachycardia, and pallor suggest multiple serious injuries.",
+          outcome: "correct",
+          onSuccessEvents: ["WORKING_IMPRESSION_SELECTED"],
+          scoreEffect: 8,
+        },
+        {
+          id: "isolated-anxiety-crash",
+          label: "Suspect anxiety only",
+          description: "Attribute the abnormal findings to fear after the crash.",
+          outcome: "incorrect",
+          feedback:
+            "Anxiety does not explain the significant mechanism, confusion, chest guarding, shallow breathing, weak tachycardic pulse, and pallor.",
+          scoreEffect: -5,
+          timeEffect: 15,
+        },
+        {
+          id: "isolated-neck-strain",
+          label: "Suspect an isolated neck strain",
+          description: "Treat the complaint as a minor musculoskeletal injury.",
+          outcome: "incorrect",
+          feedback:
+            "The patient has multisystem findings beyond neck pain. Maintain a broad trauma impression until serious chest, spine, and internal injuries are excluded.",
+          scoreEffect: -5,
+          timeEffect: 15,
+        },
+      ],
+    },
+    {
+      id: "transport-decision",
+      name: "Transport Decision",
+      category: "movement",
+      visibleWhen: ["WORKING_IMPRESSION_SELECTED"],
+      position: [3.85, 0.16, 2.0],
+      focusPosition: [7.2, 3.2, 6.4],
+      focusTarget: [2.3, 1.05, 0.45],
+      highlightColor: "#a7f3d0",
+      enabledWhen: ["PULSE_CHECKED"],
+      actions: [
+        {
+          id: "rapid-trauma-transport",
+          label: "Rapid transport to an appropriate trauma center",
+          description: "Coordinate controlled extrication, spinal motion restriction, and rapid transport with ongoing reassessment.",
+          outcome: "correct",
+          onSuccessEvents: ["TRANSPORT_SELECTED", "SECONDARY_UNLOCKED"],
+          scoreEffect: 8,
+        },
+        {
+          id: "routine-transport-crash",
+          label: "Routine non-urgent transport",
+          description: "Complete a prolonged roadside assessment before leaving.",
+          outcome: "incorrect",
+          feedback:
+            "The significant mechanism, altered mentation, chest findings, and perfusion concerns make this patient high priority. Minimize scene time.",
+          scoreEffect: -6,
+          timeEffect: 20,
+        },
+        {
+          id: "refuse-transport-for-driver",
+          label: "Allow the confused driver to decline transport",
+          description: "Accept refusal immediately because the patient is speaking.",
+          outcome: "incorrect",
+          feedback:
+            "Confusion after a significant collision raises concern for impaired decision-making and serious injury. Continue emergency care and rapid transport.",
+          scoreEffect: -7,
+          timeEffect: 20,
+        },
+      ],
+    },
+  ],
+};
+
 export function createScenarioState(scenario: SceneScenarioConfig = anaphylaxisFestivalScenario): ScenarioState {
   return {
+    scenarioId: scenario.id,
     currentPhase: scenario.initialPhase,
     currentObjectiveId: scenario.currentObjectiveId,
     completedObjectives: [],
     failedObjectives: [],
     triggeredEvents: ["DISPATCH_RECEIVED"],
     selectedObjectId: undefined,
-    focusedObjectId: undefined,
+    focusedObjectId: scenario.interactiveObjects.find((object) =>
+      (object.visibleWhen ?? []).every((event) => event === "DISPATCH_RECEIVED")
+    )?.id,
     inventory: [],
     equippedItems: [],
     elapsedTime: 0,
@@ -790,8 +1328,14 @@ export function createScenarioState(scenario: SceneScenarioConfig = anaphylaxisF
     feedback: scenario.dispatch,
     locationId: scenario.startingLocation,
     accessibilityMode: false,
-    environment: scenario.environmentInitialState,
-    patient: scenario.patientInitialState,
+    environment: { ...scenario.environmentInitialState },
+    patient: {
+      ...scenario.patientInitialState,
+      medicationGiven: [...scenario.patientInitialState.medicationGiven],
+      findingsDiscovered: [...scenario.patientInitialState.findingsDiscovered],
+      vitalsRevealed: [...scenario.patientInitialState.vitalsRevealed],
+      vitals: { ...scenario.patientInitialState.vitals },
+    },
   };
 }
 
@@ -821,6 +1365,9 @@ export function getObjectAvailability(object: InteractiveObjectConfig, state: Sc
   if (object.enabledWhen?.includes("DOG_SECURED") && !state.environment.dogSecured) {
     return { enabled: false, reason: "Secure the barking dog before moving closer." };
   }
+  if (object.enabledWhen?.includes("TRAFFIC_CONTROLLED") && !state.environment.trafficStopped) {
+    return { enabled: false, reason: "Wait for fire-rescue and police to control the roadway and stabilize the vehicle." };
+  }
   if (object.enabledWhen?.includes("PPE_EQUIPPED") && !state.inventory.includes("gloves")) {
     return { enabled: false, reason: "Put on PPE before patient contact." };
   }
@@ -835,7 +1382,9 @@ function nextObjective(scenario: SceneScenarioConfig, state: ScenarioState, comp
   return scenario.objectives.find((objective) => !completedObjectives.includes(objective.id)) ?? scenario.objectives[scenario.objectives.length - 1];
 }
 
-function feedbackForEvent(event: SceneEvent): string {
+function feedbackForEvent(event: SceneEvent, state: ScenarioState): string {
+  const isCrash = state.scenarioId === "car-accident";
+
   switch (event) {
     case "AMBULANCE_EXITED":
       return "You step out and scan the scene from a safe distance. The dog is actively blocking the patient.";
@@ -847,6 +1396,12 @@ function feedbackForEvent(event: SceneEvent): string {
       return "The dog lunges closer. You step back and lose time. The patient is still not safely reachable.";
     case "CAR_INSPECTED":
       return "Vehicle checked from a safe distance. Smoke is present, but this patient appears to be a separate medical call.";
+    case "CRASH_SCENE_INSPECTED":
+      return "Crash hazards identified: moving traffic, an unstable vehicle, and smoke from the engine compartment. Use the ambulance radio for fire-rescue and police.";
+    case "FIRE_RESCUE_CALLED":
+      return "Dispatch confirms fire-rescue and police are responding. Hold at the ambulance until the roadway and vehicle are secured.";
+    case "TRAFFIC_CONTROLLED":
+      return "Police stop traffic while fire-rescue chocks the vehicle and disconnects power. The driver-side approach is now safe.";
     case "BYSTANDERS_QUESTIONED":
       return "Bystanders report itching, trouble breathing, and sudden fear after the teen ate dessert.";
     case "RADIO_SELECTED":
@@ -862,25 +1417,45 @@ function feedbackForEvent(event: SceneEvent): string {
     case "PPE_EQUIPPED":
       return "Gloves on. BSI/PPE is complete before patient contact.";
     case "PATIENT_APPROACHED":
-      return "You move to the patient's side using the safe approach path.";
+      return isCrash
+        ? "You bring the aid bag to the driver side and approach from the secured shoulder."
+        : "You move to the patient's side using the safe approach path.";
     case "GENERAL_IMPRESSION_OBSERVED":
-      return "General impression: anxious teen, hives, flushed skin, increased work of breathing.";
+      return isCrash
+        ? "General impression: adult driver slumped behind the wheel, pale, confused, and guarding the left chest."
+        : "General impression: anxious teen, hives, flushed skin, increased work of breathing.";
     case "RESPONSIVENESS_CHECKED":
-      return "Patient: I can talk, but my throat feels tight and breathing is hard.";
+      return isCrash
+        ? "Patient: I can hear you. My chest and neck hurt. I do not remember the impact."
+        : "Patient: I can talk, but my throat feels tight and breathing is hard.";
     case "AIRWAY_OPENED":
-      return "Airway is patent. No visible obstruction. Patient reports throat tightness.";
+      return isCrash
+        ? "Manual stabilization maintained. Airway is patent with no visible obstruction or secretions."
+        : "Airway is patent. No visible obstruction. Patient reports throat tightness.";
     case "RESPIRATIONS_COUNTED":
-      return "Breathing: RR 28, wheezing, shallow but present chest rise.";
+      return isCrash
+        ? "Breathing: RR 24, shallow respirations, guarded left chest movement, and pain with inspiration."
+        : "Breathing: RR 28, wheezing, shallow but present chest rise.";
     case "PULSE_CHECKED":
-      return "Circulation: rapid radial pulse 128. Skin is warm, flushed, with widespread hives.";
+      return isCrash
+        ? "Circulation: rapid weak radial pulse 112, pale cool skin, and no uncontrolled external bleeding."
+        : "Circulation: rapid radial pulse 128. Skin is warm, flushed, with widespread hives.";
     case "BLOOD_PRESSURE_OBTAINED":
-      return "Blood pressure obtained: 92/60. This supports poor perfusion.";
+      return isCrash
+        ? "Blood pressure obtained: 104/68. The trend and mechanism still support possible compensated shock."
+        : "Blood pressure obtained: 92/60. This supports poor perfusion.";
     case "SPO2_OBTAINED":
-      return "Pulse oximeter reading obtained: SpO2 89%. Oxygenation is inadequate.";
+      return isCrash
+        ? "Pulse oximeter reading obtained: SpO2 94%. Continue monitoring breathing and perfusion."
+        : "Pulse oximeter reading obtained: SpO2 89%. Oxygenation is inadequate.";
     case "WORKING_IMPRESSION_SELECTED":
-      return "Working impression: severe allergic reaction with respiratory compromise and shock signs.";
+      return isCrash
+        ? "Working impression: multisystem trauma with possible cervical spine, chest, and internal injuries."
+        : "Working impression: severe allergic reaction with respiratory compromise and shock signs.";
     case "TRANSPORT_SELECTED":
-      return "Urgent transport selected. Primary assessment is complete; secondary assessment is now unlocked.";
+      return isCrash
+        ? "Rapid trauma transport selected. Maintain spinal motion restriction and coordinate extrication with fire-rescue."
+        : "Urgent transport selected. Primary assessment is complete; secondary assessment is now unlocked.";
     case "SECONDARY_UNLOCKED":
       return "Primary assessment complete. Secondary assessment is now unlocked.";
     default:
@@ -902,11 +1477,12 @@ function revealVital(state: ScenarioState, vital: PatientVitalKey) {
 
 function applyEvent(state: ScenarioState, event: SceneEvent): ScenarioState {
   if (state.triggeredEvents.includes(event)) return state;
+  const isCrash = state.scenarioId === "car-accident";
 
   const next: ScenarioState = {
     ...state,
     triggeredEvents: [...state.triggeredEvents, event],
-    feedback: feedbackForEvent(event),
+    feedback: feedbackForEvent(event, state),
   };
 
   if (event === "AMBULANCE_EXITED") {
@@ -915,6 +1491,17 @@ function applyEvent(state: ScenarioState, event: SceneEvent): ScenarioState {
   }
   if (event === "DOG_SELECTED") next.focusedObjectId = "dog";
   if (event === "DOG_INSPECTED") next.focusedObjectId = "ambulance-radio";
+  if (event === "CRASH_SCENE_INSPECTED") next.focusedObjectId = "ambulance-radio";
+  if (event === "FIRE_RESCUE_CALLED") next.focusedObjectId = "crash-vehicle";
+  if (event === "TRAFFIC_CONTROLLED") {
+    next.environment = {
+      ...next.environment,
+      trafficStopped: true,
+      fireControlled: true,
+      sceneSafe: true,
+    };
+    next.focusedObjectId = "medical-bag";
+  }
   if (event === "CAR_INSPECTED") {
     next.patient = { ...next.patient, findingsDiscovered: addFinding(next, "Vehicle smoke monitored from a safe distance") };
   }
@@ -956,43 +1543,84 @@ function applyEvent(state: ScenarioState, event: SceneEvent): ScenarioState {
   if (event === "GENERAL_IMPRESSION_OBSERVED") {
     next.patient = {
       ...next.patient,
-      findingsDiscovered: addFinding(next, "Anxious teen with visible hives and increased work of breathing"),
+      findingsDiscovered: addFinding(
+        next,
+        isCrash
+          ? "Adult driver slumped in the seat with pallor, confusion, and guarded left chest movement"
+          : "Anxious teen with visible hives and increased work of breathing"
+      ),
     };
   }
   if (event === "RESPONSIVENESS_CHECKED") {
     next.patient = {
       ...next.patient,
-      findingsDiscovered: addFinding(next, "Alert, speaking in short phrases, reports throat tightness"),
+      findingsDiscovered: addFinding(
+        next,
+        isCrash
+          ? "Responds to voice, confused about the collision, reports neck and chest pain"
+          : "Alert, speaking in short phrases, reports throat tightness"
+      ),
     };
   }
   if (event === "AIRWAY_OPENED") {
     next.patient = {
       ...next.patient,
-      findingsDiscovered: addFinding(next, "Airway patent with reported throat tightness"),
+      findingsDiscovered: addFinding(
+        next,
+        isCrash
+          ? "Airway patent while manual cervical stabilization is maintained"
+          : "Airway patent with reported throat tightness"
+      ),
     };
   }
   if (event === "RESPIRATIONS_COUNTED") {
     next.patient = {
       ...next.patient,
-      breathingStatus: "Wheezing, RR 28, increased work of breathing",
-      findingsDiscovered: addFinding(next, "Wheezing with increased work of breathing"),
+      breathingStatus: isCrash
+        ? "Shallow respirations, RR 24, guarded left chest movement"
+        : "Wheezing, RR 28, increased work of breathing",
+      findingsDiscovered: addFinding(
+        next,
+        isCrash
+          ? "Shallow breathing with left chest pain and guarded movement"
+          : "Wheezing with increased work of breathing"
+      ),
       vitalsRevealed: revealVital(next, "respiratoryRate"),
-      vitals: { ...next.patient.vitals, respiratoryRate: 28, spo2: 89 },
+      vitals: {
+        ...next.patient.vitals,
+        respiratoryRate: isCrash ? 24 : 28,
+        spo2: isCrash ? 94 : 89,
+      },
     };
   }
   if (event === "PULSE_CHECKED") {
     next.patient = {
       ...next.patient,
-      circulationStatus: "Rapid radial pulse, warm flushed skin, hives",
-      findingsDiscovered: addFinding(next, "Rapid radial pulse with warm flushed skin and hives"),
+      circulationStatus: isCrash
+        ? "Rapid weak radial pulse, pale cool skin, no uncontrolled external bleeding"
+        : "Rapid radial pulse, warm flushed skin, hives",
+      findingsDiscovered: addFinding(
+        next,
+        isCrash
+          ? "Rapid weak radial pulse with pale cool skin and no uncontrolled external bleeding"
+          : "Rapid radial pulse with warm flushed skin and hives"
+      ),
       vitalsRevealed: revealVital(next, "heartRate"),
-      vitals: { ...next.patient.vitals, heartRate: 128, systolicBP: 92, diastolicBP: 60 },
+      vitals: {
+        ...next.patient.vitals,
+        heartRate: isCrash ? 112 : 128,
+        systolicBP: isCrash ? 104 : 92,
+        diastolicBP: isCrash ? 68 : 60,
+      },
     };
   }
   if (event === "BLOOD_PRESSURE_OBTAINED") {
     next.patient = {
       ...next.patient,
-      findingsDiscovered: addFinding(next, "Hypotension: BP 92/60"),
+      findingsDiscovered: addFinding(
+        next,
+        isCrash ? "Blood pressure 104/68 with possible compensated shock" : "Hypotension: BP 92/60"
+      ),
       vitalsRevealed: revealVital({ ...next, patient: { ...next.patient, vitalsRevealed: revealVital(next, "systolicBP") } }, "diastolicBP"),
     };
     next.focusedObjectId = "patient";
@@ -1000,7 +1628,7 @@ function applyEvent(state: ScenarioState, event: SceneEvent): ScenarioState {
   if (event === "SPO2_OBTAINED") {
     next.patient = {
       ...next.patient,
-      findingsDiscovered: addFinding(next, "Low SpO2: 89%"),
+      findingsDiscovered: addFinding(next, isCrash ? "SpO2 94% on room air" : "Low SpO2: 89%"),
       vitalsRevealed: revealVital(next, "spo2"),
     };
     next.focusedObjectId = "working-impression";
@@ -1008,8 +1636,15 @@ function applyEvent(state: ScenarioState, event: SceneEvent): ScenarioState {
   if (event === "WORKING_IMPRESSION_SELECTED") {
     next.patient = {
       ...next.patient,
-      workingImpression: "Severe allergic reaction with respiratory compromise and shock signs",
-      findingsDiscovered: addFinding(next, "Working impression selected from hives, wheezing, hypoxia, and hypotension"),
+      workingImpression: isCrash
+        ? "Multisystem trauma with possible cervical spine, chest, and internal injuries"
+        : "Severe allergic reaction with respiratory compromise and shock signs",
+      findingsDiscovered: addFinding(
+        next,
+        isCrash
+          ? "Working impression selected from mechanism, altered mentation, chest pain, and perfusion findings"
+          : "Working impression selected from hives, wheezing, hypoxia, and hypotension"
+      ),
     };
     next.focusedObjectId = "transport-decision";
   }
@@ -1081,10 +1716,13 @@ export function scenarioReducer(
           },
           "RADIO_SELECTED"
         );
-        next = applyEvent(next, "ANIMAL_CONTROL_CALLED");
+        next = applyEvent(
+          next,
+          state.scenarioId === "car-accident" ? "FIRE_RESCUE_CALLED" : "ANIMAL_CONTROL_CALLED"
+        );
         next = {
           ...next,
-          elapsedTime: next.elapsedTime + 45,
+          elapsedTime: next.elapsedTime + (state.scenarioId === "car-accident" ? 35 : 45),
           score: Math.min(100, next.score + 10),
         };
         return completeObjectives(scenario, next);
@@ -1160,7 +1798,9 @@ export type ScenarioScoreBreakdown = {
 };
 
 export function getScenarioScoreBreakdown(state: ScenarioState): ScenarioScoreBreakdown {
+  const isCrash = state.scenarioId === carAccidentScenario.id;
   const unsafeDog = state.failedObjectives.includes("dog-hazard");
+  const unsafeCrash = state.failedObjectives.includes("crash-hazard");
   const assessmentEvents: SceneEvent[] = [
     "GENERAL_IMPRESSION_OBSERVED",
     "RESPONSIVENESS_CHECKED",
@@ -1173,7 +1813,19 @@ export function getScenarioScoreBreakdown(state: ScenarioState): ScenarioScoreBr
   const completedAssessment = assessmentEvents.filter((event) => state.triggeredEvents.includes(event)).length;
 
   return {
-    safety: Math.max(55, 100 - (unsafeDog ? 28 : 0) - (state.triggeredEvents.includes("DOG_INSPECTED") ? 0 : 18)),
+    safety: isCrash
+      ? Math.max(
+          55,
+          100 -
+            (unsafeCrash ? 28 : 0) -
+            (state.triggeredEvents.includes("CRASH_SCENE_INSPECTED") ? 0 : 18)
+        )
+      : Math.max(
+          55,
+          100 -
+            (unsafeDog ? 28 : 0) -
+            (state.triggeredEvents.includes("DOG_INSPECTED") ? 0 : 18)
+        ),
     assessment: Math.round((completedAssessment / assessmentEvents.length) * 100),
     clinicalDecisions: state.triggeredEvents.includes("WORKING_IMPRESSION_SELECTED")
       ? state.triggeredEvents.includes("TRANSPORT_SELECTED")
@@ -1182,22 +1834,53 @@ export function getScenarioScoreBreakdown(state: ScenarioState): ScenarioScoreBr
       : 45,
     treatment: state.triggeredEvents.includes("TRANSPORT_SELECTED") ? 72 : 35,
     reassessment: state.currentPhase === "secondaryAssessment" ? 55 : 0,
-    communication: state.triggeredEvents.includes("ANIMAL_CONTROL_CALLED") ? 90 : 52,
-    efficiency: Math.max(45, 100 - state.hintsUsed * 6 - Math.floor(state.elapsedTime / 60) * 3 - (unsafeDog ? 14 : 0)),
+    communication: state.triggeredEvents.includes(
+      isCrash ? "FIRE_RESCUE_CALLED" : "ANIMAL_CONTROL_CALLED"
+    )
+      ? 90
+      : 52,
+    efficiency: Math.max(
+      45,
+      100 -
+        state.hintsUsed * 6 -
+        Math.floor(state.elapsedTime / 60) * 3 -
+        (isCrash ? (unsafeCrash ? 14 : 0) : unsafeDog ? 14 : 0)
+    ),
   };
 }
 
 export function buildScenarioDebrief(state: ScenarioState) {
+  const isCrash = state.scenarioId === carAccidentScenario.id;
   const score = getScenarioScoreBreakdown(state);
   const correct: string[] = [];
   const missed: string[] = [];
   const unsafe: string[] = [];
 
-  if (state.triggeredEvents.includes("DOG_INSPECTED")) correct.push("Identified the dog as a scene safety hazard before patient contact.");
-  else missed.push("Scene hazard inspection was not completed.");
+  if (isCrash) {
+    if (state.triggeredEvents.includes("CRASH_SCENE_INSPECTED")) {
+      correct.push("Identified traffic, vehicle instability, and smoke before approaching the driver.");
+    } else {
+      missed.push("The collision scene was not inspected from a safe position.");
+    }
 
-  if (state.triggeredEvents.includes("ANIMAL_CONTROL_CALLED")) correct.push("Requested animal control/police support instead of entering an unsafe scene.");
-  else missed.push("Additional resources were not requested for the animal hazard.");
+    if (state.triggeredEvents.includes("FIRE_RESCUE_CALLED")) {
+      correct.push("Requested fire-rescue, police, and traffic control before entering the roadway.");
+    } else {
+      missed.push("Additional collision resources were not requested.");
+    }
+  } else {
+    if (state.triggeredEvents.includes("DOG_INSPECTED")) {
+      correct.push("Identified the dog as a scene safety hazard before patient contact.");
+    } else {
+      missed.push("Scene hazard inspection was not completed.");
+    }
+
+    if (state.triggeredEvents.includes("ANIMAL_CONTROL_CALLED")) {
+      correct.push("Requested animal control/police support instead of entering an unsafe scene.");
+    } else {
+      missed.push("Additional resources were not requested for the animal hazard.");
+    }
+  }
 
   if (state.triggeredEvents.includes("GLOVES_EQUIPPED")) correct.push("Equipped PPE before touching the patient.");
   else missed.push("PPE was not equipped before patient contact.");
@@ -1208,10 +1891,21 @@ export function buildScenarioDebrief(state: ScenarioState) {
     missed.push("Baseline vital signs were incomplete.");
   }
 
-  if (state.triggeredEvents.includes("WORKING_IMPRESSION_SELECTED")) correct.push("Formed a working impression from hives, wheezing, hypoxia, and hypotension.");
-  else missed.push("Working impression was not selected from the gathered findings.");
+  if (state.triggeredEvents.includes("WORKING_IMPRESSION_SELECTED")) {
+    correct.push(
+      isCrash
+        ? "Formed a trauma working impression from the mechanism, confusion, and chest and neck findings."
+        : "Formed a working impression from hives, wheezing, hypoxia, and hypotension."
+    );
+  } else {
+    missed.push("Working impression was not selected from the gathered findings.");
+  }
 
-  if (state.failedObjectives.includes("dog-hazard")) unsafe.push("Approached or ignored the dog before the scene was controlled, costing time and access.");
+  if (isCrash && state.failedObjectives.includes("crash-hazard")) {
+    unsafe.push("Entered the active roadway or approached the unstable vehicle before hazards were controlled.");
+  } else if (state.failedObjectives.includes("dog-hazard")) {
+    unsafe.push("Approached or ignored the dog before the scene was controlled, costing time and access.");
+  }
 
   return {
     score,
@@ -1221,7 +1915,9 @@ export function buildScenarioDebrief(state: ScenarioState) {
     findings: state.patient.findingsDiscovered,
     summary:
       state.triggeredEvents.includes("TRANSPORT_SELECTED")
-        ? "Primary assessment complete: respiratory distress, skin findings, hypoxia, and hypotension support urgent transport and rapid treatment."
+        ? isCrash
+          ? "Primary trauma assessment complete: significant mechanism, altered mentation, and chest and neck findings support rapid transport to a trauma center."
+          : "Primary assessment complete: respiratory distress, skin findings, hypoxia, and hypotension support urgent transport and rapid treatment."
         : "Scenario in progress. Continue collecting assessment findings before choosing transport priority.",
   };
 }
