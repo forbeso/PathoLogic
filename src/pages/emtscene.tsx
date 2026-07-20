@@ -3,6 +3,8 @@ import Link from "next/link";
 import ThreeDScene from "@/components/ThreeDScene";
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { AppShell, StatusPill } from "@/components/AppShell";
+import { useLearnerProgress } from "@/hooks/useLearnerProgress";
+import { awardProgress, createProgressionRunId } from "@/lib/progression";
 import {
   Activity,
   AlertTriangle,
@@ -406,17 +408,19 @@ function getMonitorVitals(vitals: VitalSet, scenarioId: string, revealedVitals: 
 }
 
 function SceneTopBar({
-  score,
-  completed,
-  total,
+  totalXp,
+  currentStreak,
+  level,
+  levelProgress,
+  recentXpAward,
 }: {
-  score: number;
-  completed: number;
-  total: number;
+  totalXp: number;
+  currentStreak: number;
+  level: number;
+  levelProgress: number;
+  recentXpAward: number;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const levelProgress = total > 0 ? Math.min(100, Math.round((completed / total) * 100)) : 0;
-  const streak = Math.max(1, Math.min(9, 5 + completed));
 
   return (
     <header className="relative z-50 flex h-16 items-center justify-between border-b border-white/10 bg-slate-950 px-4 text-white shadow-2xl shadow-slate-950/35">
@@ -431,7 +435,7 @@ function SceneTopBar({
         <div className="min-w-0">
           <div className="truncate text-xl font-black tracking-wide">PATHOLOGIX</div>
           <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-teal-300 lg:hidden">
-            EMT Scene Lab
+            Lv {level} · {totalXp} XP · {currentStreak}d
           </div>
         </div>
       </Link>
@@ -439,21 +443,35 @@ function SceneTopBar({
       <div className="hidden min-w-0 flex-1 items-center justify-center gap-8 lg:flex">
         <div className="w-[320px]">
           <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-200">
-            <span>Level 4</span>
+            <span>Level {level}</span>
             <span className="text-slate-500">•</span>
             <span className="normal-case tracking-normal text-slate-300">Outdoor Emergencies</span>
           </div>
           <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-700">
-            <div className="h-full rounded-full bg-teal-400" style={{ width: `${Math.max(18, levelProgress)}%` }} />
+            <div className="h-full rounded-full bg-teal-400 transition-all duration-500" style={{ width: `${levelProgress}%` }} />
           </div>
         </div>
-        <div className="flex items-center gap-2 text-sm font-black text-teal-200">
+        <div
+          className="relative flex items-center gap-2 text-sm font-black text-teal-200"
+          title={`${totalXp} total experience points`}
+        >
           <Flame size={17} className="text-rose-400" />
-          {score + 70} XP
+          {totalXp} XP
+          <span className="sr-only" aria-live="polite">
+            {recentXpAward > 0 ? `${recentXpAward} experience points earned` : ""}
+          </span>
+          {recentXpAward > 0 ? (
+            <span className="absolute -right-12 -top-4 rounded-full border border-teal-200/40 bg-teal-300 px-2 py-0.5 text-[10px] font-black text-slate-950 shadow-lg">
+              +{recentXpAward}
+            </span>
+          ) : null}
         </div>
-        <div className="flex items-center gap-2 text-sm font-black text-slate-100">
+        <div
+          className="flex items-center gap-2 text-sm font-black text-slate-100"
+          title="Consecutive calendar days with completed training activity"
+        >
           <Trophy size={17} className="text-amber-300" />
-          Streak: {streak}
+          Streak: {currentStreak} {currentStreak === 1 ? "day" : "days"}
         </div>
       </div>
 
@@ -563,7 +581,12 @@ export default function EMTScene() {
   const [primaryFeedback, setPrimaryFeedback] = useState("Start with the action that protects you, your partner, and the patient.");
   const [sceneFinding, setSceneFinding] = useState("");
   const [animalControlResponseActive, setAnimalControlResponseActive] = useState(false);
+  const { progress: learnerProgress, level: learnerLevel } = useLearnerProgress();
+  const [recentXpAward, setRecentXpAward] = useState(0);
   const lastGameFeedback = useRef(gameState.feedback);
+  const progressionRunId = useRef(createProgressionRunId("emt-scene"));
+  const previousCompletedObjectives = useRef<string[]>([]);
+  const xpAwardTimer = useRef<number | null>(null);
 
   useEffect(() => {
     const updateSceneHeight = () => {
@@ -670,6 +693,47 @@ export default function EMTScene() {
   const scenarioTasks = sceneScenario.objectives;
   const scenarioCompletedCount = gameState.completedObjectives.length;
   const scenarioProgressPercent = Math.round((scenarioCompletedCount / scenarioTasks.length) * 100);
+
+  useEffect(() => {
+    const previous = previousCompletedObjectives.current;
+    const newlyCompleted = gameState.completedObjectives.filter((objectiveId) => !previous.includes(objectiveId));
+    previousCompletedObjectives.current = [...gameState.completedObjectives];
+
+    if (!newlyCompleted.length) return;
+
+    let earnedXp = 0;
+    newlyCompleted.forEach((objectiveId) => {
+      const result = awardProgress({
+        id: `${progressionRunId.current}:objective:${objectiveId}`,
+        xp: 10,
+      });
+      if (result.awarded) earnedXp += 10;
+    });
+
+    if (
+      gameState.completedObjectives.length === scenarioTasks.length &&
+      previous.length < scenarioTasks.length
+    ) {
+      const completionBonus = awardProgress({
+        id: `${progressionRunId.current}:scenario-complete`,
+        xp: 40,
+      });
+      if (completionBonus.awarded) earnedXp += 40;
+    }
+
+    if (earnedXp > 0) {
+      setRecentXpAward(earnedXp);
+      if (xpAwardTimer.current !== null) window.clearTimeout(xpAwardTimer.current);
+      xpAwardTimer.current = window.setTimeout(() => setRecentXpAward(0), 1800);
+    }
+  }, [gameState.completedObjectives, scenarioTasks.length]);
+
+  useEffect(
+    () => () => {
+      if (xpAwardTimer.current !== null) window.clearTimeout(xpAwardTimer.current);
+    },
+    []
+  );
   const debrief = useMemo(() => buildScenarioDebrief(gameState), [gameState]);
   const stageIndex = STAGES.findIndex((item) => item.key === stage);
   const relevantActions = QUICK_ACTIONS.filter((action) => action.stage === stage);
@@ -835,6 +899,9 @@ export default function EMTScene() {
     nextScenario = scenario,
     nextSceneScenario = SCENE_SCENARIOS[nextScenario.id as keyof typeof SCENE_SCENARIOS]
   ) => {
+    progressionRunId.current = createProgressionRunId("emt-scene");
+    previousCompletedObjectives.current = [];
+    setRecentXpAward(0);
     dispatchGame({ type: "RESET", scenario: nextSceneScenario });
     setStage("primary");
     setChecked({});
@@ -1214,7 +1281,13 @@ export default function EMTScene() {
         description="Practice scene safety, primary assessment, patient interaction, and clinical decision-making in an interactive 3D EMT simulation."
         path="/emtscene"
       />
-      <SceneTopBar score={gameState.score} completed={scenarioCompletedCount} total={scenarioTasks.length} />
+      <SceneTopBar
+        totalXp={learnerProgress.totalXp}
+        currentStreak={learnerProgress.currentStreak}
+        level={learnerLevel.level}
+        levelProgress={learnerLevel.percent}
+        recentXpAward={recentXpAward}
+      />
 
       <main className="relative isolate min-h-0 overflow-hidden bg-slate-950" style={{ height: sceneHeight }}>
         <div className="absolute inset-0">
