@@ -4,7 +4,7 @@ import { Auth } from "@supabase/auth-ui-react";
 import { ThemeSupa } from "@supabase/auth-ui-shared";
 import { supabase } from "@/lib/supabase";
 import Header from "@/components/Header";
-import Seo from "@/components/Seo";
+import Seo, { SITE_URL } from "@/components/Seo";
 import { AppShell, PageContainer, PageIntro, cardClass } from "@/components/AppShell";
 import { ShieldCheck } from "lucide-react";
 
@@ -77,6 +77,7 @@ export default function LoginPage() {
         <Auth
           supabaseClient={supabase}
           appearance={{ theme: ThemeSupa }}
+          redirectTo={`${SITE_URL}/login`}
           providers={["google", "github"]}  // toggle to taste
           // Magic links or password are enabled in Supabase → Auth → Providers
         />

@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light">
+  </head>
+  <body style="margin:0;padding:0;background:#edf5f3;color:#0f172a;font-family:Arial,Helvetica,sans-serif;">
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;">Reset your PathoLogix password securely.</div>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#edf5f3;">
+      <tr><td align="center" style="padding:32px 16px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;background:#ffffff;border:1px solid #c8dcd6;">
+          <tr><td style="background:#071a29;padding:24px 32px;border-bottom:4px solid #2dd4bf;"><div style="font-size:22px;line-height:28px;font-weight:800;color:#ffffff;">PATHOLOGIX</div><div style="margin-top:4px;font-size:12px;line-height:18px;color:#99f6e4;">EMT decision training</div></td></tr>
+          <tr><td style="padding:36px 32px 18px;"><div style="font-size:12px;line-height:18px;font-weight:700;color:#0f766e;text-transform:uppercase;">Password recovery</div><h1 style="margin:10px 0 14px;font-size:28px;line-height:35px;color:#0f172a;">Reset your password.</h1><p style="margin:0;font-size:16px;line-height:25px;color:#475569;">We received a request to reset the password for your PathoLogix account. Use the secure button below to choose a new one.</p></td></tr>
+          <tr><td style="padding:10px 32px 28px;"><table role="presentation" cellspacing="0" cellpadding="0" border="0"><tr><td style="background:#0f766e;border-radius:6px;"><a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:14px 24px;font-size:16px;line-height:20px;font-weight:700;color:#ffffff;text-decoration:none;">Reset my password</a></td></tr></table></td></tr>
+          <tr><td style="padding:0 32px 32px;"><div style="padding:18px;background:#fff7ed;border-left:3px solid #f59e0b;font-size:14px;line-height:22px;color:#475569;"><strong style="color:#0f172a;">Did not request this?</strong> Your password has not been changed. You can ignore this message and keep using your current credentials.</div><p style="margin:24px 0 8px;font-size:12px;line-height:19px;color:#64748b;">Button not working? Paste this secure link into your browser:</p><p style="margin:0;word-break:break-all;font-size:12px;line-height:19px;"><a href="{{ .ConfirmationURL }}" style="color:#0f766e;">{{ .ConfirmationURL }}</a></p></td></tr>
+          <tr><td style="padding:20px 32px;background:#f8fafc;border-top:1px solid #e2e8f0;font-size:12px;line-height:19px;color:#64748b;">This password reset was requested for {{ .Email }}. For your security, do not forward this email.</td></tr>
+        </table>
+      </td></tr>
+    </table>
+  </body>
+</html>
