@@ -1,3 +1,5 @@
+import { authenticatedFetch } from "@/lib/authenticatedFetch";
+
 export const PROGRESSION_STORAGE_KEY = "pathologix:learner-progress:v1";
 export const PROGRESSION_UPDATED_EVENT = "pathologix:progression-updated";
 export const XP_PER_LEVEL = 250;
@@ -21,6 +23,11 @@ export type LevelProgress = {
 export type ProgressAward = {
   id: string;
   xp: number;
+  eventType: "scenario_objective" | "scenario_complete";
+  metadata?: {
+    scenarioId?: string;
+    objectiveId?: string;
+  };
 };
 
 export const EMPTY_LEARNER_PROGRESS: LearnerProgress = {
@@ -54,6 +61,18 @@ function sanitizeProgress(value: unknown): LearnerProgress {
       ? candidate.awardedIds.filter((id): id is string => typeof id === "string").slice(-300)
       : [],
   };
+}
+
+export function storeLearnerProgress(progress: LearnerProgress) {
+  if (typeof window === "undefined") return;
+  const safeProgress = sanitizeProgress(progress);
+  window.localStorage.setItem(
+    PROGRESSION_STORAGE_KEY,
+    JSON.stringify(safeProgress)
+  );
+  window.dispatchEvent(
+    new CustomEvent(PROGRESSION_UPDATED_EVENT, { detail: safeProgress })
+  );
 }
 
 export function getLocalDateKey(date = new Date()) {
@@ -101,23 +120,97 @@ export function getLearnerProgress(): LearnerProgress {
 
 export function awardProgress(award: ProgressAward, date = new Date()) {
   const progress = getLearnerProgress();
-  if (!award.id || award.xp <= 0 || progress.awardedIds.includes(award.id)) {
+  if (!award.id || award.xp <= 0) {
     return { awarded: false, progress };
   }
 
-  const activeProgress = withActivityStreak(progress, date);
-  const nextProgress: LearnerProgress = {
-    ...activeProgress,
-    totalXp: activeProgress.totalXp + Math.floor(award.xp),
-    awardedIds: [...activeProgress.awardedIds, award.id].slice(-300),
-  };
+  const alreadyAwarded = progress.awardedIds.includes(award.id);
+  let nextProgress = progress;
 
-  if (typeof window !== "undefined") {
-    window.localStorage.setItem(PROGRESSION_STORAGE_KEY, JSON.stringify(nextProgress));
-    window.dispatchEvent(new CustomEvent(PROGRESSION_UPDATED_EVENT, { detail: nextProgress }));
+  if (!alreadyAwarded) {
+    const activeProgress = withActivityStreak(progress, date);
+    nextProgress = {
+      ...activeProgress,
+      totalXp: activeProgress.totalXp + Math.floor(award.xp),
+      awardedIds: [...activeProgress.awardedIds, award.id].slice(-300),
+    };
+
+    storeLearnerProgress(nextProgress);
   }
 
-  return { awarded: true, progress: nextProgress };
+  void persistProgressAward(award);
+
+  return { awarded: !alreadyAwarded, progress: nextProgress };
+}
+
+async function persistProgressAward(award: ProgressAward) {
+  try {
+    const response = await authenticatedFetch("/api/progression", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "award",
+        awardId: award.id,
+        eventType: award.eventType,
+        metadata: award.metadata ?? {},
+      }),
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok || !data?.progress) return;
+
+    const local = getLearnerProgress();
+    storeLearnerProgress({
+      ...local,
+      totalXp: data.progress.totalXp,
+      currentStreak: data.progress.currentStreak,
+      longestStreak: data.progress.longestStreak,
+      lastActiveDate: data.progress.lastActiveDate,
+    });
+  } catch {
+    // Local progression remains available while signed out or temporarily offline.
+  }
+}
+
+export async function syncLearnerProgress() {
+  const local = getLearnerProgress();
+  try {
+    const response = await authenticatedFetch("/api/progression");
+    const data = await response.json().catch(() => null);
+    if (!response.ok || !data?.persistenceAvailable || !data?.progress) {
+      return local;
+    }
+
+    let serverProgress = data.progress;
+    if (!data.legacyImported) {
+      const importResponse = await authenticatedFetch("/api/progression", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "import",
+          totalXp: local.totalXp,
+          currentStreak: local.currentStreak,
+          longestStreak: local.longestStreak,
+          lastActiveDate: local.lastActiveDate,
+        }),
+      });
+      const imported = await importResponse.json().catch(() => null);
+      if (importResponse.ok && imported?.progress) {
+        serverProgress = imported.progress;
+      }
+    }
+
+    const synced: LearnerProgress = {
+      ...local,
+      totalXp: serverProgress.totalXp,
+      currentStreak: serverProgress.currentStreak,
+      longestStreak: serverProgress.longestStreak,
+      lastActiveDate: serverProgress.lastActiveDate,
+    };
+    storeLearnerProgress(synced);
+    return synced;
+  } catch {
+    return local;
+  }
 }
 
 export function getLevelProgress(totalXp: number): LevelProgress {

@@ -1,11 +1,44 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { OpenAI } from "openai";
+import {
+  enforceRateLimit,
+  requireApiUser,
+} from "@/lib/server/apiSecurity";
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== "POST") return res.status(405).end();
-  const { message, stage, vignette, cues } = req.body;
+  if (req.method !== "POST") {
+    res.setHeader("Allow", "POST");
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  const authenticatedUser = await requireApiUser(req, res);
+  if (!authenticatedUser) return;
+  if (
+    !enforceRateLimit(req, res, {
+      name: "patient-chat",
+      limit: 30,
+      windowMs: 10 * 60 * 1000,
+      userId: authenticatedUser.id,
+    })
+  ) {
+    return;
+  }
+
+  const { message, stage, vignette, cues } = req.body ?? {};
+  if (
+    typeof message !== "string" ||
+    !message.trim() ||
+    message.length > 500 ||
+    typeof stage !== "string" ||
+    stage.length > 80 ||
+    typeof vignette !== "string" ||
+    vignette.length > 4000 ||
+    (cues !== undefined && !Array.isArray(cues))
+  ) {
+    return res.status(400).json({ error: "Invalid patient interaction." });
+  }
 
   const system = `
 You are role-playing as both Patient and Coach in an EMT training scenario.
@@ -48,7 +81,7 @@ Patient: Gasps, steadies breathing. “I can breathe much better now.” HR 110,
 Coach (if meta-statement): Primary survey complete. You may begin your secondary assessment when ready.
 `;
 
-  const user = `
+  const userPrompt = `
 Stage: ${stage}
 Vignette: ${vignette}
 Key cues: ${cues?.map((c: any) => c.text).join(", ")}
@@ -60,14 +93,15 @@ Student said: ${message}
       model: "gpt-4o-mini",
       messages: [
         { role: "system", content: system },
-        { role: "user", content: user },
+        { role: "user", content: userPrompt },
       ],
       temperature: 0.7,
       max_tokens: 80,
     });
     const reply = completion.choices[0]?.message?.content?.trim() ?? "…";
     res.json({ reply });
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
+  } catch (error: unknown) {
+    console.error("Patient response failed:", error);
+    res.status(500).json({ error: "Unable to generate a patient response." });
   }
 }

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
   Check,
   X,
@@ -13,14 +13,20 @@ import {
   ChevronRight,
   Shuffle,
   Sparkles,
+  LoaderCircle,
 } from "lucide-react";
-import ExamModeDialog, { ExamAnswerPayload } from "./ExamModeDialog";
-import { recordResult, getWeakestTopic, getCachedGeneratedScenario } from "@/lib/adaptive";
+import {
+  ADAPTIVE_TARGET_STORAGE_KEY,
+  recordResult,
+  getWeakestTopic,
+  getCachedGeneratedScenario,
+  type PracticeResultInput,
+} from "@/lib/adaptive";
 import { supabase } from "@/lib/supabase";
+import { authenticatedFetch } from "@/lib/authenticatedFetch";
 import {
   cardClass,
   mutedCardClass,
-  darkButtonClass,
   primaryButtonClass,
   secondaryButtonClass,
   StatusPill,
@@ -38,6 +44,8 @@ type Choice = {
 type Step = { label: string; detail: string };
 type Item = {
   id: string;
+  source: "static" | "generated";
+  sourceId?: number;
   domain: string;
   topic: string;
   vignette: string;
@@ -46,12 +54,6 @@ type Item = {
   choices: Choice[];
   reasoning_steps: Step[];
   tags: string[];
-};
-
-type SeededItem = {
-  orderIndex: number;
-  itemId: string;
-  item: any; // same shape as Item in ExamModeDialog
 };
 
 /* ---------- UI Helpers ---------- */
@@ -155,6 +157,13 @@ function topicToDomain(topic: string) {
 function normalizeItem(raw: any): Item {
   return {
     id: String(raw.id ?? `itm-${Date.now()}`),
+    source: raw.source === "generated" ? "generated" : "static",
+    sourceId:
+      raw.source === "generated" &&
+      Number.isInteger(Number(raw.sourceId)) &&
+      Number(raw.sourceId) > 0
+        ? Number(raw.sourceId)
+        : undefined,
     domain: raw.domain ?? topicToDomain(raw.topic ?? "General"),
     topic: raw.topic ?? "General",
     vignette: raw.vignette ?? "",
@@ -171,6 +180,7 @@ function normalizeItem(raw: any): Item {
 
 /* ---------- Main ---------- */
 export default function EMTScenarioTrainer() {
+  const reduceMotion = useReducedMotion();
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [index, setIndex] = useState(0);
@@ -179,22 +189,14 @@ export default function EMTScenarioTrainer() {
   const [showRationale, setShowRationale] = useState(false);
   const [showElims, setShowElims] = useState(false);
   const [adaptiveLoading, setAdaptiveLoading] = useState(false);
-
-  // Dialog exam state (NREMT-style inside EMTrainer)
-  const [examOpen, setExamOpen] = useState(false);
-  const [examSessionId, setExamSessionId] = useState<string | null>(null);
-  const [examItems, setExamItems] = useState<SeededItem[]>([]);
-  const [examIndex, setExamIndex] = useState(0);
-  const [examStarting, setExamStarting] = useState(false);
-  const [examError, setExamError] = useState<string | null>(null);
-  const [examCorrectCount, setExamCorrectCount] = useState(0);
-  const [examCompleted, setExamCompleted] = useState(false);
-  const [examTotalQuestions, setExamTotalQuestions] = useState(0);
-  const [examDomainStats, setExamDomainStats] = useState<
-    Record<string, { correct: number; total: number }>
-  >({});
-
-  const examCurrent = examItems[examIndex] ?? null;
+  const [adaptiveTarget, setAdaptiveTarget] = useState<string | null>(null);
+  const [adaptiveLoadError, setAdaptiveLoadError] = useState<string | null>(
+    null
+  );
+  const [savingAnswer, setSavingAnswer] = useState(false);
+  const [answerSaveError, setAnswerSaveError] = useState<string | null>(null);
+  const [pendingAnswer, setPendingAnswer] =
+    useState<PracticeResultInput | null>(null);
 
   // Initial fetch + normalize
   useEffect(() => {
@@ -204,7 +206,9 @@ export default function EMTScenarioTrainer() {
         const res = await fetch("/api/test");
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        const normalized = (Array.isArray(data) ? data : []).map(normalizeItem);
+        const normalized = (Array.isArray(data) ? data : []).map((item) =>
+          normalizeItem({ ...item, source: "static" })
+        );
         setItems(normalized);
       } catch {
         setItems([]);
@@ -227,12 +231,18 @@ export default function EMTScenarioTrainer() {
 
       const action = localStorage.getItem("pathologix:post_login_action");
       const to = localStorage.getItem("pathologix:redirect_after_login");
+      const queuedTopic = localStorage
+        .getItem(ADAPTIVE_TARGET_STORAGE_KEY)
+        ?.trim();
 
-      if (action === "startAdaptive" && (!to || to === "/emtrainer")) {
+      if (
+        queuedTopic ||
+        (action === "startAdaptive" && (!to || to === "/emtrainer"))
+      ) {
         localStorage.removeItem("pathologix:post_login_action");
         localStorage.removeItem("pathologix:redirect_after_login");
         handoffRanRef.current = true;
-        startAdaptive();
+        await startAdaptive(queuedTopic);
       }
     };
 
@@ -240,9 +250,14 @@ export default function EMTScenarioTrainer() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading]);
 
-  async function startAdaptive() {
+  async function startAdaptive(preferredTopic?: string) {
     try {
       setAdaptiveLoading(true);
+      setAdaptiveLoadError(null);
+      const queuedTopic = localStorage
+        .getItem(ADAPTIVE_TARGET_STORAGE_KEY)
+        ?.trim();
+      setAdaptiveTarget(preferredTopic?.trim() || queuedTopic || null);
 
       // 1) Auth gate
       const {
@@ -255,39 +270,31 @@ export default function EMTScenarioTrainer() {
         return;
       }
 
-      // 2) Find weakest topic
-      const topic = await getWeakestTopic();
+      // 2) Honor a specific handoff before falling back to account history.
+      const topic =
+        preferredTopic?.trim() || queuedTopic || (await getWeakestTopic());
+      setAdaptiveTarget(topic);
 
       // 3) Load from cache or generate
       let scenario = await getCachedGeneratedScenario(topic);
       if (!scenario) {
-        const res = await fetch("/api/generateScenario", {
+        const res = await authenticatedFetch("/api/generateScenario", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ topic }),
         });
         if (!res.ok) throw new Error("Generation failed");
         scenario = await res.json();
-
-        // 4) Cache it for this user
-        const ins = await supabase.from("generated_scenarios").insert({
-          user_id: user.id,
-          topic,
-          vignette: scenario.vignette,
-          cues: scenario.cues,
-          question: scenario.question,
-          choices: scenario.choices,
-          reasoning_steps: scenario.reasoning_steps,
-        });
-        if (ins.error) console.error("Cache insert failed:", ins.error);
       }
 
-      // 5) Normalize and show
+      // 4) Normalize and show
       const normalized = normalizeItem({
         ...scenario,
         domain: topicToDomain(topic),
         topic,
         id: `gen-${Date.now()}`,
+        source: "generated",
+        sourceId: scenario.sourceId ?? scenario.id,
         tags:
           Array.isArray(scenario.tags) && scenario.tags.length
             ? scenario.tags
@@ -303,10 +310,18 @@ export default function EMTScenarioTrainer() {
       setShowCues(true);
       setShowRationale(false);
       setShowElims(false);
+      setSavingAnswer(false);
+      setAnswerSaveError(null);
+      setPendingAnswer(null);
+      localStorage.removeItem(ADAPTIVE_TARGET_STORAGE_KEY);
     } catch (e) {
       console.error("Adaptive load failed:", e);
+      setAdaptiveLoadError(
+        "We could not prepare that targeted scenario. Your current question is still available."
+      );
     } finally {
       setAdaptiveLoading(false);
+      setAdaptiveTarget(null);
     }
   }
 
@@ -327,6 +342,9 @@ export default function EMTScenarioTrainer() {
     setShowCues(true);
     setShowRationale(false);
     setShowElims(false);
+    setSavingAnswer(false);
+    setAnswerSaveError(null);
+    setPendingAnswer(null);
     if (items.length > 0) {
       setIndex(((i % items.length) + items.length) % items.length);
     }
@@ -341,16 +359,43 @@ export default function EMTScenarioTrainer() {
     goto(n);
   };
 
+  const savePracticeAnswer = async (answer: PracticeResultInput) => {
+    setSavingAnswer(true);
+    setAnswerSaveError(null);
+    setPendingAnswer(answer);
+
+    try {
+      await recordResult(answer);
+      setPendingAnswer(null);
+    } catch (error) {
+      console.error("Failed to record result", error);
+      setAnswerSaveError(
+        "Your answer is shown, but it could not be added to your progress."
+      );
+    } finally {
+      setSavingAnswer(false);
+    }
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen grid place-items-center ">
-        <div className={`${cardClass} flex items-center gap-2 px-4 py-2 text-slate-700`}>
-          <motion.span
-            className="inline-block h-2 w-2 rounded-full bg-teal-500"
-            animate={{ opacity: [0.2, 1, 0.2] }}
-            transition={{ repeat: Infinity, duration: 1.2 }}
-          />
-          Checking vitals...
+      <div
+        className={`${cardClass} mx-auto flex max-w-3xl items-center gap-3 p-5 text-slate-700`}
+        role="status"
+        aria-live="polite"
+      >
+        <LoaderCircle
+          className="shrink-0 animate-spin text-teal-600 motion-reduce:animate-none"
+          size={24}
+          aria-hidden="true"
+        />
+        <div>
+          <div className="font-semibold text-slate-950">
+            Loading scenario trainer
+          </div>
+          <p className="mt-0.5 text-sm text-slate-600">
+            Preparing the question set and clinical cues.
+          </p>
         </div>
       </div>
     );
@@ -358,7 +403,7 @@ export default function EMTScenarioTrainer() {
 
   if (!items.length) {
     return (
-      <div className="min-h-screen grid place-items-center px-4">
+      <div className="mx-auto max-w-3xl px-4">
         <div className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-rose-700 shadow-sm">
           No scenarios found.
         </div>
@@ -366,135 +411,89 @@ export default function EMTScenarioTrainer() {
     );
   }
 
-  /* ---------- NREMT dialog exam logic ---------- */
-
-  const startDialogExam = async () => {
-    setExamError(null);
-    setExamStarting(true);
-    setExamCorrectCount(0);
-    setExamIndex(0);
-    setExamItems([]);
-    setExamSessionId(null);
-    setExamCompleted(false);
-    setExamTotalQuestions(0);
-    setExamDomainStats({});
-
-    try {
-      const res = await fetch("/api/exam/seed", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ itemCount: 40 }), // or whatever length you want
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        throw new Error(data?.error ?? "Failed to start exam");
-      }
-
-      const data = await res.json();
-      setExamSessionId(data.sessionId); // currently null in stub, fine
-      setExamItems(data.items ?? []);
-      setExamTotalQuestions(data.items?.length ?? 0);
-      setExamOpen(true); // open dialog AFTER items are loaded
-    } catch (err: any) {
-      setExamError(err.message ?? "Something went wrong");
-    } finally {
-      setExamStarting(false);
-    }
-  };
-
-  const handleDialogSubmitAnswer = async (payload: ExamAnswerPayload) => {
-    if (!examCurrent) return;
-
-    // Update domain stats locally
-    const domain = examCurrent.item?.domain ?? "Unknown";
-    setExamDomainStats((prev) => {
-      const prevStat = prev[domain] ?? { correct: 0, total: 0 };
-      return {
-        ...prev,
-        [domain]: {
-          total: prevStat.total + 1,
-          correct: prevStat.correct + (payload.correct ? 1 : 0),
-        },
-      };
-    });
-
-    try {
-      await fetch("/api/exam/answer", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sessionId: examSessionId,
-          itemId: payload.itemId,
-          orderIndex: examCurrent.orderIndex,
-          selectedChoiceId: payload.selectedChoiceId,
-          timeSpentSeconds: payload.timeSpentSeconds,
-        }),
-      });
-
-      if (payload.correct) {
-        setExamCorrectCount((prev) => prev + 1);
-      }
-    } catch {
-      // optional: toast/log
-    }
-  };
-
-  const handleDialogAdvance = () => {
-    if (!examCurrent) return;
-
-    const nextIndex = examIndex + 1;
-    if (nextIndex < examItems.length) {
-      setExamIndex(nextIndex);
-      return;
-    }
-
-    // Finished dialog exam
-    setExamOpen(false);
-    setExamSessionId(null);
-    setExamCompleted(true);
-  };
-
-  const handleDialogExit = () => {
-    // user hit X: bail out immediately, no summary
-    setExamOpen(false);
-    setExamItems([]);
-    setExamSessionId(null);
-    setExamCompleted(false);
-    setExamCorrectCount(0);
-    setExamDomainStats({});
-    setExamTotalQuestions(0);
-  };
-
-  const totalExamQuestions = examTotalQuestions || examItems.length || 0;
-  const examPercent =
-    totalExamQuestions > 0
-      ? Math.round((examCorrectCount / totalExamQuestions) * 100)
-      : 0;
-
-  let examPerformanceLabel = "Needs work";
-  let examPerformanceDetail =
-    "Focus on understanding core pathophysiology and algorithms, then re-test.";
-  if (examPercent >= 85) {
-    examPerformanceLabel = "Strong performance";
-    examPerformanceDetail =
-      "You are testing in a range consistent with a high chance of passing NREMT.";
-  } else if (examPercent >= 75) {
-    examPerformanceLabel = "On the edge";
-    examPerformanceDetail =
-      "You are close. Tighten up weak domains and do another full exam run.";
-  } else if (examPercent >= 65) {
-    examPerformanceLabel = "Improving";
-    examPerformanceDetail =
-      "You are building a base. Target weaker domains with focused practice scenarios.";
-  }
-
-  const examDomainEntries = Object.entries(examDomainStats).sort(
-    (a, b) => (b[1].total || 0) - (a[1].total || 0)
-  );
-
   return (
-    <div className="mx-auto max-w-3xl space-y-6 rounded-lg border border-[#c8dcd6] bg-white/58 p-4 shadow-[0_18px_42px_rgba(45,86,89,0.12)] backdrop-blur">
+    <div
+      className="relative mx-auto max-w-3xl rounded-lg border border-[#c8dcd6] bg-white/58 p-4 shadow-[0_18px_42px_rgba(45,86,89,0.12)] backdrop-blur"
+      aria-busy={adaptiveLoading}
+    >
+      <AnimatePresence>
+        {adaptiveLoading ? (
+          <motion.div
+            className="absolute inset-0 z-20 flex items-start justify-center rounded-lg bg-white/55 px-4 pt-24 backdrop-blur-[2px] sm:pt-32"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            role="status"
+            aria-live="polite"
+          >
+            <div className={`${cardClass} w-full max-w-sm p-5 text-center shadow-lg`}>
+              <LoaderCircle
+                className="mx-auto animate-spin text-teal-600 motion-reduce:animate-none"
+                size={28}
+                aria-hidden="true"
+              />
+              <div className="mt-3 text-base font-semibold text-slate-950">
+                Preparing{" "}
+                {adaptiveTarget ? `${adaptiveTarget} scenario` : "your scenario"}
+              </div>
+              <p className="mt-1 text-sm leading-5 text-slate-600">
+                Finding a focused question and its clinical rationale. This may
+                take a few seconds.
+              </p>
+              <div className="mx-auto mt-4 h-1.5 max-w-52 overflow-hidden rounded-full bg-slate-100">
+                <motion.div
+                  className="h-full w-2/5 rounded-full bg-teal-500"
+                  animate={
+                    reduceMotion
+                      ? { x: "75%" }
+                      : { x: ["-100%", "250%"] }
+                  }
+                  transition={
+                    reduceMotion
+                      ? { duration: 0 }
+                      : {
+                          duration: 1.4,
+                          repeat: Infinity,
+                          ease: "easeInOut",
+                        }
+                  }
+                />
+              </div>
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
+      {adaptiveLoadError ? (
+        <div
+          className="mb-4 flex flex-col gap-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950 sm:flex-row sm:items-center sm:justify-between"
+          role="alert"
+        >
+          <span>{adaptiveLoadError}</span>
+          <button
+            type="button"
+            onClick={() => void startAdaptive(item.topic)}
+            className={secondaryButtonClass}
+          >
+            Try again
+          </button>
+        </div>
+      ) : null}
+
+      <motion.fieldset
+        disabled={adaptiveLoading}
+        className="min-w-0 space-y-6 border-0 p-0"
+        animate={
+          adaptiveLoading
+            ? { opacity: reduceMotion ? 0.45 : [0.38, 0.55, 0.38] }
+            : { opacity: 1 }
+        }
+        transition={
+          adaptiveLoading && !reduceMotion
+            ? { duration: 1.5, repeat: Infinity, ease: "easeInOut" }
+            : { duration: 0.2 }
+        }
+      >
       {/* Scenario metadata + nav */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-2">
@@ -507,6 +506,7 @@ export default function EMTScenarioTrainer() {
           <button
             type="button"
             onClick={prevItem}
+            disabled={savingAnswer}
             className={secondaryButtonClass}
             aria-label="Previous"
           >
@@ -515,6 +515,7 @@ export default function EMTScenarioTrainer() {
           <button
             type="button"
             onClick={randomItem}
+            disabled={savingAnswer}
             className={secondaryButtonClass}
             aria-label="Random"
           >
@@ -523,6 +524,7 @@ export default function EMTScenarioTrainer() {
           <button
             type="button"
             onClick={nextItem}
+            disabled={savingAnswer}
             className={secondaryButtonClass}
             aria-label="Next"
           >
@@ -564,7 +566,7 @@ export default function EMTScenarioTrainer() {
 
           {/* Adaptive */}
           <button
-            onClick={startAdaptive}
+            onClick={() => void startAdaptive(item.topic)}
             disabled={adaptiveLoading}
             className={primaryButtonClass}
             title="Serve a scenario targeting your weakest topic"
@@ -572,113 +574,8 @@ export default function EMTScenarioTrainer() {
             <Sparkles size={16} />
             {adaptiveLoading ? "Finding scenario..." : "Train on similar questions"}
           </button>
-
-          {/* NREMT Exam Mode (dialog) */}
-          <button
-            onClick={startDialogExam}
-            disabled={examStarting}
-            className={darkButtonClass}
-          >
-            {examStarting ? "Starting..." : "NREMT Exam Mode"}
-          </button>
-
-          {examError && (
-            <p className="mt-2 text-xs text-rose-600">
-              {examError}
-            </p>
-          )}
         </div>
       </section>
-
-      {/* Exam dialog & summary */}
-      {examOpen && examCurrent && (
-        <ExamModeDialog
-          open={examOpen}
-          onClose={handleDialogExit} // X = exit exam immediately
-          onAdvance={handleDialogAdvance} // "Next / Finish" = advance or finish
-          item={examCurrent.item}
-          onSubmitAnswer={handleDialogSubmitAnswer}
-          hasNext={examIndex + 1 < examItems.length}
-          currentQuestionNumber={examIndex + 1}
-          totalQuestions={examItems.length}
-        />
-      )}
-
-      {examCompleted && totalExamQuestions > 0 && (
-        <section className={`${cardClass} space-y-3 p-4`}>
-          <h3 className="text-sm font-semibold text-slate-900">
-            NREMT Exam Mode Summary
-          </h3>
-          <p className="text-sm text-slate-700">
-            You answered{" "}
-            <span className="font-semibold">{examCorrectCount}</span> out of{" "}
-            <span className="font-semibold">{totalExamQuestions}</span>{" "}
-            questions correctly.
-          </p>
-          <p className="text-sm">
-            <span className="font-semibold text-slate-900">
-              Score: {examPercent}%
-            </span>
-          </p>
-          <div className="mt-2 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
-            <div className="text-xs font-semibold uppercase text-slate-500">
-              Performance snapshot
-            </div>
-            <div className="mt-1 text-sm font-semibold text-slate-900">
-              {examPerformanceLabel}
-            </div>
-            <p className="mt-1 text-xs text-slate-700">
-              {examPerformanceDetail}
-            </p>
-          </div>
-
-          {examDomainEntries.length > 0 && (
-            <div className="mt-2">
-              <h4 className="text-xs font-semibold text-slate-800">
-                Domain breakdown
-              </h4>
-              <p className="mt-1 text-xs text-slate-600">
-                Strong domains should feel automatic. Weak domains are where you&apos;ll bleed points on NREMT.
-              </p>
-              <div className="mt-2 space-y-2">
-                {examDomainEntries.map(([domain, stat]) => {
-                  const pct =
-                    stat.total > 0
-                      ? Math.round((stat.correct / stat.total) * 100)
-                      : 0;
-                  return (
-                    <div
-                      key={domain}
-                      className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-2"
-                    >
-                      <div>
-                        <div className="text-sm font-medium text-slate-900">
-                          {domain}
-                        </div>
-                        <div className="text-xs text-slate-600">
-                          {stat.correct}/{stat.total} correct ({pct}%)
-                        </div>
-                      </div>
-                      <div className="w-32 rounded-full bg-slate-200/70">
-                        <div
-                          className={`h-2 rounded-full ${
-                            pct >= 80
-                              ? "bg-emerald-500"
-                              : pct >= 60
-                              ? "bg-amber-400"
-                              : "bg-rose-500"
-                          }`}
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </section>
-      )}
 
       {/* Question & Choices */}
       <section className={`${mutedCardClass} space-y-3 p-4`}>
@@ -694,21 +591,23 @@ export default function EMTScenarioTrainer() {
                 key={c.id}
                 whileTap={{ scale: 0.98 }}
                 type="button"
+                disabled={selected !== null || savingAnswer}
                 onClick={async () => {
+                  if (selected !== null || savingAnswer) return;
                   setSelected(c.id);
                   setShowRationale(true);
-                  try {
-                    await recordResult({
-                      itemId: item.id,
-                      topic: item.topic,
-                      correct: c.correct,
-                      selectedChoice: c.id,
-                    });
-                  } catch (e) {
-                    console.error("Failed to record result", e);
-                  }
+                  await savePracticeAnswer({
+                    attemptId: crypto.randomUUID(),
+                    source: item.source,
+                    itemId: item.source === "static" ? item.id : undefined,
+                    generatedScenarioId:
+                      item.source === "generated" ? item.sourceId : undefined,
+                    topic: item.topic,
+                    correct: c.correct,
+                    selectedChoice: c.id,
+                  });
                 }}
-                className={`flex w-full items-start gap-3 rounded-lg border border-[#b9cbc4] bg-[#fbfdfc] p-4 text-left shadow-sm transition hover:border-teal-600 hover:bg-white ${
+                className={`flex w-full items-start gap-3 rounded-lg border border-[#b9cbc4] bg-[#fbfdfc] p-4 text-left shadow-sm transition enabled:hover:border-teal-600 enabled:hover:bg-white disabled:cursor-default ${
                   chosen
                     ? correctChoice
                       ? "ring-2 ring-teal-400"
@@ -770,6 +669,29 @@ export default function EMTScenarioTrainer() {
           })}
         </div>
 
+        {savingAnswer ? (
+          <p className="text-xs font-medium text-slate-500" role="status">
+            Saving this attempt...
+          </p>
+        ) : null}
+        {answerSaveError ? (
+          <div className="flex flex-wrap items-center gap-2" role="alert">
+            <p className="text-xs font-medium text-rose-700">
+              {answerSaveError}
+            </p>
+            {pendingAnswer ? (
+              <button
+                type="button"
+                onClick={() => void savePracticeAnswer(pendingAnswer)}
+                disabled={savingAnswer}
+                className={secondaryButtonClass}
+              >
+                Retry save
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+
         {selected && (
           <motion.div
             initial={{ opacity: 0, y: 8 }}
@@ -821,6 +743,7 @@ export default function EMTScenarioTrainer() {
       <footer className="pt-2 text-xs text-slate-400 mb-4">
         PathoLogix 2025 &copy; - Practice scenarios for EMTs. Not a substitute for formal training or protocols.
       </footer>
+      </motion.fieldset>
     </div>
   );
 }

@@ -1,5 +1,8 @@
 // src/lib/adaptive.ts
 import { supabase } from "@/lib/supabase";
+import { authenticatedFetch } from "@/lib/authenticatedFetch";
+
+export const ADAPTIVE_TARGET_STORAGE_KEY = "pathologix:adaptive_target";
 
 /** Convenience: returns current user id or throws */
 export async function getUserId(): Promise<string> {
@@ -53,23 +56,52 @@ export async function upsertPerformance(topic: string, correct: boolean) {
   }
 }
 
-/** Record a finished question attempt (and keep lightweight result history if you want later) */
-export async function recordResult(opts: {
-  itemId: string;      // your items.id (uuid)
-  topic: string;       // e.g., "Airway", "Trauma"
+export type PracticeResultInput = {
+  attemptId: string;
+  source: "static" | "generated";
+  itemId?: string;
+  generatedScenarioId?: number;
+  topic: string;
   correct: boolean;
-  selectedChoice?: string; // optional
-}) {
-  // if you created a user_responses table earlier, you can save here (optional)
-  // await supabase.from("user_responses").insert({
-  //   user_id: await getUserId(),
-  //   question_id: opts.itemId,
-  //   selected_choice: opts.selectedChoice ?? null,
-  //   correct: opts.correct,
-  // });
+  selectedChoice: string;
+};
 
-  // Always update per-topic performance
-  await upsertPerformance(opts.topic, opts.correct);
+/** Record a finished question attempt and update its topic aggregate atomically. */
+export async function recordResult(opts: PracticeResultInput) {
+  if (opts.source === "generated" && !opts.generatedScenarioId) {
+    await upsertPerformance(opts.topic, opts.correct);
+    return { correct: opts.correct, recorded: true, fallback: true };
+  }
+
+  const response = await authenticatedFetch("/api/practice/answer", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      attemptId: opts.attemptId,
+      source: opts.source,
+      itemId: opts.itemId,
+      generatedScenarioId: opts.generatedScenarioId,
+      selectedChoiceId: opts.selectedChoice,
+    }),
+  });
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok && response.status === 503) {
+    // Keep the aggregate functional until the practice-attempt migration is
+    // deployed. Network errors are not retried here to avoid double-counting.
+    await upsertPerformance(opts.topic, opts.correct);
+    return { correct: opts.correct, recorded: true, fallback: true };
+  }
+
+  if (!response.ok) {
+    throw new Error(data?.error ?? "Unable to save this practice answer.");
+  }
+
+  return {
+    correct:
+      typeof data?.correct === "boolean" ? data.correct : opts.correct,
+    recorded: Boolean(data?.recorded),
+  };
 }
 
 /** Get the single weakest topic (lowest accuracy). Falls back to a default list if empty */

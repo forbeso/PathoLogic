@@ -204,49 +204,29 @@ export default function LandingPage() {
         <img
           src="/emt.png"
           alt="EMT assisting a patient beside an ambulance"
-          className="absolute inset-0 -z-20 h-full w-full object-cover object-[58%_center]"
+          className="absolute inset-0 -z-20 h-full w-full object-cover object-[66%_center] sm:object-[58%_center]"
         />
-        <div className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(8,18,26,0.94)_0%,rgba(8,18,26,0.83)_44%,rgba(8,18,26,0.28)_100%)]" />
+        <div className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(6,16,24,0.97)_0%,rgba(6,16,24,0.90)_46%,rgba(6,16,24,0.38)_100%)]" />
         <div className="absolute inset-x-0 bottom-0 -z-10 h-32 bg-[linear-gradient(0deg,rgba(15,23,42,0.80)_0%,rgba(15,23,42,0)_100%)]" />
 
         <Container>
-          <div className="flex min-h-[62svh] max-w-2xl flex-col justify-center py-12 sm:py-16">
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.45 }}
-              className="inline-flex w-fit items-center gap-2 rounded-md border border-white/25 bg-white/10 px-3 py-1 text-sm font-semibold text-cyan-100 backdrop-blur"
-            >
+          <div className="flex min-h-[calc(100svh-73px)] max-w-2xl flex-col justify-center py-10 sm:min-h-[64svh] sm:py-16">
+            <div className="inline-flex w-fit items-center gap-2 rounded-md border border-white/25 bg-slate-950/35 px-3 py-1 text-sm font-semibold text-cyan-100 backdrop-blur">
               <HeartPulse size={16} />
               NREMT-style EMT practice
-            </motion.div>
+            </div>
 
-            <motion.h1
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.04 }}
-              className="mt-5 text-5xl font-black sm:text-6xl lg:text-7xl"
-            >
+            <h1 className="mt-5 text-5xl font-black sm:text-6xl lg:text-7xl">
               PathoLogix
-            </motion.h1>
+            </h1>
 
-            <motion.p
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.08 }}
-              className="mt-5 max-w-xl text-lg leading-8 text-slate-100 sm:text-xl"
-            >
+            <p className="mt-5 max-w-xl text-lg leading-8 text-slate-100 sm:text-xl">
               Train the judgment behind the answer with realistic EMS calls,
               cue-focused review, and timed exam practice built for EMT
               students.
-            </motion.p>
+            </p>
 
-            <motion.div
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.12 }}
-              className="mt-8 flex flex-wrap gap-3"
-            >
+            <div className="mt-8 grid max-w-md grid-cols-1 gap-3 min-[420px]:grid-cols-2">
               <Link
                 href="/emtrainer"
                 className="inline-flex items-center gap-2 rounded-md bg-teal-400 px-5 py-3 text-sm font-bold text-slate-950 shadow-lg shadow-teal-950/20 transition hover:bg-teal-300 focus:outline-none focus:ring-2 focus:ring-white"
@@ -255,28 +235,15 @@ export default function LandingPage() {
                 <ArrowRight size={17} />
               </Link>
               <Link
-                href="/exam/nremt"
-                className="inline-flex items-center gap-2 rounded-md border border-white/35 bg-white/10 px-5 py-3 text-sm font-bold text-white backdrop-blur transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white"
-              >
-                Try exam mode
-                <Timer size={17} />
-              </Link>
-
-              <Link
                 href="/emtscene"
-                className="inline-flex items-center gap-2 rounded-md bg-teal-400 px-5 py-3 text-sm font-bold text-slate-950 shadow-lg shadow-teal-950/20 transition hover:bg-teal-300 focus:outline-none focus:ring-2 focus:ring-white"
+                className="inline-flex items-center gap-2 rounded-md border border-white/35 bg-slate-950/35 px-5 py-3 text-sm font-bold text-white backdrop-blur transition hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-white"
               >
-                Try our simulator
+                Enter simulator
                 <Gamepad size={17} />
               </Link>
-            </motion.div>
+            </div>
 
-            <motion.div
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.16 }}
-              className="mt-8 grid max-w-xl grid-cols-3 gap-3 border-t border-white/25 pt-5 text-xs text-slate-200 sm:gap-4 sm:text-sm"
-            >
+            <div className="mt-8 grid max-w-xl grid-cols-3 gap-3 border-t border-white/25 pt-5 text-xs text-slate-200 sm:gap-4 sm:text-sm">
               <div>
                 <div className="text-xl font-bold text-white sm:text-2xl">3 modes</div>
                 <p className="mt-1">Scenario, exam, and review practice.</p>
@@ -289,7 +256,7 @@ export default function LandingPage() {
                 <div className="text-xl font-bold text-white sm:text-2xl">Adaptive</div>
                 <p className="mt-1">Return to the domains that need reps.</p>
               </div>
-            </motion.div>
+            </div>
           </div>
         </Container>
       </section>
@@ -537,15 +504,15 @@ export default function LandingPage() {
               <Link className="transition hover:text-slate-950" href="/learn">
                 Learn
               </Link>
-              <a className="transition hover:text-slate-950" href="#">
+              <Link className="transition hover:text-slate-950" href="/privacy">
                 Privacy
-              </a>
-              <a className="transition hover:text-slate-950" href="#">
+              </Link>
+              <Link className="transition hover:text-slate-950" href="/terms">
                 Terms
-              </a>
-              <a className="transition hover:text-slate-950" href="#">
+              </Link>
+              <Link className="transition hover:text-slate-950" href="/contact">
                 Contact
-              </a>
+              </Link>
             </div>
           </div>
         </Container>

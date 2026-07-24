@@ -6,6 +6,11 @@ import { AppShell, StatusPill } from "@/components/AppShell";
 import { useLearnerProgress } from "@/hooks/useLearnerProgress";
 import { awardProgress, createProgressionRunId } from "@/lib/progression";
 import {
+  abandonScenarioAttempt,
+  saveScenarioProgress,
+  startScenarioAttempt,
+} from "@/lib/scenarioAttemptApi";
+import {
   Activity,
   AlertTriangle,
   Ambulance,
@@ -434,13 +439,13 @@ function SceneTopBar({
         </div>
         <div className="min-w-0">
           <div className="truncate text-xl font-black tracking-wide">PATHOLOGIX</div>
-          <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-teal-300 lg:hidden">
+          <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-teal-300 xl:hidden">
             Lv {level} · {totalXp} XP · {currentStreak}d
           </div>
         </div>
       </Link>
 
-      <div className="hidden min-w-0 flex-1 items-center justify-center gap-8 lg:flex">
+      <div className="hidden min-w-0 flex-1 items-center justify-center gap-8 xl:flex">
         <div className="w-[320px]">
           <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-200">
             <span>Level {level}</span>
@@ -584,14 +589,16 @@ export default function EMTScene() {
   const { progress: learnerProgress, level: learnerLevel } = useLearnerProgress();
   const [recentXpAward, setRecentXpAward] = useState(0);
   const lastGameFeedback = useRef(gameState.feedback);
-  const progressionRunId = useRef(createProgressionRunId("emt-scene"));
+  const [progressionRunId, setProgressionRunId] = useState(() =>
+    createProgressionRunId("emt-scene")
+  );
   const previousCompletedObjectives = useRef<string[]>([]);
   const xpAwardTimer = useRef<number | null>(null);
 
   useEffect(() => {
     const updateSceneHeight = () => {
       const headerHeight = document.querySelector("header")?.getBoundingClientRect().height ?? 65;
-      const desktop = window.innerWidth >= 1024;
+      const desktop = window.innerWidth >= 1280;
       setIsDesktopLayout(desktop);
       if (!desktop) setLabOpen(false);
       if (desktop) setMobileHudOpen(false);
@@ -695,6 +702,23 @@ export default function EMTScene() {
   const scenarioProgressPercent = Math.round((scenarioCompletedCount / scenarioTasks.length) * 100);
 
   useEffect(() => {
+    void startScenarioAttempt({
+      runId: progressionRunId,
+      scenarioId: scenario.id,
+      simulationMode,
+      totalObjectives: scenarioTasks.length,
+    }).catch(() => {
+      // The simulation remains playable while signed out, offline, or before
+      // the scenario-attempt migration is deployed.
+    });
+  }, [
+    progressionRunId,
+    scenario.id,
+    scenarioTasks.length,
+    simulationMode,
+  ]);
+
+  useEffect(() => {
     const previous = previousCompletedObjectives.current;
     const newlyCompleted = gameState.completedObjectives.filter((objectiveId) => !previous.includes(objectiveId));
     previousCompletedObjectives.current = [...gameState.completedObjectives];
@@ -704,8 +728,13 @@ export default function EMTScene() {
     let earnedXp = 0;
     newlyCompleted.forEach((objectiveId) => {
       const result = awardProgress({
-        id: `${progressionRunId.current}:objective:${objectiveId}`,
+        id: `${progressionRunId}:objective:${objectiveId}`,
         xp: 10,
+        eventType: "scenario_objective",
+        metadata: {
+          scenarioId: scenario.id,
+          objectiveId,
+        },
       });
       if (result.awarded) earnedXp += 10;
     });
@@ -715,8 +744,12 @@ export default function EMTScene() {
       previous.length < scenarioTasks.length
     ) {
       const completionBonus = awardProgress({
-        id: `${progressionRunId.current}:scenario-complete`,
+        id: `${progressionRunId}:scenario-complete`,
         xp: 40,
+        eventType: "scenario_complete",
+        metadata: {
+          scenarioId: scenario.id,
+        },
       });
       if (completionBonus.awarded) earnedXp += 40;
     }
@@ -726,7 +759,23 @@ export default function EMTScene() {
       if (xpAwardTimer.current !== null) window.clearTimeout(xpAwardTimer.current);
       xpAwardTimer.current = window.setTimeout(() => setRecentXpAward(0), 1800);
     }
-  }, [gameState.completedObjectives, scenarioTasks.length]);
+
+    const scoreBreakdown = buildScenarioDebrief(gameState).score;
+    void saveScenarioProgress({
+      runId: progressionRunId,
+      completedObjectives: gameState.completedObjectives.length,
+      scoreBreakdown,
+      elapsedSeconds: gameState.elapsedTime,
+      hintsUsed: gameState.hintsUsed,
+    }).catch(() => {
+      // Progress sync can recover on the next completed objective.
+    });
+  }, [
+    gameState,
+    progressionRunId,
+    scenario.id,
+    scenarioTasks.length,
+  ]);
 
   useEffect(
     () => () => {
@@ -787,6 +836,17 @@ export default function EMTScene() {
   const resourceResponsePending = requestedResources && !sceneSecured;
   const selectedActions = selectedObject ? availableActionsForObject(selectedObject) : [];
   const nextStepActions = nextSceneObject ? availableActionsForObject(nextSceneObject) : [];
+
+  useEffect(() => {
+    if (!selectedObject?.completed || selectedActions.length > 0) return;
+
+    const closeCompletedObjectTimer = window.setTimeout(() => {
+      dispatchGame({ type: "SELECT_OBJECT", objectId: undefined });
+    }, 450);
+
+    return () => window.clearTimeout(closeCompletedObjectTimer);
+  }, [selectedActions.length, selectedObject?.completed]);
+
   const currentObjectiveUsesEquipment = currentObjective.id === "baseline-vitals";
   const currentObjectiveStepAvailable =
     simulationMode === "guided" && (Boolean(nextSceneObject) || currentObjectiveUsesEquipment);
@@ -899,7 +959,8 @@ export default function EMTScene() {
     nextScenario = scenario,
     nextSceneScenario = SCENE_SCENARIOS[nextScenario.id as keyof typeof SCENE_SCENARIOS]
   ) => {
-    progressionRunId.current = createProgressionRunId("emt-scene");
+    void abandonScenarioAttempt(progressionRunId).catch(() => {});
+    setProgressionRunId(createProgressionRunId("emt-scene"));
     previousCompletedObjectives.current = [];
     setRecentXpAward(0);
     dispatchGame({ type: "RESET", scenario: nextSceneScenario });
@@ -1320,7 +1381,7 @@ export default function EMTScene() {
           type="button"
           data-testid="mobile-hud-toggle"
           onClick={() => setMobileHudOpen((open) => !open)}
-          className="absolute right-3 top-3 z-[80] inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/15 bg-slate-950/86 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-white shadow-2xl shadow-slate-950/40 backdrop-blur-xl transition hover:border-teal-300/60 hover:bg-teal-400/10 lg:hidden"
+          className="absolute right-3 top-3 z-[80] inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/15 bg-slate-950/86 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-white shadow-2xl shadow-slate-950/40 backdrop-blur-xl transition hover:border-teal-300/60 hover:bg-teal-400/10 xl:hidden"
           aria-expanded={mobileHudOpen}
           aria-controls="mobile-hud-panel"
         >
@@ -1336,7 +1397,7 @@ export default function EMTScene() {
               setMobileHudSection("dispatch");
               setMobileHudOpen(true);
             }}
-            className="absolute left-3 top-3 z-[80] inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/15 bg-slate-950/86 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-white shadow-2xl shadow-slate-950/40 backdrop-blur-xl transition hover:border-teal-300/60 hover:bg-teal-400/10 lg:hidden"
+            className="absolute left-3 top-3 z-[80] inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/15 bg-slate-950/86 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-white shadow-2xl shadow-slate-950/40 backdrop-blur-xl transition hover:border-teal-300/60 hover:bg-teal-400/10 xl:hidden"
             aria-label="Switch scene"
           >
             <Siren size={16} />
@@ -1361,7 +1422,7 @@ export default function EMTScene() {
               setMobileHudSection(currentObjectiveUsesEquipment ? "equipment" : "objective");
               setMobileHudOpen(true);
             }}
-            className="absolute inset-x-3 bottom-3 z-40 flex min-h-[72px] items-center justify-between gap-3 rounded-2xl border border-teal-200/45 bg-slate-950/86 px-4 py-3 text-left text-white shadow-2xl shadow-slate-950/45 backdrop-blur-xl transition active:scale-[0.99] lg:hidden"
+            className="absolute inset-x-3 bottom-3 z-40 flex min-h-[72px] items-center justify-between gap-3 rounded-2xl border border-teal-200/45 bg-slate-950/86 px-4 py-3 text-left text-white shadow-2xl shadow-slate-950/45 backdrop-blur-xl transition active:scale-[0.99] md:left-[236px] xl:hidden"
           >
             <div className="min-w-0">
               <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.18em] text-teal-200">
@@ -1390,7 +1451,7 @@ export default function EMTScene() {
             type="button"
             aria-label="Close mobile HUD"
             onClick={() => setMobileHudOpen(false)}
-            className="absolute inset-0 z-[55] bg-slate-950/45 backdrop-blur-[1px] lg:hidden"
+            className="absolute inset-0 z-[55] bg-slate-950/45 backdrop-blur-[1px] xl:hidden"
           />
         ) : null}
 
@@ -1398,7 +1459,7 @@ export default function EMTScene() {
           <section
             id="mobile-hud-panel"
             data-testid="mobile-hud-panel"
-            className="absolute inset-x-0 bottom-0 z-[70] flex max-h-[72%] flex-col overflow-hidden rounded-t-2xl border-x border-t border-white/15 bg-slate-950/94 pb-[env(safe-area-inset-bottom)] text-white shadow-2xl shadow-slate-950/60 backdrop-blur-xl lg:hidden"
+            className="absolute inset-x-0 bottom-0 z-[70] flex max-h-[72%] flex-col overflow-hidden rounded-t-2xl border-x border-t border-white/15 bg-slate-950/94 pb-[env(safe-area-inset-bottom)] text-white shadow-2xl shadow-slate-950/60 backdrop-blur-xl xl:hidden"
           >
             <div className="shrink-0 border-b border-white/10 px-3 pb-2 pt-2">
               <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-white/25" />
@@ -1784,7 +1845,7 @@ export default function EMTScene() {
 
         <section
           data-testid="scene-objective-prompt"
-          className="absolute right-4 top-4 z-30 hidden w-[360px] rounded-2xl border border-white/15 bg-slate-950/78 p-4 text-white shadow-2xl shadow-slate-950/45 backdrop-blur-xl lg:block"
+          className="absolute right-4 top-4 z-30 hidden w-[360px] rounded-2xl border border-white/15 bg-slate-950/78 p-4 text-white shadow-2xl shadow-slate-950/45 backdrop-blur-xl xl:block"
         >
           <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-teal-300">
             <ClipboardCheck size={15} />
@@ -1872,11 +1933,11 @@ export default function EMTScene() {
         </section>
 
         {selectedObject ? (
-          <div className="absolute bottom-28 left-4 right-4 z-50 lg:bottom-auto lg:left-[52%] lg:right-auto lg:top-[46%] lg:w-[300px] lg:-translate-y-1/2">
+          <div className="absolute bottom-28 left-4 right-4 z-50 xl:bottom-auto xl:left-[52%] xl:right-auto xl:top-[46%] xl:w-[300px] xl:-translate-y-1/2">
             {sceneFinding ? (
               <div
                 data-testid="scene-action-feedback"
-                className={`mb-2 hidden rounded-xl border px-3 py-2.5 text-left text-[11px] font-bold leading-4 text-white shadow-2xl backdrop-blur-xl lg:block ${latestSceneMessage?.who === "patient"
+                className={`mb-2 hidden rounded-xl border px-3 py-2.5 text-left text-[11px] font-bold leading-4 text-white shadow-2xl backdrop-blur-xl xl:block ${latestSceneMessage?.who === "patient"
                   ? "border-teal-200/55 bg-teal-950/92"
                   : "border-sky-200/55 bg-slate-950/92"
                   }`}
@@ -1890,7 +1951,7 @@ export default function EMTScene() {
 
             <section
               data-testid="scene-decision-prompt"
-              className="max-h-[min(62vh,520px)] overflow-y-auto rounded-2xl border border-white/15 bg-slate-950/88 p-3 text-white shadow-2xl shadow-slate-950/50 backdrop-blur-xl lg:rounded-xl"
+              className="max-h-[min(62vh,520px)] overflow-y-auto rounded-2xl border border-white/15 bg-slate-950/88 p-3 text-white shadow-2xl shadow-slate-950/50 backdrop-blur-xl xl:rounded-xl"
             >
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -1934,7 +1995,7 @@ export default function EMTScene() {
                     <span>
                       {action.label}
                       {action.description ? (
-                        <span className="mt-0.5 hidden text-[10px] font-semibold leading-3 text-slate-300 lg:block">{action.description}</span>
+                        <span className="mt-0.5 hidden text-[10px] font-semibold leading-3 text-slate-300 xl:block">{action.description}</span>
                       ) : null}
                     </span>
                     <ChevronRight className="mt-0.5 shrink-0 text-teal-200" size={16} />
@@ -1948,7 +2009,7 @@ export default function EMTScene() {
 
         <section
           data-testid="active-dispatch-panel"
-          className="absolute left-4 top-4 z-20 hidden w-[min(420px,calc(100%-32px))] rounded-2xl border border-white/15 bg-slate-950/70 p-4 text-white shadow-2xl backdrop-blur-xl xl:w-[390px] lg:block"
+          className="absolute left-4 top-4 z-20 hidden w-[min(420px,calc(100%-32px))] rounded-2xl border border-white/15 bg-slate-950/70 p-4 text-white shadow-2xl backdrop-blur-xl xl:block xl:w-[390px]"
         >
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -2000,7 +2061,7 @@ export default function EMTScene() {
               onClick={() => {
                 setLabOpen(true);
               }}
-              className="rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-xs font-bold text-white transition hover:bg-white/20 lg:hidden"
+              className="rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-xs font-bold text-white transition hover:bg-white/20 xl:hidden"
             >
               Controls
             </button>
@@ -2027,7 +2088,7 @@ export default function EMTScene() {
 
         <section
           data-testid="pro-tip-panel"
-          className="absolute left-4 top-[392px] z-20 hidden w-[260px] rounded-2xl border border-white/15 bg-slate-950/76 p-4 text-white shadow-2xl shadow-slate-950/40 backdrop-blur-xl lg:block"
+          className="absolute left-4 top-[392px] z-20 hidden w-[260px] rounded-2xl border border-white/15 bg-slate-950/76 p-4 text-white shadow-2xl shadow-slate-950/40 backdrop-blur-xl xl:block"
         >
           <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-teal-300">
             <Lightbulb size={15} />
@@ -2050,7 +2111,7 @@ export default function EMTScene() {
 
         <section
           data-testid="desktop-bottom-hud"
-          className="absolute bottom-4 left-4 right-[400px] z-20 hidden items-end gap-2 text-white 2xl:right-[416px] 2xl:gap-3 lg:flex"
+          className="absolute bottom-4 left-4 right-[400px] z-20 hidden items-end gap-2 text-white 2xl:right-[416px] 2xl:gap-3 xl:flex"
         >
           <button
             type="button"
@@ -2073,11 +2134,11 @@ export default function EMTScene() {
               </div>
               <div className="text-[11px] font-medium text-slate-400">Live monitor</div>
             </div>
-            <div className="grid grid-cols-[0.75fr_1fr_0.9fr_0.72fr_0.72fr_1.08fr] gap-2 2xl:gap-3">
+            <div className="grid grid-cols-[minmax(0,0.72fr)_minmax(68px,1.2fr)_minmax(54px,1fr)_minmax(0,0.72fr)_minmax(0,0.72fr)_minmax(0,0.9fr)] gap-1 2xl:gap-3">
               {monitorVitals.map((item) => (
                 <div key={item.label} className="min-w-0">
                   <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{item.label}</div>
-                  <div className={`mt-1 whitespace-nowrap text-[21px] font-black leading-none tracking-tight ${item.tone} 2xl:text-2xl`} title={item.value}>
+                  <div className={`mt-1 whitespace-nowrap text-xl font-black leading-none ${item.tone} 2xl:text-2xl`} title={item.value}>
                     {item.value}
                   </div>
                   {item.unit ? <div className="mt-1 text-xs font-semibold text-slate-300">{item.unit}</div> : null}
@@ -2144,7 +2205,7 @@ export default function EMTScene() {
           {labOpen && isDesktopLayout ? (
             <aside
               data-testid="desktop-scene-lab"
-              className="absolute bottom-[184px] right-4 top-4 z-40 hidden w-[380px] flex-col overflow-hidden rounded-2xl border border-white/15 bg-slate-950/80 text-white shadow-2xl backdrop-blur-xl lg:flex"
+              className="absolute bottom-[184px] right-4 top-4 z-40 hidden w-[380px] flex-col overflow-hidden rounded-2xl border border-white/15 bg-slate-950/80 text-white shadow-2xl backdrop-blur-xl xl:flex"
             >
               {controls}
             </aside>
@@ -2153,7 +2214,7 @@ export default function EMTScene() {
               type="button"
               onClick={() => setLabOpen(true)}
               data-testid="desktop-show-scene-lab"
-              className="absolute right-4 top-4 z-40 hidden items-center gap-2 rounded-2xl border border-white/15 bg-slate-950/80 px-4 py-3 text-sm font-black text-white shadow-2xl backdrop-blur-xl transition hover:border-teal-300/60 hover:bg-teal-400/10 lg:flex"
+              className="absolute right-4 top-4 z-40 hidden items-center gap-2 rounded-2xl border border-white/15 bg-slate-950/80 px-4 py-3 text-sm font-black text-white shadow-2xl backdrop-blur-xl transition hover:border-teal-300/60 hover:bg-teal-400/10 xl:flex"
             >
               <PanelRightOpen size={18} />
               EMT Scene Lab
@@ -2163,7 +2224,7 @@ export default function EMTScene() {
 
         <section
           data-testid="scenario-progress-panel"
-          className={`absolute bottom-4 right-4 z-40 hidden w-[380px] rounded-2xl border border-white/15 bg-slate-950/80 p-4 text-white shadow-2xl shadow-slate-950/40 backdrop-blur-xl lg:block ${primaryComplete ? "max-h-[420px] overflow-y-auto" : "h-[156px]"}`}
+          className={`absolute bottom-4 right-4 z-40 hidden w-[380px] rounded-2xl border border-white/15 bg-slate-950/80 p-4 text-white shadow-2xl shadow-slate-950/40 backdrop-blur-xl xl:block ${primaryComplete ? "max-h-[420px] overflow-y-auto" : "h-[156px]"}`}
         >
           <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-teal-300">
             <Star size={15} />
@@ -2236,7 +2297,7 @@ export default function EMTScene() {
           {labOpen && !isDesktopLayout ? (
             <aside
               data-testid="mobile-scene-lab"
-              className="absolute inset-x-3 bottom-3 z-40 flex max-h-[58vh] flex-col overflow-hidden rounded-2xl border border-white/15 bg-slate-950/90 text-white shadow-2xl backdrop-blur-xl lg:hidden"
+              className="absolute inset-x-3 bottom-3 z-40 flex max-h-[58vh] flex-col overflow-hidden rounded-2xl border border-white/15 bg-slate-950/90 text-white shadow-2xl backdrop-blur-xl xl:hidden"
             >
               {controls}
             </aside>

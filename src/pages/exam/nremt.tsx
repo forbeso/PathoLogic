@@ -2,10 +2,17 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import ExamModeDialog, { ExamAnswerPayload } from "@/components/ExamModeDialog";
+import ExamModeDialog from "@/components/ExamModeDialog";
 import Header from "@/components/Header";
 import Seo from "@/components/Seo";
 import { supabase } from "@/lib/supabase";
+import { authenticatedFetch } from "@/lib/authenticatedFetch";
+import {
+  abandonExam,
+  completeExam,
+  submitExamAnswer,
+  type ExamAnswerPayload,
+} from "@/lib/examApi";
 import {
   AppShell,
   PageContainer,
@@ -95,7 +102,7 @@ export default function NremtExamPage() {
 
     const loadQuestionAvailability = async () => {
       try {
-        const res = await fetch("/api/exam/seed");
+        const res = await authenticatedFetch("/api/exam/seed");
         const data = await res.json().catch(() => null);
         if (!res.ok) {
           throw new Error(data?.error ?? "Unable to load the exam question pool.");
@@ -135,7 +142,7 @@ export default function NremtExamPage() {
     setDomainStats({});
 
     try {
-      const res = await fetch("/api/exam/seed", {
+      const res = await authenticatedFetch("/api/exam/seed", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ itemCount: examQuestionCount }),
@@ -163,42 +170,36 @@ export default function NremtExamPage() {
 
   const handleSubmitAnswer = useCallback(
     async (payload: ExamAnswerPayload) => {
-      if (!sessionId && sessionId !== null) return; // sessionId null is okay w/ current API
-      if (!current) return;
+      if (!current) {
+        throw new Error("No active exam question.");
+      }
 
       setLoading(true);
 
-      // Update domain stats locally
-      const domain = current.item?.domain ?? "Unknown";
-      setDomainStats((prev) => {
-        const prevStat = prev[domain] ?? { correct: 0, total: 0 };
-        return {
-          ...prev,
-          [domain]: {
-            total: prevStat.total + 1,
-            correct: prevStat.correct + (payload.correct ? 1 : 0),
-          },
-        };
-      });
-
       try {
-        await fetch("/api/exam/answer", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sessionId,
-            itemId: payload.itemId,
-            orderIndex: current.orderIndex,
-            selectedChoiceId: payload.selectedChoiceId,
-            timeSpentSeconds: payload.timeSpentSeconds,
-          }),
+        const result = await submitExamAnswer({
+          ...payload,
+          sessionId,
+          orderIndex: current.orderIndex,
         });
 
-        if (payload.correct) {
+        const domain = current.item?.domain ?? "Unknown";
+        setDomainStats((prev) => {
+          const prevStat = prev[domain] ?? { correct: 0, total: 0 };
+          return {
+            ...prev,
+            [domain]: {
+              total: prevStat.total + 1,
+              correct: prevStat.correct + (result.correct ? 1 : 0),
+            },
+          };
+        });
+
+        if (result.correct) {
           setCorrectCount((prev) => prev + 1);
         }
-      } catch {
-        // swallow for now; you can surface a toast later
+
+        return result;
       } finally {
         setLoading(false);
       }
@@ -206,7 +207,7 @@ export default function NremtExamPage() {
     [sessionId, current]
   );
 
-  const handleAdvanceQuestion = () => {
+  const handleAdvanceQuestion = async () => {
     if (!current) return;
 
     const nextIndex = currentIndex + 1;
@@ -215,7 +216,12 @@ export default function NremtExamPage() {
       return;
     }
 
-    // Finished exam
+    if (sessionId) {
+      const summary = await completeExam(sessionId);
+      setCorrectCount(summary.correctCount);
+      setDomainStats(summary.domainStats);
+    }
+
     setCompleted(true);
     setSummaryItems(items); // keep what they saw for summary
     setItems([]);
@@ -223,7 +229,12 @@ export default function NremtExamPage() {
   };
 
   const exitExamNow = () => {
-    // X button: abandon the current run without scoring unanswered questions.
+    if (sessionId) {
+      void abandonExam(sessionId).catch((err) => {
+        console.error("Unable to mark exam as abandoned:", err);
+      });
+    }
+
     setCompleted(false);
     setCorrectCount(0);
     setCurrentIndex(0);

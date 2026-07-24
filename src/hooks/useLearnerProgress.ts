@@ -5,6 +5,7 @@ import {
   PROGRESSION_UPDATED_EVENT,
   getLearnerProgress,
   getLevelProgress,
+  syncLearnerProgress,
   type LearnerProgress,
 } from "@/lib/progression";
 
@@ -18,6 +19,7 @@ export function useLearnerProgress() {
     };
 
     refresh();
+    void syncLearnerProgress().then(setProgress);
     window.addEventListener(PROGRESSION_UPDATED_EVENT, refresh);
     window.addEventListener("storage", handleStorage);
 

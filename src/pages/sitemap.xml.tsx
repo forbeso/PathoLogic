@@ -9,6 +9,9 @@ const publicRoutes = [
   { path: "/exam/nremt", modified: "2026-07-17" },
   { path: "/flashcards", modified: "2026-07-17" },
   { path: "/emtscene", modified: "2026-07-17" },
+  { path: "/privacy", modified: "2026-07-23" },
+  { path: "/terms", modified: "2026-07-23" },
+  { path: "/contact", modified: "2026-07-23" },
 ];
 
 function escapeXml(value: string) {

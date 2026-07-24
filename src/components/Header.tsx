@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Ambulance, ArrowRight } from "lucide-react";
+import { Ambulance, ArrowRight, Menu, X } from "lucide-react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import UserMenu from "@/components/UserMenu";
@@ -13,6 +13,7 @@ const navItems = [
 ];
 
 export default function Header() {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [session, setSession] = useState<
     Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"]
   >(null);
@@ -67,20 +68,36 @@ export default function Header() {
           ) : (
             <UserMenu email={session.user.email} />
           )}
+          <button
+            type="button"
+            aria-label={mobileMenuOpen ? "Close navigation" : "Open navigation"}
+            aria-expanded={mobileMenuOpen}
+            aria-controls="mobile-navigation"
+            onClick={() => setMobileMenuOpen((open) => !open)}
+            className="grid h-10 w-10 place-items-center rounded-md border border-[#b7ccc5] bg-white text-slate-800 shadow-sm transition hover:border-teal-500 hover:bg-teal-50 md:hidden"
+          >
+            {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
         </div>
       </div>
 
-      <nav className="mx-auto flex max-w-6xl gap-2 overflow-x-auto border-t border-[#d8e7e2] py-2 md:hidden">
-        {navItems.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className="whitespace-nowrap rounded-md border border-[#c8dcd6] bg-white/80 px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm transition hover:border-teal-400 hover:bg-teal-50"
-          >
-            {item.label}
-          </Link>
-        ))}
-      </nav>
+      {mobileMenuOpen ? (
+        <nav
+          id="mobile-navigation"
+          className="mx-auto grid max-w-6xl grid-cols-2 gap-2 border-t border-[#d8e7e2] py-3 md:hidden"
+        >
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={() => setMobileMenuOpen(false)}
+              className="rounded-md border border-[#c8dcd6] bg-white/80 px-3 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-teal-400 hover:bg-teal-50"
+            >
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+      ) : null}
     </header>
   );
 }

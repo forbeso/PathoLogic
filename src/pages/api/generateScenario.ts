@@ -1,9 +1,10 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import OpenAI from "openai";
-
-// OPTIONAL: server-side supabase client to cache generated scenarios
-// Only constructed if you provide SUPABASE_SERVICE_ROLE_KEY
 import { createClient } from "@supabase/supabase-js";
+import {
+  enforceRateLimit,
+  requireApiUser,
+} from "@/lib/server/apiSecurity";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
 
@@ -128,8 +129,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(405).json({ error: "Method not allowed" });
     }
 
-    const { topic: rawTopic } = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
-    const topic = (rawTopic || "Trauma").toString();
+    const user = await requireApiUser(req, res);
+    if (!user) return;
+    if (
+      !enforceRateLimit(req, res, {
+        name: "generate-scenario",
+        limit: 6,
+        windowMs: 60 * 60 * 1000,
+        userId: user.id,
+      })
+    ) {
+      return;
+    }
+
+    const body =
+      typeof req.body === "string" ? JSON.parse(req.body) : req.body ?? {};
+    const topic = String(body.topic || "Trauma").trim();
+    if (!topic || topic.length > 80) {
+      return res.status(400).json({ error: "Choose a valid scenario topic." });
+    }
     const domain = mapTopicToDomain(topic);
 
     // 1) Call OpenAI
@@ -170,32 +188,48 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       difficulty: "hard",
     };
 
-    // 4) OPTIONAL: cache it into generated_scenarios with service role
+    // Cache against the authenticated user. Never accept user identity from the body.
+    let generatedScenarioId: number | null = null;
     if (process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.NEXT_PUBLIC_SUPABASE_URL) {
       const supabase = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL,
-        process.env.SUPABASE_SERVICE_ROLE_KEY
+        process.env.SUPABASE_SERVICE_ROLE_KEY,
+        {
+          auth: {
+            autoRefreshToken: false,
+            persistSession: false,
+          },
+        }
       );
-      // get user from auth header cookie? (client can pass current user id if you want)
-      // Safer: do not trust arbitrary user ids from client; cache without user_id or require Auth (advanced).
-      // Here we skip user binding unless you pass it explicitly.
-      const { userId } = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
-      if (userId) {
-        await supabase.from("generated_scenarios").insert({
-          user_id: userId,
+      const { data, error } = await supabase
+        .from("generated_scenarios")
+        .insert({
+          user_id: user.id,
           topic: scenario.topic,
           vignette: scenario.vignette,
           cues: scenario.cues,
           question: scenario.question,
           choices: scenario.choices,
           reasoning_steps: scenario.reasoning_steps,
-        });
+        })
+        .select("id")
+        .single();
+      if (error) {
+        console.error("Unable to cache generated scenario:", error.message);
+      } else {
+        generatedScenarioId = data.id;
       }
     }
 
-    return res.status(200).json(scenario);
-  } catch (err: any) {
+    return res.status(200).json({
+      ...scenario,
+      source: "generated",
+      sourceId: generatedScenarioId,
+    });
+  } catch (err: unknown) {
     console.error(err);
-    return res.status(400).json({ error: err.message ?? "Failed to generate scenario" });
+    const message =
+      err instanceof Error ? err.message : "Failed to generate scenario";
+    return res.status(500).json({ error: message });
   }
 }

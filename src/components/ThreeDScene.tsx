@@ -1610,26 +1610,12 @@ function RoadsideFestivalGround() {
       [-4.0, 0.04, -8.45, 0.26, 0.6],
       [2.4, 0.04, -8.2, 0.3, -0.2],
       [6.9, 0.04, -8.1, 0.34, 0.42],
-      [-9.4, 0.04, -11.4, 0.35, 0.12],
-      [-5.2, 0.04, -12.6, 0.32, -0.7],
-      [0.4, 0.04, -11.9, 0.3, 0.4],
-      [5.8, 0.04, -12.35, 0.34, -0.25],
-      [9.2, 0.04, -11.15, 0.32, 0.55],
-      [-13.5, 0.04, 5.2, 0.34, -0.15],
-      [-10.4, 0.04, 7.4, 0.28, 0.46],
-      [-6.8, 0.04, 6.6, 0.3, -0.4],
-      [-2.4, 0.04, 7.9, 0.34, 0.2],
-      [2.1, 0.04, 7.6, 0.31, -0.65],
-      [6.5, 0.04, 6.2, 0.29, 0.35],
-      [10.8, 0.04, 7.1, 0.33, -0.2],
-      [13.4, 0.04, 4.9, 0.28, 0.55],
-      [-14.8, 0.04, -9.9, 0.31, 0.34],
-      [13.6, 0.04, -9.7, 0.29, -0.28],
-      [-12.8, 0.04, -14.2, 0.35, -0.72],
-      [-7.6, 0.04, -15.1, 0.28, 0.2],
-      [-1.8, 0.04, -15.6, 0.3, -0.36],
-      [4.4, 0.04, -15.0, 0.34, 0.68],
-      [11.8, 0.04, -14.1, 0.32, -0.18],
+      [-9.2, 0.04, 7.1, 0.28, 0.46],
+      [-5.8, 0.04, 8.2, 0.3, -0.4],
+      [-1.7, 0.04, 7.8, 0.34, 0.2],
+      [3.1, 0.04, 8.1, 0.31, -0.65],
+      [7.2, 0.04, 7.0, 0.29, 0.35],
+      [10.4, 0.04, 8.2, 0.33, -0.2],
     ] as Array<[number, number, number, number, number]>,
     []
   );
@@ -1646,27 +1632,19 @@ function RoadsideFestivalGround() {
       [7.05, 0.04, 0.6, 0.3, 0.35],
       [-8.6, 0.04, -8.15, 0.42, -0.5],
       [8.3, 0.04, -8.4, 0.38, 0.2],
-      [-12.9, 0.04, 3.7, 0.32, 0.45],
-      [-9.7, 0.04, 5.8, 0.26, -0.3],
-      [-4.7, 0.04, 6.95, 0.22, 0.18],
-      [4.8, 0.04, 6.75, 0.24, -0.24],
-      [9.3, 0.04, 5.45, 0.3, 0.66],
-      [12.7, 0.04, 3.55, 0.34, -0.4],
-      [-13.3, 0.04, -12.5, 0.38, 0.1],
-      [12.2, 0.04, -12.2, 0.36, -0.55],
+      [-9.4, 0.04, 6.4, 0.26, -0.3],
+      [-4.7, 0.04, 7.1, 0.22, 0.18],
+      [5.1, 0.04, 7.2, 0.24, -0.24],
+      [9.4, 0.04, 6.2, 0.3, 0.66],
     ] as Array<[number, number, number, number, number]>,
     []
   );
 
   return (
     <group>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.022, -2.4]} receiveShadow>
-        <planeGeometry args={[52, 42]} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.022, 0]} receiveShadow>
+        <planeGeometry args={[42, 28]} />
         <meshStandardMaterial color="#78a64e" roughness={0.98} />
-      </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.018, -10.8]} receiveShadow>
-        <planeGeometry args={[52, 16]} />
-        <meshStandardMaterial color="#86aa58" roughness={0.98} />
       </mesh>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.006, 1.2]} receiveShadow>
         <circleGeometry args={[8.4, 56]} />
@@ -1777,62 +1755,60 @@ function RoadsideBuntingLine({ position, rotationY = 0, width = 8.5 }: { positio
 function RoadsideVillageBackdrop() {
   const mountains = useMemo(
     () => [
-      [-18.5, 0.95, -20.5, 4.6, 2.3, 3.4, "#8fa2a0", -0.16],
-      [-13.5, 1.35, -21.6, 5.2, 3.0, 3.8, "#7f9696", 0.08],
-      [-8.3, 1.18, -20.9, 4.7, 2.65, 3.6, "#9aae99", -0.04],
-      [-2.2, 1.62, -22.2, 5.6, 3.55, 4.1, "#7e9498", 0.12],
-      [4.1, 1.32, -21.2, 5.1, 2.9, 3.7, "#8ea29c", -0.08],
-      [9.9, 1.52, -22.0, 5.8, 3.4, 4.0, "#7d9294", 0.06],
-      [15.7, 1.05, -20.6, 4.9, 2.45, 3.5, "#9aac96", 0.14],
-      [-21.0, 0.7, -17.8, 3.7, 1.75, 2.8, "#a0b58b", 0.12],
-      [-4.9, 0.82, -18.1, 4.1, 1.95, 3.0, "#a5b783", -0.12],
-      [17.9, 0.78, -18.0, 4.0, 1.8, 2.9, "#9fb487", -0.1],
-      [-17.6, 1.0, 16.2, 4.2, 2.2, 3.3, "#8ca099", 0.18],
-      [-12.4, 1.28, 17.4, 5.0, 2.85, 3.8, "#7f9494", -0.06],
-      [-6.6, 1.12, 16.8, 4.5, 2.55, 3.5, "#9aab92", 0.08],
-      [-0.8, 1.56, 18.1, 5.3, 3.35, 4.0, "#7e9396", -0.12],
-      [5.35, 1.24, 17.2, 4.9, 2.75, 3.7, "#8da29b", 0.1],
-      [11.1, 1.45, 18.0, 5.5, 3.2, 4.0, "#7d9293", -0.04],
-      [16.8, 1.04, 16.4, 4.6, 2.4, 3.4, "#98ab91", -0.16],
-    ] as Array<[number, number, number, number, number, number, string, number]>,
+      [-18.5, -20.5, 4.2, 2.1, 3.2, "#8fa2a0", -0.16],
+      [-13.5, -21.6, 4.8, 2.7, 3.5, "#7f9696", 0.08],
+      [-8.3, -20.9, 4.3, 2.4, 3.3, "#9aae99", -0.04],
+      [-2.2, -22.2, 5.0, 3.15, 3.8, "#7e9498", 0.12],
+      [4.1, -21.2, 4.6, 2.6, 3.4, "#8ea29c", -0.08],
+      [9.9, -22.0, 5.1, 3.0, 3.7, "#7d9294", 0.06],
+      [15.7, -20.6, 4.4, 2.25, 3.2, "#9aac96", 0.14],
+      [-20.0, -18.0, 3.4, 1.65, 2.6, "#a0b58b", 0.12],
+      [18.2, -18.2, 3.6, 1.7, 2.7, "#9fb487", -0.1],
+    ] as Array<[number, number, number, number, number, string, number]>,
     []
   );
   const treeLine = useMemo(
     () => [
-      [-18.2, 0.02, -20.4, 0.34, 0],
-      [-13.8, 0.02, -21.1, 0.4, 1],
-      [-8.6, 0.02, -20.7, 0.35, 2],
-      [-3.4, 0.02, -21.4, 0.38, 0],
-      [2.2, 0.02, -20.8, 0.35, 1],
-      [7.9, 0.02, -21.3, 0.39, 2],
-      [13.6, 0.02, -20.6, 0.36, 0],
-      [18.0, 0.02, -21.0, 0.34, 1],
-      [-18.6, 0.02, 23.2, 0.36, 0],
-      [-13.5, 0.02, 24.1, 0.42, 1],
-      [-8.0, 0.02, 23.5, 0.36, 2],
-      [-2.6, 0.02, 24.4, 0.4, 0],
-      [3.1, 0.02, 23.7, 0.37, 1],
-      [8.7, 0.02, 24.3, 0.42, 2],
-      [14.3, 0.02, 23.5, 0.37, 0],
-      [18.8, 0.02, 24.0, 0.35, 1],
+      [-18.2, 0.02, -13.1, 0.32, 0],
+      [-13.8, 0.02, -13.5, 0.36, 1],
+      [-8.6, 0.02, -13.2, 0.33, 2],
+      [-3.4, 0.02, -13.7, 0.35, 0],
+      [2.2, 0.02, -13.3, 0.33, 1],
+      [7.9, 0.02, -13.6, 0.36, 2],
+      [13.6, 0.02, -13.2, 0.34, 0],
+      [18.0, 0.02, -13.4, 0.32, 1],
     ] as Array<[number, number, number, number, number]>,
     []
   );
   const parkBenches = useMemo(
     () => [
-      [-10.5, 0.5, -14.8, Math.PI + 0.28],
-      [9.2, 0.5, -14.9, Math.PI - 0.3],
-      [7.1, 0.5, 7.2, -0.72],
+      [-8.4, 0.5, 7.0, -0.18],
+      [8.6, 0.5, 7.2, 0.22],
     ] as Array<[number, number, number, number]>,
     []
   );
   const festivalBooths = useMemo(
     () => [
-      [-12.2, 0.02, -11.05, "#e9f6f1"],
-      [-5.15, 0.02, -12.25, "#e3b64c"],
-      [4.7, 0.02, -11.9, "#d84f43"],
-      [11.8, 0.02, -10.75, "#edf7ec"],
+      [-8.8, 0.02, 9.2, "#e9f6f1"],
+      [-3.8, 0.02, 8.5, "#e3b64c"],
+      [6.4, 0.02, 8.7, "#d84f43"],
+      [10.4, 0.02, 9.35, "#edf7ec"],
     ] as Array<[number, number, number, string]>,
+    []
+  );
+  const festivalVisitors = useMemo(
+    () => [
+      [-12.4, 0.02, 8.2, "#7c3aed", 0.28, 0.82],
+      [-11.45, 0.02, 9.15, "#2563eb", -0.42, 0.76],
+      [0.55, 0.02, 10.15, "#0f766e", 0.24, 0.84],
+      [1.65, 0.02, 10.55, "#d97706", -0.5, 0.8],
+      [13.05, 0.02, 8.15, "#be123c", -0.18, 0.82],
+      [14.05, 0.02, 9.0, "#15803d", 0.44, 0.78],
+      [-11.35, 0.02, -8.15, "#0369a1", 0.18, 0.72],
+      [-10.4, 0.02, -8.45, "#c2410c", -0.32, 0.76],
+      [6.35, 0.02, -8.15, "#6d28d9", 0.4, 0.74],
+      [7.25, 0.02, -8.5, "#0f766e", -0.26, 0.78],
+    ] as Array<[number, number, number, string, number, number]>,
     []
   );
   const hillsideRocks = useMemo(
@@ -1893,24 +1869,20 @@ function RoadsideVillageBackdrop() {
 
   return (
     <group>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.004, -14.2]} receiveShadow>
-        <planeGeometry args={[58, 22]} />
-        <meshStandardMaterial color="#9ab363" roughness={0.98} />
-      </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.004, 14.6]} receiveShadow>
-        <planeGeometry args={[58, 25]} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.004, 8.6]} receiveShadow>
+        <planeGeometry args={[38, 9.5]} />
         <meshStandardMaterial color="#95b060" roughness={0.98} />
       </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.012, -10.25]} receiveShadow>
-        <planeGeometry args={[52, 5.6]} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.012, -9.8]} receiveShadow>
+        <planeGeometry args={[40, 6.8]} />
         <meshStandardMaterial color="#8fb258" roughness={0.98} transparent opacity={0.82} />
       </mesh>
-      {mountains.map(([x, y, z, sx, sy, sz, color, rotation], index) => (
+      {mountains.map(([x, z, sx, sy, sz, color, rotation], index) => (
         <group
           key={`roadside-mountain-${index}`}
-          position={[x, y + sy * 0.2, z + (z > 0 ? 10.5 : -4.5)]}
+          position={[x, sy * 0.625 - 0.02, z + 8.2]}
           rotation={[0, rotation, 0]}
-          scale={[sx * 1.22, sy * 1.42, sz * 1.14]}
+          scale={[sx * 1.08, sy * 1.25, sz]}
         >
           <mesh castShadow receiveShadow>
             <coneGeometry args={[0.75, 1, 5]} />
@@ -1931,6 +1903,15 @@ function RoadsideVillageBackdrop() {
           position={[x, y, z]}
           scale={0.3}
           rotation={[0, rotation, 0]}
+        />
+      ))}
+      {festivalVisitors.map(([x, y, z, shirt, rotation, scale], index) => (
+        <TinyPerson
+          key={`roadside-festival-visitor-${index}`}
+          position={[x, y, z]}
+          shirt={shirt}
+          rotation={rotation}
+          scale={scale}
         />
       ))}
       {hillsideRocks.map(([x, y, z, scale, rotation], index) => (
@@ -1976,9 +1957,9 @@ function RoadsideVillageBackdrop() {
       {festivalBooths.map(([x, y, z, color], index) => (
         <DistantBooth key={`roadside-festival-booth-${index}`} position={[x, y, z]} color={color} />
       ))}
-      <FestivalRoadsideSign />
-      <RoadsideBuntingLine position={[-3.7, 0.02, -8.05]} rotationY={0.08} width={8} />
-      <RoadsideBuntingLine position={[4.65, 0.02, -8.2]} rotationY={-0.08} width={7.8} />
+      <FestivalRoadsideSign position={[3.1, 0.02, -7.15]} />
+      <RoadsideBuntingLine position={[-4.7, 0.02, 6.9]} rotationY={0.08} width={7.4} />
+      <RoadsideBuntingLine position={[4.5, 0.02, 7.0]} rotationY={-0.08} width={7.2} />
       <ReferenceFence position={[-10.2, 0.05, -7.1]} rotationY={0.02} segments={8} />
       <ReferenceFence position={[-2.8, 0.05, -7.15]} rotationY={0.02} segments={5} />
       <ReferenceFence position={[5.5, 0.05, -7.12]} rotationY={0.02} segments={7} />
@@ -2776,7 +2757,7 @@ function SceneViewControls({
   ];
 
   return (
-    <div className="pointer-events-auto absolute left-4 top-[590px] z-20 rounded-xl border border-white/15 bg-slate-950/68 p-2 shadow-2xl shadow-slate-950/35 backdrop-blur-md [@media(max-height:760px)]:bottom-[132px] [@media(max-height:760px)]:left-[424px] [@media(max-height:760px)]:top-auto [@media(max-height:760px)]:p-1.5">
+    <div className="pointer-events-auto absolute bottom-[108px] left-4 top-auto z-20 rounded-xl border border-white/15 bg-slate-950/68 p-2 shadow-2xl shadow-slate-950/35 backdrop-blur-md md:bottom-[132px] [@media(max-height:760px)]:p-1.5">
       <div className="mb-2 px-1 text-[10px] font-black uppercase tracking-[0.18em] text-teal-200 [@media(max-height:760px)]:sr-only">Scene view</div>
       <div className="grid grid-cols-4 gap-2 [@media(max-height:760px)]:gap-1.5">
         {controls.map(({ action, label, icon: Icon }) => (

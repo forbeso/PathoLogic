@@ -23,7 +23,7 @@ export default function EMTTrainerPage() {
           actions={
             <Link
               href="/exam/nremt"
-              className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-slate-400 hover:bg-slate-50"
+              className="inline-flex items-center gap-2 whitespace-nowrap rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-slate-400 hover:bg-slate-50"
             >
               Timed exam mode
               <Timer size={16} />

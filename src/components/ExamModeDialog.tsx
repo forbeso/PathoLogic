@@ -1,13 +1,17 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { AlertTriangle, X, Clock3, CheckCircle2, XCircle } from "lucide-react";
 import {
   cardClass,
   iconButtonClass,
   secondaryButtonClass,
 } from "@/components/AppShell";
+import type {
+  ExamAnswerPayload,
+  ExamAnswerResult,
+} from "@/lib/examApi";
 
 type Cue = { text: string; rationale: string };
-type Choice = { id: string; text: string; correct: boolean; why_right?: string; why_wrong?: string };
+type Choice = { id: string; text: string };
 type Step = { label: string; detail: string };
 type Item = {
   id: string;
@@ -21,20 +25,12 @@ type Item = {
   tags: string[];
 };
 
-export type ExamAnswerPayload = {
-  itemId: string;
-  selectedChoiceId: string | null;
-  correct: boolean;
-  timeSpentSeconds: number;
-  expired: boolean;
-};
-
 type Props = {
   open: boolean;
   onClose: () => void;             // X button / escape = EXIT exam
-  onAdvance?: () => void;          // "Next question" / "Finish exam"
+  onAdvance?: () => void | Promise<void>; // "Next question" / "Finish exam"
   item: Item;
-  onSubmitAnswer?: (payload: ExamAnswerPayload) => void;
+  onSubmitAnswer?: (payload: ExamAnswerPayload) => Promise<ExamAnswerResult>;
   hasNext?: boolean;
   currentQuestionNumber?: number;
   totalQuestions?: number;
@@ -65,6 +61,12 @@ export default function ExamModeDialog({
   const [timeRemaining, setTimeRemaining] = useState<number>(QUESTION_DURATION_SECONDS);
   const [hasReported, setHasReported] = useState(false);
   const [exitConfirmationOpen, setExitConfirmationOpen] = useState(false);
+  const [answerResult, setAnswerResult] = useState<ExamAnswerResult | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [advancing, setAdvancing] = useState(false);
+  const [advanceError, setAdvanceError] = useState<string | null>(null);
+  const reportedRef = useRef(false);
 
   // Reset every time you open or the item changes
   useEffect(() => {
@@ -75,7 +77,49 @@ export default function ExamModeDialog({
     setTimeRemaining(QUESTION_DURATION_SECONDS);
     setHasReported(false);
     setExitConfirmationOpen(false);
+    setAnswerResult(null);
+    setSubmitting(false);
+    setSubmitError(null);
+    setAdvancing(false);
+    setAdvanceError(null);
+    reportedRef.current = false;
   }, [open, item.id]);
+
+  const reportAnswer = useCallback(
+    async (
+      choiceId: string | null,
+      expiredFlag: boolean,
+      timeSpentSeconds: number
+    ) => {
+      if (reportedRef.current || !onSubmitAnswer) return;
+
+      reportedRef.current = true;
+      setHasReported(true);
+      setSubmitting(true);
+      setSubmitError(null);
+
+      try {
+        const result = await onSubmitAnswer({
+          itemId: item.id,
+          selectedChoiceId: choiceId,
+          timeSpentSeconds,
+          expired: expiredFlag,
+        });
+        setAnswerResult(result);
+      } catch (error: unknown) {
+        reportedRef.current = false;
+        setHasReported(false);
+        setSubmitError(
+          error instanceof Error
+            ? error.message
+            : "Unable to check your answer. Please try again."
+        );
+      } finally {
+        setSubmitting(false);
+      }
+    },
+    [item.id, onSubmitAnswer]
+  );
 
   // Timer
   useEffect(() => {
@@ -90,16 +134,11 @@ export default function ExamModeDialog({
           setSubmitted(true);
           // auto-report on timeout
           if (!hasReported) {
-            const selected = item.choices.find((c) => c.id === selectedChoiceId) || null;
-            const correct = !!selected && selected.correct;
-            setHasReported(true);
-            onSubmitAnswer?.({
-              itemId: item.id,
+            void reportAnswer(
               selectedChoiceId,
-              correct,
-              timeSpentSeconds: QUESTION_DURATION_SECONDS,
-              expired: true,
-            });
+              true,
+              QUESTION_DURATION_SECONDS
+            );
           }
           return 0;
         }
@@ -108,36 +147,54 @@ export default function ExamModeDialog({
     }, 1000);
 
     return () => window.clearInterval(id);
-  }, [open, submitted, expired, exitConfirmationOpen, selectedChoiceId, hasReported, item, onSubmitAnswer]);
+  }, [
+    open,
+    submitted,
+    expired,
+    exitConfirmationOpen,
+    selectedChoiceId,
+    hasReported,
+    reportAnswer,
+  ]);
 
   const fireReportIfNeeded = (expiredFlag: boolean) => {
-    if (hasReported) return;
-    const selected = item.choices.find((c) => c.id === selectedChoiceId) || null;
-    const correct = !!selected && selected.correct;
+    if (reportedRef.current) return;
     const timeSpentSeconds = expiredFlag
       ? QUESTION_DURATION_SECONDS
       : Math.max(0, QUESTION_DURATION_SECONDS - timeRemaining);
 
-    setHasReported(true);
-    onSubmitAnswer?.({
-      itemId: item.id,
-      selectedChoiceId,
-      correct,
-      timeSpentSeconds,
-      expired: expiredFlag,
-    });
+    void reportAnswer(selectedChoiceId, expiredFlag, timeSpentSeconds);
   };
 
-const handleAdvance = () => {
-  if (onAdvance) onAdvance();
-  else onClose();
-};
+  const handleAdvance = async () => {
+    if (advancing) return;
+    setAdvancing(true);
+    setAdvanceError(null);
+
+    try {
+      if (onAdvance) await onAdvance();
+      else onClose();
+    } catch (error: unknown) {
+      setAdvanceError(
+        error instanceof Error
+          ? error.message
+          : "Unable to continue. Please try again."
+      );
+    } finally {
+      setAdvancing(false);
+    }
+  };
 
 
   const handleSubmit = () => {
-    if (!selectedChoiceId || submitted) return;
+    if (!selectedChoiceId || submitted || submitting) return;
     setSubmitted(true);
     fireReportIfNeeded(false);
+  };
+
+  const retrySubmission = () => {
+    if (submitting || answerResult) return;
+    fireReportIfNeeded(expired);
   };
 
   const requestExit = () => {
@@ -161,14 +218,14 @@ const handleAdvance = () => {
   if (!open) return null;
 
   const selectedChoice = item.choices.find((c) => c.id === selectedChoiceId) || null;
-  const isCorrect = submitted && !!selectedChoice && selectedChoice.correct;
+  const isCorrect = Boolean(answerResult?.correct);
 
   const renderChoice = (choice: Choice, index: number) => {
     const isSelected = selectedChoiceId === choice.id;
-    const isChoiceCorrect = choice.correct;
+    const isChoiceCorrect = answerResult?.correctChoiceId === choice.id;
 
     let borderClasses = "border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm";
-    if (submitted) {
+    if (answerResult) {
       if (isChoiceCorrect) {
         borderClasses = "border-teal-500 bg-teal-50";
       } else if (isSelected && !isChoiceCorrect) {
@@ -186,7 +243,7 @@ const handleAdvance = () => {
       <button
         key={choice.id}
         type="button"
-        onClick={() => !submitted && setSelectedChoiceId(choice.id)}
+        onClick={() => !submitted && !submitting && setSelectedChoiceId(choice.id)}
         aria-label={`${letter}. ${choice.text}`}
         className={`w-full rounded-md border px-3 py-2 text-left text-sm transition ${borderClasses} ${
           submitted ? "cursor-default" : "cursor-pointer"
@@ -198,13 +255,17 @@ const handleAdvance = () => {
           </div>
           <div className="flex-1">
             <div className="text-[15px] text-slate-900">{choice.text}</div>
-            {submitted && (
+            {answerResult && (
               <>
-                {isChoiceCorrect && choice.why_right && (
-                  <p className="mt-1 text-xs text-teal-700">{choice.why_right}</p>
+                {isChoiceCorrect && answerResult.feedback[choice.id] && (
+                  <p className="mt-1 text-xs text-teal-700">
+                    {answerResult.feedback[choice.id]}
+                  </p>
                 )}
-                {!isChoiceCorrect && isSelected && choice.why_wrong && (
-                  <p className="mt-1 text-xs text-rose-700">{choice.why_wrong}</p>
+                {!isChoiceCorrect && isSelected && answerResult.feedback[choice.id] && (
+                  <p className="mt-1 text-xs text-rose-700">
+                    {answerResult.feedback[choice.id]}
+                  </p>
                 )}
               </>
             )}
@@ -223,19 +284,21 @@ const handleAdvance = () => {
     >
       <div className="relative flex max-h-[calc(100vh-2rem)] w-full max-w-5xl flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-2xl">
         {/* Header */}
-        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200/70 px-5 py-3">
-          <div>
+        <div className="flex items-start justify-between gap-2 border-b border-slate-200/70 px-4 py-3 sm:gap-3 sm:px-5">
+          <div className="min-w-0">
             <div className="text-xs font-semibold uppercase text-slate-500">
               {item.domain} / {item.topic}
             </div>
-            <h2 className="text-lg font-semibold text-slate-900">NREMT-style Exam Mode</h2>
+            <h2 className="text-base font-semibold text-slate-900 sm:text-lg">
+              NREMT-style Exam Mode
+            </h2>
             {currentQuestionNumber && totalQuestions ? (
               <div className="mt-1 text-xs font-medium text-slate-500">
                 Question {currentQuestionNumber} of {totalQuestions}
               </div>
             ) : null}
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             <div
               className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${
                 timeRemaining <= 10 || expired
@@ -290,7 +353,13 @@ const handleAdvance = () => {
               <div className="mt-4 flex flex-col gap-3 border-t border-slate-200 pt-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="text-xs text-slate-600">
                   {!submitted && !expired && <span>Question will auto-submit when timer hits 0.</span>}
-                  {submitted && (
+                  {submitting ? (
+                    <span>Checking your answer...</span>
+                  ) : null}
+                  {submitError ? (
+                    <span className="text-rose-700">{submitError}</span>
+                  ) : null}
+                  {answerResult && (
                     <div className="flex items-center gap-2">
                       <div
                         className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold ${
@@ -314,10 +383,10 @@ const handleAdvance = () => {
                   {!submitted && (
                     <button
                       type="button"
-                      disabled={!selectedChoiceId || expired}
+                      disabled={!selectedChoiceId || expired || submitting}
                       onClick={handleSubmit}
                       className={`inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-semibold shadow ${
-                        !selectedChoiceId || expired
+                        !selectedChoiceId || expired || submitting
                           ? "cursor-not-allowed bg-slate-200 text-slate-500"
                           : "bg-teal-600 text-white hover:bg-teal-500"
                       }`}
@@ -325,16 +394,36 @@ const handleAdvance = () => {
                       Lock in answer
                     </button>
                   )}
-                {submitted && (
-  <button
-    type="button"
-    onClick={handleAdvance}
-    className={secondaryButtonClass}
-  >
-    {hasNext ? "Next question" : "Finish exam"}
-  </button>
-)}
-
+                  {submitError && !submitting ? (
+                    <button
+                      type="button"
+                      onClick={retrySubmission}
+                      className={secondaryButtonClass}
+                    >
+                      Try again
+                    </button>
+                  ) : null}
+                  {advanceError ? (
+                    <p className="mr-auto text-xs font-medium text-rose-600" role="alert">
+                      {advanceError}
+                    </p>
+                  ) : null}
+                  {answerResult ? (
+                    <button
+                      type="button"
+                      onClick={handleAdvance}
+                      disabled={advancing}
+                      className={secondaryButtonClass}
+                    >
+                      {advancing
+                        ? hasNext
+                          ? "Loading..."
+                          : "Saving results..."
+                        : hasNext
+                          ? "Next question"
+                          : "Finish exam"}
+                    </button>
+                  ) : null}
                 </div>
               </div>
             </div>
