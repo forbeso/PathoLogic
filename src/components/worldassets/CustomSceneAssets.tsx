@@ -3,7 +3,7 @@ import { useLayoutEffect } from "react";
 import * as THREE from "three";
 import type { GLTF } from "three-stdlib";
 
-type ModelProps = JSX.IntrinsicElements["group"];
+type ModelProps = React.JSX.IntrinsicElements["group"];
 
 function AssetModel({ url, enhanceMaterials = false, ...props }: ModelProps & { url: string; enhanceMaterials?: boolean }) {
   const { scene } = useGLTF(url) as GLTF;
@@ -179,36 +179,3 @@ export function GeneratedAmbulanceModel(props: ModelProps) {
 export function GeneratedAmbulanceBakedModel(props: ModelProps) {
   return <AssetModel url="/models/emt-scene/triposr/ambulance-baked.glb" enhanceMaterials {...props} />;
 }
-
-useGLTF.preload("/models/emt-scene/legendsvr-rocks-303.glb");
-useGLTF.preload("/models/emt-scene/quaternius_cc0-bench-694.glb");
-useGLTF.preload("/models/emt-scene/quaternius_cc0-grass-1072.glb");
-useGLTF.preload("/models/emt-scene/cone.glb");
-useGLTF.preload("/models/emt-scene/terrain-sand-01.glb");
-useGLTF.preload("/models/emt-scene/terrain-ground-right-01.glb");
-useGLTF.preload("/models/emt-scene/terrain-ground-grass-01.glb");
-useGLTF.preload("/models/emt-scene/terrain-ground-01.glb");
-useGLTF.preload("/models/emt-scene/ground-platform-01.glb");
-useGLTF.preload("/models/emt-scene/quaternius_cc0-big-building-745.glb");
-useGLTF.preload("/models/emt-scene/quaternius_cc0-building-747.glb");
-useGLTF.preload("/models/emt-scene/quaternius_cc0-large-building-741.glb");
-useGLTF.preload("/models/emt-scene/quaternius_cc0-small-building-742.glb");
-useGLTF.preload("/models/emt-scene/quaternius_cc0-mossy-rock-1308.glb");
-useGLTF.preload("/models/emt-scene/quaternius_cc0-windmill-1504.glb");
-useGLTF.preload("/models/emt-scene/32809140-scaffolding-2637.glb");
-useGLTF.preload("/models/emt-scene/paramedic-guide.glb");
-useGLTF.preload("/models/emt-scene/custom/first-aid-bag.glb");
-useGLTF.preload("/models/emt-scene/custom/ambulance.glb");
-useGLTF.preload("/models/emt-scene/custom/patient.glb");
-useGLTF.preload("/models/emt-scene/triposr/first-aid-bag.glb");
-useGLTF.preload("/models/emt-scene/triposr/first-aid-bag-baked.glb");
-useGLTF.preload("/models/emt-scene/triposr/bystanders-couple.glb");
-useGLTF.preload("/models/emt-scene/triposr/bystanders-couple-baked.glb");
-useGLTF.preload("/models/emt-scene/triposr/damaged-blue-car.glb");
-useGLTF.preload("/models/emt-scene/triposr/damaged-blue-car-baked.glb");
-useGLTF.preload("/models/emt-scene/triposr/barking-dog.glb");
-useGLTF.preload("/models/emt-scene/triposr/barking-dog-baked.glb");
-useGLTF.preload("/models/emt-scene/triposr/lying-patient.glb");
-useGLTF.preload("/models/emt-scene/triposr/lying-patient-baked.glb");
-useGLTF.preload("/models/emt-scene/triposr/ambulance.glb");
-useGLTF.preload("/models/emt-scene/triposr/ambulance-baked.glb");

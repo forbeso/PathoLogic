@@ -53,7 +53,6 @@ export default function MyScenariosPage() {
   useEffect(() => {
     if (!session) return;
     loadData(page, topic, q);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, page, topic, q]);
 
   async function loadData(pg: number, topicFilter: string, query: string) {

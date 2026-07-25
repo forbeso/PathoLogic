@@ -19,8 +19,8 @@ type GLTFResult = GLTF & {
   animations: THREE.AnimationClip[]
 }
 
-export function Model(props: JSX.IntrinsicElements['group']) {
-  const { nodes, materials } = useGLTF('/Bench_01-transformed.glb') as GLTFResult
+export function Model(props: React.JSX.IntrinsicElements['group']) {
+  const { nodes, materials } = useGLTF('/Bench_01-transformed.glb') as unknown as GLTFResult
   return (
     <group {...props} dispose={null}>
       <mesh geometry={nodes.Bench_01.geometry} material={materials['Tower_Station_PropSet_01_Mat ']} rotation={[Math.PI / 2, 0, 0]} scale={0.01} />

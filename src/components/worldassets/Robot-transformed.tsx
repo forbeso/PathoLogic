@@ -19,8 +19,8 @@ type GLTFResult = GLTF & {
   animations: THREE.AnimationClip[]
 }
 
-export function Model(props: JSX.IntrinsicElements['group']) {
-  const { nodes, materials } = useGLTF('/Robot-transformed-transformed.glb') as GLTFResult
+export function Model(props: React.JSX.IntrinsicElements['group']) {
+  const { nodes, materials } = useGLTF('/Robot-transformed-transformed.glb') as unknown as GLTFResult
   return (
     <group {...props} dispose={null}>
       <mesh geometry={nodes.Robot.geometry} material={materials.Robot} rotation={[Math.PI / 2, 0, 0]} />

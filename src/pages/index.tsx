@@ -1,6 +1,5 @@
 import Header from "@/components/Header";
 import LandingPage from "@/components/LandingPage";
-import { Analytics } from "@vercel/analytics/next";
 import { AppShell } from "@/components/AppShell";
 import Seo, { SITE_URL } from "@/components/Seo";
 
@@ -42,7 +41,6 @@ export default function Home() {
           ],
         }}
       />
-      <Analytics />
       <Header />
       <LandingPage />
     </AppShell>

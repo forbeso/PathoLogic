@@ -42,6 +42,14 @@ const domainsFromCards = (cards: Flashcard[]) => {
   return Array.from(set).sort();
 };
 
+function stableShuffleValue(id: string, seed: number) {
+  let hash = seed | 0;
+  for (let index = 0; index < id.length; index += 1) {
+    hash = Math.imul(hash ^ id.charCodeAt(index), 0x45d9f3b);
+  }
+  return (hash ^ (hash >>> 16)) >>> 0;
+}
+
 function difficultyChip(diff?: Flashcard["difficulty"]) {
   switch (diff) {
     case "Easy":
@@ -62,6 +70,7 @@ export default function FlashcardTrainer() {
 
   const [domainFilter, setDomainFilter] = useState<string | "All">("All");
   const [shuffleMode, setShuffleMode] = useState(false);
+  const [shuffleSeed, setShuffleSeed] = useState(0);
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
 
@@ -113,8 +122,12 @@ export default function FlashcardTrainer() {
         : cards.filter((c) => c.domain === domainFilter);
 
     if (!shuffleMode) return base;
-    return [...base].sort(() => Math.random() - 0.5);
-  }, [cards, domainFilter, shuffleMode]);
+    return [...base].sort(
+      (left, right) =>
+        stableShuffleValue(left.id, shuffleSeed) -
+        stableShuffleValue(right.id, shuffleSeed)
+    );
+  }, [cards, domainFilter, shuffleMode, shuffleSeed]);
 
   const total = filtered.length;
   const current = filtered[index] ?? null;
@@ -196,7 +209,12 @@ export default function FlashcardTrainer() {
 
             <button
               type="button"
-              onClick={() => setShuffleMode((s) => !s)}
+              onClick={() => {
+                if (!shuffleMode) setShuffleSeed(Date.now());
+                setShuffleMode((enabled) => !enabled);
+                setIndex(0);
+                setFlipped(false);
+              }}
               className={`inline-flex items-center gap-1 rounded-md border px-3 py-2 text-xs font-semibold ${
                 shuffleMode
                   ? "border-teal-300 bg-teal-50 text-teal-700"

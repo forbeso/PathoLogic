@@ -247,7 +247,6 @@ export default function EMTScenarioTrainer() {
     };
 
     run();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading]);
 
   async function startAdaptive(preferredTopic?: string) {

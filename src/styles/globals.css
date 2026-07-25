@@ -19,6 +19,18 @@ body {
     radial-gradient(circle at 88% 2%, rgba(125, 211, 252, 0.2), transparent 30rem),
     linear-gradient(135deg, #eef8f5 0%, #e7f4f0 42%, #eaf5ff 100%);
 }
+
+@keyframes route-progress {
+  0% {
+    transform: translateX(-100%);
+  }
+  55% {
+    transform: translateX(55%);
+  }
+  100% {
+    transform: translateX(160%);
+  }
+}
 /* @import "tailwindcss/base"; */
 
 
