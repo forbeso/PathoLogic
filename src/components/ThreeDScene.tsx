@@ -24,6 +24,10 @@ import type { Group } from "three";
 // import { EMTCharacter } from "@/components/EMTCharacter";
 
 import type { InteractiveObjectConfig, ScenarioState } from "@/lib/emtSceneEngine";
+import {
+  COLLISION_RADIO_POSITION,
+  FESTIVAL_RADIO_POSITION,
+} from "@/lib/emtSceneLayout";
 import { LoaderCircle, MoveLeft, MoveRight, ZoomIn, ZoomOut } from "lucide-react";
 import { Model as BushModel } from "@/components/worldassets/Bush02";
 import { Model as GrassModel } from "@/components/worldassets/SmallGrass01";
@@ -2145,7 +2149,7 @@ function RoadsideFestivalEmergencyScene({
       <RoadsideVillageBackdrop />
 
       <SceneAmbulance position={[-4.55, 0.96, -4.78]} scale={3.78} rotationY={0.34} />
-      <FloatingWalkieTalkie position={[-4.55, 2.78, -3.52]} />
+      <FloatingWalkieTalkie position={FESTIVAL_RADIO_POSITION} />
       {/* DamagedCar is intentionally hidden for this focused single-scene pass. */}
       {/* <DamagedCar position={[3.85, 0.08, -4.72]} /> */}
 
@@ -2373,7 +2377,7 @@ function CarAccidentEmergencyScene({
       <ResidentialRoadEdge />
 
       <SceneAmbulance position={[-2.8, 0.94, 1.15]} scale={3.45} rotationY={0.06} />
-      <FloatingWalkieTalkie position={[-0.9, 2.62, 2.65]} scale={0.36} />
+      <FloatingWalkieTalkie position={COLLISION_RADIO_POSITION} scale={0.36} />
       <DamagedCar position={[2.6, 0.12, 0]} rotationY={0.02} showDriver />
       <CustomFirstAidBagModel
         position={medicalBagPosition}
@@ -3162,12 +3166,14 @@ function ReflectiveBand({
 function GLBParamedicGuide({
   position = GUIDE_PARAMEDIC_POSITION,
   rotationY = 0.6,
+  mobileRotationY,
   onClick,
   showGuidePulse = false,
   hasGloves = false,
 }: {
   position?: Vec3;
   rotationY?: number;
+  mobileRotationY?: number;
   onClick?: () => void;
   showGuidePulse?: boolean;
   hasGloves?: boolean;
@@ -3176,7 +3182,7 @@ function GLBParamedicGuide({
   const guidePulse = useRef<THREE.Mesh>(null);
   const guidePulseMaterial = useRef<THREE.MeshStandardMaterial>(null);
   const { size } = useThree();
-  const actualRotationY = size.width < 768 ? MOBILE_GUIDE_PARAMEDIC_ROTATION_Y : rotationY;
+  const actualRotationY = size.width < 768 ? mobileRotationY ?? rotationY : rotationY;
 
   useFrame(({ clock }) => {
     const t = clock.getElapsedTime();
@@ -4380,6 +4386,11 @@ export default function ThreeDScene({
         <GLBParamedicGuide
           position={medicPosition}
           rotationY={useCarAccidentScene ? CRASH_RESPONSE_ROTATION_Y : 0.58}
+          mobileRotationY={
+            useCarAccidentScene
+              ? CRASH_RESPONSE_ROTATION_Y
+              : MOBILE_GUIDE_PARAMEDIC_ROTATION_Y
+          }
           onClick={focusGuideParamedic}
           showGuidePulse={showGuideIntro && guideStep === "done"}
           hasGloves={equippedItems.includes("gloves")}

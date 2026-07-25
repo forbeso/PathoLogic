@@ -1,3 +1,8 @@
+import {
+  COLLISION_RADIO_POSITION,
+  FESTIVAL_RADIO_POSITION,
+} from "@/lib/emtSceneLayout";
+
 export type ScenarioPhase =
   | "dispatch"
   | "sceneSafety"
@@ -409,9 +414,9 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
       category: "vehicle",
       visibleWhen: ["DOG_INSPECTED"],
       completedWhen: ["DOG_SECURED"],
-      position: [-4.55, 2.06, -3.52],
+      position: FESTIVAL_RADIO_POSITION,
       focusPosition: [-2.45, 1.65, -1.35],
-      focusTarget: [-4.45, 1.72, -3.45],
+      focusTarget: FESTIVAL_RADIO_POSITION,
       highlightColor: "#2dd4bf",
       actions: [
         {
@@ -980,9 +985,9 @@ export const carAccidentScenario: SceneScenarioConfig = {
       category: "vehicle",
       visibleWhen: ["CRASH_SCENE_INSPECTED"],
       completedWhen: ["TRAFFIC_CONTROLLED"],
-      position: [-0.9, 2.25, 2.65],
+      position: COLLISION_RADIO_POSITION,
       focusPosition: [2.4, 2.35, 5.7],
-      focusTarget: [-0.85, 1.85, 2.55],
+      focusTarget: COLLISION_RADIO_POSITION,
       highlightColor: "#2dd4bf",
       actions: [
         {

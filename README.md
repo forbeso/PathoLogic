@@ -26,6 +26,11 @@ This project uses [`next/font`](https://nextjs.org/docs/pages/building-your-appl
 
 ## Learn More
 
+Project-specific workflows:
+
+- [3D asset pipeline and performance budgets](docs/3d-asset-pipeline.md)
+- [Local TripoSR asset generation](docs/triposr-local-assets.md)
+
 To learn more about Next.js, take a look at the following resources:
 
 - [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.

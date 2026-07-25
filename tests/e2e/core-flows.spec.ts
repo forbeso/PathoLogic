@@ -129,22 +129,40 @@ test("flashcards reveal answers and advance cleanly", async ({ page }) => {
 });
 
 test("EMT Scene renders its responsive training shell", async ({ page }, testInfo) => {
-  test.setTimeout(90_000);
+  test.setTimeout(180_000);
   await page.goto("/emtscene");
 
   await expect(page.getByRole("link", { name: "PathoLogix home" })).toBeVisible();
   const canvas = page.locator("canvas");
+  const sceneLoader = page.getByRole("heading", { name: "Preparing EMT Scene" });
   await expect(canvas).toHaveCount(1);
-  await expect(page.getByRole("heading", { name: "Preparing EMT Scene" })).toBeHidden({
-    timeout: 60_000,
-  });
+  await expect(sceneLoader).toBeVisible({ timeout: 30_000 });
+  await expect(sceneLoader).toBeHidden({ timeout: 120_000 });
   const canvasScreenshot = await canvas.screenshot();
   expect(canvasScreenshot.byteLength).toBeGreaterThan(10_000);
   await expect(page.locator("body")).not.toContainText("Application error");
+  const collisionModelLoaded = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/models/emt-scene/quaternius_cc0-large-building-741.glb"),
+    { timeout: 120_000 }
+  );
 
   if (testInfo.project.name.startsWith("mobile")) {
-    await expect(page.getByRole("button", { name: "Switch scene" })).toBeVisible();
+    const sceneSwitcher = page.getByRole("button", { name: "Switch scene" });
+    await expect(sceneSwitcher).toBeVisible();
     await expect(page.getByRole("button", { name: "Show HUD" })).toBeVisible();
+    await sceneSwitcher.click();
+    await page
+      .getByLabel("Select mobile scenario")
+      .selectOption({ label: "Driver Trapped After Collision" });
+    await expect(sceneSwitcher).toBeVisible();
+    await sceneSwitcher.click();
+    await expect(
+      page.getByRole("heading", {
+        name: "Driver Trapped After Collision",
+        exact: true,
+      })
+    ).toBeVisible();
   } else {
     await expect(page.getByText("Active Dispatch")).toBeVisible();
     await expect(
@@ -153,8 +171,23 @@ test("EMT Scene renders its responsive training shell", async ({ page }, testInf
         exact: true,
       })
     ).toBeVisible();
+    await page
+      .getByLabel("Select scenario")
+      .selectOption({ label: "Driver Trapped After Collision" });
+    await expect(
+      page.getByRole("heading", {
+        name: "Driver Trapped After Collision",
+        exact: true,
+      })
+    ).toBeVisible();
   }
 
+  const collisionModelResponse = await collisionModelLoaded;
+  expect(collisionModelResponse.ok()).toBe(true);
+  await expect(sceneLoader).toBeHidden({ timeout: 120_000 });
+  const collisionScreenshot = await canvas.screenshot();
+  expect(collisionScreenshot.byteLength).toBeGreaterThan(5_000);
+  await expect(page.locator("body")).not.toContainText("Application error");
   await expectNoHorizontalOverflow(page);
 });
 

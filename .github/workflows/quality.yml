@@ -37,6 +37,9 @@ jobs:
       - name: Type-check
         run: npm run typecheck
 
+      - name: Check performance budgets
+        run: npm run check:budgets
+
       - name: Build
         run: npm run build
 
