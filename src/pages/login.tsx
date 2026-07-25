@@ -10,9 +10,8 @@ import {
   cardClass,
   inputClass,
   primaryButtonClass,
-  secondaryButtonClass,
 } from "@/components/AppShell";
-import { ArrowRight, Github, LockKeyhole, Mail, ShieldCheck } from "lucide-react";
+import { ArrowRight, LockKeyhole, Mail, ShieldCheck } from "lucide-react";
 
 type AuthView = "sign-in" | "sign-up" | "forgot-password";
 
@@ -110,19 +109,6 @@ export default function LoginPage() {
     }
   }
 
-  async function handleOAuth(provider: "google" | "github") {
-    setSubmitting(true);
-    setError("");
-    const { error: oauthError } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: { redirectTo: callbackUrl() },
-    });
-    if (oauthError) {
-      setError(oauthError.message);
-      setSubmitting(false);
-    }
-  }
-
   return (
     <AppShell>
       <Seo
@@ -154,36 +140,6 @@ export default function LoginPage() {
           />
 
           <div className={`${cardClass} mt-6 p-6`}>
-            {view !== "forgot-password" ? (
-              <>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleOAuth("google")}
-                    disabled={submitting}
-                    className={secondaryButtonClass}
-                  >
-                    <span className="text-base font-black text-sky-600">G</span>
-                    Google
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleOAuth("github")}
-                    disabled={submitting}
-                    className={secondaryButtonClass}
-                  >
-                    <Github size={17} />
-                    GitHub
-                  </button>
-                </div>
-                <div className="my-5 flex items-center gap-3 text-xs font-semibold uppercase text-slate-400">
-                  <span className="h-px flex-1 bg-slate-200" />
-                  or use email
-                  <span className="h-px flex-1 bg-slate-200" />
-                </div>
-              </>
-            ) : null}
-
             <form onSubmit={handleEmailAuth} className="space-y-4">
               <label className="block">
                 <span className="mb-1.5 block text-sm font-semibold text-slate-800">

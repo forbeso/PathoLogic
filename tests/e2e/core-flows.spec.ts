@@ -164,9 +164,13 @@ test("account access exposes sign-in, sign-up, and recovery views", async ({ pag
   await expect(page.getByRole("heading", { name: "Sign in to PathoLogix" })).toBeVisible();
   await expect(page.getByLabel("Email address")).toBeVisible();
   await expect(page.getByLabel("Password")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Google" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "GitHub" })).toHaveCount(0);
 
   await page.getByRole("button", { name: "Create an account" }).click();
   await expect(page.getByRole("heading", { name: "Create your account" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Google" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "GitHub" })).toHaveCount(0);
 
   await page.getByRole("button", { name: "Back to sign in" }).click();
   await page.getByRole("button", { name: "Forgot password?" }).click();
