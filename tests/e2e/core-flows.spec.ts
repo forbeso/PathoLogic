@@ -169,6 +169,12 @@ test("account access exposes sign-in, sign-up, and recovery views", async ({ pag
 
   await page.getByRole("button", { name: "Create an account" }).click();
   await expect(page.getByRole("heading", { name: "Create your account" })).toBeVisible();
+  await expect(
+    page.getByText("Email and password are all you need.")
+  ).toBeVisible();
+  await expect(
+    page.getByText(/verification link after registration/i)
+  ).toBeVisible();
   await expect(page.getByRole("button", { name: "Google" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "GitHub" })).toHaveCount(0);
 

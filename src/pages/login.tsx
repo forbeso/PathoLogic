@@ -11,7 +11,7 @@ import {
   inputClass,
   primaryButtonClass,
 } from "@/components/AppShell";
-import { ArrowRight, LockKeyhole, Mail, ShieldCheck } from "lucide-react";
+import { ArrowRight, LockKeyhole, Mail, MailCheck, ShieldCheck } from "lucide-react";
 
 type AuthView = "sign-in" | "sign-up" | "forgot-password";
 
@@ -140,6 +140,25 @@ export default function LoginPage() {
           />
 
           <div className={`${cardClass} mt-6 p-6`}>
+            {view === "sign-up" ? (
+              <div className="mb-5 flex gap-3 rounded-md border border-teal-200 bg-teal-50 px-4 py-3 text-left">
+                <MailCheck
+                  size={19}
+                  className="mt-0.5 shrink-0 text-teal-700"
+                  aria-hidden="true"
+                />
+                <div>
+                  <div className="text-sm font-bold text-teal-900">
+                    Email and password are all you need.
+                  </div>
+                  <p className="mt-1 text-sm leading-5 text-teal-800">
+                    We will email you a verification link after registration.
+                    Open that link to confirm your account and sign in.
+                  </p>
+                </div>
+              </div>
+            ) : null}
+
             <form onSubmit={handleEmailAuth} className="space-y-4">
               <label className="block">
                 <span className="mb-1.5 block text-sm font-semibold text-slate-800">
