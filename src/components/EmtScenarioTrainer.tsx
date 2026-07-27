@@ -24,6 +24,7 @@ import {
 } from "@/lib/adaptive";
 import { supabase } from "@/lib/supabase";
 import { authenticatedFetch } from "@/lib/authenticatedFetch";
+import { reportClientIssue, trackProductEvent } from "@/lib/telemetry";
 import {
   cardClass,
   mutedCardClass,
@@ -250,6 +251,9 @@ export default function EMTScenarioTrainer() {
   }, [loading]);
 
   async function startAdaptive(preferredTopic?: string) {
+    trackProductEvent("adaptive_practice_started", {
+      source: preferredTopic?.trim() ? "topic" : "weakest_topic",
+    });
     try {
       setAdaptiveLoading(true);
       setAdaptiveLoadError(null);
@@ -276,6 +280,7 @@ export default function EMTScenarioTrainer() {
 
       // 3) Load from cache or generate
       let scenario = await getCachedGeneratedScenario(topic);
+      const loadedFromCache = Boolean(scenario);
       if (!scenario) {
         const res = await authenticatedFetch("/api/generateScenario", {
           method: "POST",
@@ -313,8 +318,16 @@ export default function EMTScenarioTrainer() {
       setAnswerSaveError(null);
       setPendingAnswer(null);
       localStorage.removeItem(ADAPTIVE_TARGET_STORAGE_KEY);
+      trackProductEvent("adaptive_practice_loaded", {
+        source: loadedFromCache ? "cache" : "generated",
+      });
     } catch (e) {
       console.error("Adaptive load failed:", e);
+      reportClientIssue(e, {
+        context: "adaptive_practice",
+        code: "ADAPTIVE_LOAD_FAILED",
+        recoverable: true,
+      });
       setAdaptiveLoadError(
         "We could not prepare that targeted scenario. Your current question is still available."
       );
@@ -366,8 +379,17 @@ export default function EMTScenarioTrainer() {
     try {
       await recordResult(answer);
       setPendingAnswer(null);
+      trackProductEvent("practice_answered", {
+        correct: answer.correct,
+        source: answer.source,
+      });
     } catch (error) {
       console.error("Failed to record result", error);
+      reportClientIssue(error, {
+        context: "practice_save",
+        code: "PRACTICE_SAVE_FAILED",
+        recoverable: true,
+      });
       setAnswerSaveError(
         "Your answer is shown, but it could not be added to your progress."
       );

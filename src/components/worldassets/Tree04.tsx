@@ -32,5 +32,3 @@ export function Model(props: React.JSX.IntrinsicElements['group']) {
     </group>
   )
 }
-
-useGLTF.preload('/Tree04-transformed.glb')

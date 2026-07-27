@@ -5,6 +5,7 @@ import {
   iconButtonClass,
   secondaryButtonClass,
 } from "@/components/AppShell";
+import { useModalFocus } from "@/hooks/useModalFocus";
 import type {
   ExamAnswerPayload,
   ExamAnswerResult,
@@ -67,6 +68,10 @@ export default function ExamModeDialog({
   const [advancing, setAdvancing] = useState(false);
   const [advanceError, setAdvanceError] = useState<string | null>(null);
   const reportedRef = useRef(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const exitButtonRef = useRef<HTMLButtonElement>(null);
+  const exitConfirmationRef = useRef<HTMLDivElement>(null);
+  const continueExamButtonRef = useRef<HTMLButtonElement>(null);
 
   // Reset every time you open or the item changes
   useEffect(() => {
@@ -206,14 +211,19 @@ export default function ExamModeDialog({
     onClose();
   };
 
-  const closeOnEsc = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.key !== "Escape") return;
-    if (exitConfirmationOpen) {
-      setExitConfirmationOpen(false);
-      return;
-    }
-    requestExit();
-  };
+  useModalFocus({
+    active: open && !exitConfirmationOpen,
+    containerRef: dialogRef,
+    initialFocusRef: exitButtonRef,
+    onEscape: requestExit,
+  });
+
+  useModalFocus({
+    active: open && exitConfirmationOpen,
+    containerRef: exitConfirmationRef,
+    initialFocusRef: continueExamButtonRef,
+    onEscape: () => setExitConfirmationOpen(false),
+  });
 
   if (!open) return null;
 
@@ -245,6 +255,9 @@ export default function ExamModeDialog({
         type="button"
         onClick={() => !submitted && !submitting && setSelectedChoiceId(choice.id)}
         aria-label={`${letter}. ${choice.text}`}
+        role="radio"
+        aria-checked={isSelected}
+        disabled={submitted || submitting}
         className={`w-full rounded-md border px-3 py-2 text-left text-sm transition ${borderClasses} ${
           submitted ? "cursor-default" : "cursor-pointer"
         }`}
@@ -278,18 +291,24 @@ export default function ExamModeDialog({
   return (
     <div
       className="fixed inset-0 z-[60] grid place-items-center bg-slate-700/28 p-4 backdrop-blur-sm"
-      onKeyDown={closeOnEsc}
+    >
+      <div
+        ref={dialogRef}
+        tabIndex={-1}
+        aria-hidden={exitConfirmationOpen ? "true" : undefined}
+        inert={exitConfirmationOpen}
+        className="relative flex max-h-[calc(100vh-2rem)] w-full max-w-5xl flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-2xl outline-none"
       role="dialog"
       aria-modal="true"
+        aria-labelledby="exam-dialog-title"
     >
-      <div className="relative flex max-h-[calc(100vh-2rem)] w-full max-w-5xl flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-2xl">
         {/* Header */}
         <div className="flex items-start justify-between gap-2 border-b border-slate-200/70 px-4 py-3 sm:gap-3 sm:px-5">
           <div className="min-w-0">
             <div className="text-xs font-semibold uppercase text-slate-500">
               {item.domain} / {item.topic}
             </div>
-            <h2 className="text-base font-semibold text-slate-900 sm:text-lg">
+            <h2 id="exam-dialog-title" className="text-base font-semibold text-slate-900 sm:text-lg">
               NREMT-style Exam Mode
             </h2>
             {currentQuestionNumber && totalQuestions ? (
@@ -312,6 +331,8 @@ export default function ExamModeDialog({
             </div>
 
             <button
+              ref={exitButtonRef}
+              type="button"
               onClick={requestExit}
               className={iconButtonClass}
               aria-label="Exit exam"
@@ -343,10 +364,14 @@ export default function ExamModeDialog({
             </div>
 
             <div className={`${cardClass} p-4`}>
-              <h3 className="mb-3 text-xs font-semibold uppercase text-slate-500">
+              <h3 id="exam-answer-options" className="mb-3 text-xs font-semibold uppercase text-slate-500">
                 Select one answer
               </h3>
-              <div className="space-y-2">
+              <div
+                className="space-y-2"
+                role="radiogroup"
+                aria-labelledby="exam-answer-options"
+              >
                 {item.choices.map((choice, idx) => renderChoice(choice, idx))}
               </div>
 
@@ -454,12 +479,16 @@ export default function ExamModeDialog({
       {exitConfirmationOpen && (
         <div
           className="fixed inset-0 z-[70] grid place-items-center bg-slate-950/45 p-4 backdrop-blur-sm"
+        >
+          <div
+            ref={exitConfirmationRef}
+            tabIndex={-1}
+            className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-5 shadow-2xl outline-none"
           role="alertdialog"
           aria-modal="true"
           aria-labelledby="end-exam-title"
           aria-describedby="end-exam-description"
         >
-          <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-5 shadow-2xl">
             <div className="flex items-start gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-100 text-rose-700">
                 <AlertTriangle size={20} aria-hidden="true" />
@@ -476,6 +505,7 @@ export default function ExamModeDialog({
 
             <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button
+                ref={continueExamButtonRef}
                 type="button"
                 onClick={() => setExitConfirmationOpen(false)}
                 className={secondaryButtonClass}

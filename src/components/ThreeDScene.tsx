@@ -19,6 +19,7 @@ import {
   type Ref,
   type RefObject,
 } from "react";
+import { useReducedMotion } from "framer-motion";
 import * as THREE from "three";
 import type { Group } from "three";
 // import { EMTCharacter } from "@/components/EMTCharacter";
@@ -36,9 +37,7 @@ import { Model as Stone04Model } from "@/components/worldassets/Stone04";
 import { Model as Stone05Model } from "@/components/worldassets/Stone05";
 import { Model as TerrainGrassModel } from "@/components/worldassets/TerrainGrass01";
 import { Model as Tree01ArtModel } from "@/components/worldassets/Tree01_Art";
-import { Model as Tree02Model } from "@/components/worldassets/Tree02";
 import { Model as Tree03Model } from "@/components/worldassets/Tree03";
-import { Model as Tree04Model } from "@/components/worldassets/Tree04";
 import {
   CustomAmbulanceModel,
   CustomFirstAidBagModel,
@@ -47,8 +46,6 @@ import {
   DownloadedBenchModel,
   DownloadedBuildingModel,
   DownloadedConeModel,
-  DownloadedEchinaceaModel,
-  DownloadedFlowerModel,
   DownloadedGroundPlatformModel,
   DownloadedGrassModel,
   DownloadedLargeBuildingModel,
@@ -61,7 +58,6 @@ import {
   DownloadedTerrainGroundModel,
   DownloadedTerrainGroundRightModel,
   DownloadedTerrainSandModel,
-  DownloadedTulipModel,
   DownloadedWindmillModel,
 } from "@/components/worldassets/CustomSceneAssets";
 
@@ -132,7 +128,7 @@ const MOBILE_GUIDE_PARAMEDIC_ROTATION_Y = 0;
 const MOBILE_GUIDE_CAMERA_POSITION: Vec3 = [0.35, 1.54, 2.92];
 const MOBILE_GUIDE_CAMERA_TARGET: Vec3 = [0.35, 1.32, 0.95];
 const MOBILE_NORMAL_CAMERA_POSITION: Vec3 = [-1.95, 1.48, -0.72];
-const MOBILE_NORMAL_CAMERA_TARGET: Vec3 = [5.0, 0.75, 1.25];
+const MOBILE_NORMAL_CAMERA_TARGET: Vec3 = [5.0, 0.42, 1.25];
 const CRASH_CAMERA_POSITION: Vec3 = [-2.7, 3.4, 10.6];
 const CRASH_CAMERA_TARGET: Vec3 = [0.35, 0.52, 1.15];
 const MOBILE_CRASH_CAMERA_POSITION: Vec3 = [-0.65, 2.35, 7.7];
@@ -308,11 +304,18 @@ function Shrub({ position, scale = 1 }: { position: Vec3; scale?: number }) {
 }
 
 function WorldTree({ position, scale = 1, variant = 0 }: { position: Vec3; scale?: number; variant?: number }) {
-  // Exclude palms from the main mixed tree pool so we can place fewer, controlled palms
-  const treeModels = [Tree02Model, Tree03Model, Tree04Model];
-  const Asset = treeModels[variant % treeModels.length];
+  const widthVariation = [1, 0.86, 1.12][variant % 3];
+  const heightVariation = [1, 1.08, 0.92][variant % 3];
 
-  return <Asset position={position} scale={scale} />;
+  return (
+    <group
+      position={position}
+      rotation={[0, (variant % 6) * 0.72, 0]}
+      scale={[scale * widthVariation, scale * heightVariation, scale * widthVariation]}
+    >
+      <Tree03Model />
+    </group>
+  );
 }
 
 function WorldBush({ position, scale = 1, variant = 0 }: { position: Vec3; scale?: number; variant?: number }) {
@@ -353,6 +356,52 @@ function DistantBooth({ position, color }: { position: Vec3; color: string }) {
         <boxGeometry args={[1.9, 0.9, 1.25]} />
         <meshStandardMaterial color="#9b704d" roughness={0.95} />
       </mesh>
+    </group>
+  );
+}
+
+const FLOWER_STEMS = [
+  [-0.26, 0, -0.1, 0.84],
+  [-0.08, 0, 0.16, 1.0],
+  [0.12, 0, -0.14, 0.9],
+  [0.28, 0, 0.12, 0.76],
+  [0.02, 0, 0.02, 1.08],
+] as const;
+
+function LowPolyFlowerPatch({
+  position,
+  rotation = 0,
+  scale = 1,
+  petalColor,
+  centerColor,
+}: {
+  position: Vec3;
+  rotation?: number;
+  scale?: number;
+  petalColor: string;
+  centerColor: string;
+}) {
+  return (
+    <group position={position} rotation={[0, rotation, 0]} scale={scale}>
+      {FLOWER_STEMS.map(([x, , z, height], index) => (
+        <group key={`flower-stem-${index}`} position={[x, 0, z]}>
+          <mesh position={[0, height * 0.24, 0]}>
+            <cylinderGeometry args={[0.012, 0.018, height * 0.48, 6]} />
+            <meshStandardMaterial color="#4f7a3f" roughness={0.96} />
+          </mesh>
+          <mesh
+            position={[0, height * 0.49, 0]}
+            rotation={[index % 2 ? 0.18 : -0.12, index * 0.72, 0]}
+          >
+            <sphereGeometry args={[0.075, 7, 5]} />
+            <meshStandardMaterial color={petalColor} roughness={0.88} />
+          </mesh>
+          <mesh position={[0, height * 0.505, 0.065]}>
+            <sphereGeometry args={[0.032, 7, 5]} />
+            <meshStandardMaterial color={centerColor} roughness={0.82} />
+          </mesh>
+        </group>
+      ))}
     </group>
   );
 }
@@ -399,9 +448,14 @@ function CloudCluster({
   phase?: number;
 }) {
   const ref = useRef<THREE.Group>(null);
+  const reduceMotion = useReducedMotion();
 
   useFrame(({ clock }) => {
     if (!ref.current) return;
+    if (reduceMotion) {
+      ref.current.position.set(...position);
+      return;
+    }
     const t = clock.getElapsedTime() * drift + phase;
     ref.current.position.x = position[0] + Math.sin(t) * driftVector[0];
     ref.current.position.y = position[1] + Math.sin(t * 0.7) * driftVector[1];
@@ -1884,7 +1938,7 @@ function RoadsideVillageBackdrop() {
       {mountains.map(([x, z, sx, sy, sz, color, rotation], index) => (
         <group
           key={`roadside-mountain-${index}`}
-          position={[x, sy * 0.625 - 0.02, z + 8.2]}
+          position={[x, sy * 0.625 - 0.02, -z - 3.2]}
           rotation={[0, rotation, 0]}
           scale={[sx * 1.08, sy * 1.25, sz]}
         >
@@ -1899,7 +1953,12 @@ function RoadsideVillageBackdrop() {
         </group>
       ))}
       {treeLine.map(([x, y, z, scale, variant], index) => (
-        <WorldTree key={`roadside-tree-${index}`} position={[x, y, z]} scale={scale} variant={variant} />
+        <WorldTree
+          key={`roadside-tree-${index}`}
+          position={[x, y, -z + 1.8]}
+          scale={scale}
+          variant={variant}
+        />
       ))}
       {parkBenches.map(([x, y, z, rotation], index) => (
         <DownloadedBenchModel
@@ -1912,7 +1971,7 @@ function RoadsideVillageBackdrop() {
       {festivalVisitors.map(([x, y, z, shirt, rotation, scale], index) => (
         <TinyPerson
           key={`roadside-festival-visitor-${index}`}
-          position={[x, y, z]}
+          position={[x, y, z < 0 ? -z + 1.8 : z]}
           shirt={shirt}
           rotation={rotation}
           scale={scale}
@@ -1921,7 +1980,7 @@ function RoadsideVillageBackdrop() {
       {hillsideRocks.map(([x, y, z, scale, rotation], index) => (
         <DownloadedMossyRockModel
           key={`roadside-hill-rock-${index}`}
-          position={[x, y, z]}
+          position={[x, y, -z + 1.7]}
           scale={scale}
           rotation={[0, rotation, 0]}
         />
@@ -1929,39 +1988,45 @@ function RoadsideVillageBackdrop() {
       {hillsideGrass.map(([x, y, z, scale, rotation], index) => (
         <DownloadedGrassModel
           key={`roadside-hill-grass-${index}`}
-          position={[x, y, z]}
+          position={[x, y, -z + 1.7]}
           scale={scale}
           rotation={[0, rotation, 0]}
         />
       ))}
       {echinaceaPatches.map(([x, y, z, scale, rotation], index) => (
-        <DownloadedEchinaceaModel
+        <LowPolyFlowerPatch
           key={`roadside-echinacea-${index}`}
-          position={[x, y + scale * 1.15, z]}
-          scale={scale}
-          rotation={[-Math.PI / 2, rotation, 0]}
+          position={[x, y, z < 0 ? -z + 1.5 : z]}
+          scale={scale * 1.15}
+          rotation={rotation}
+          petalColor="#d97aa5"
+          centerColor="#8a5a35"
         />
       ))}
       {flowerPatches.map(([x, y, z, scale, rotation], index) => (
-        <DownloadedFlowerModel
+        <LowPolyFlowerPatch
           key={`roadside-flower-${index}`}
-          position={[x, y, z]}
-          scale={scale}
-          rotation={[0, rotation, 0]}
+          position={[x, y, z < 0 ? -z + 1.5 : z]}
+          scale={scale * 0.48}
+          rotation={rotation}
+          petalColor="#f5d96d"
+          centerColor="#8f6333"
         />
       ))}
       {tulipPatches.map(([x, y, z, scale, rotation], index) => (
-        <DownloadedTulipModel
+        <LowPolyFlowerPatch
           key={`roadside-tulip-${index}`}
-          position={[x, y, z]}
-          scale={scale}
-          rotation={[0, rotation, 0]}
+          position={[x, y - 0.44, z < 0 ? -z + 1.5 : z]}
+          scale={scale * 0.78}
+          rotation={rotation}
+          petalColor="#e55d55"
+          centerColor="#f2b84b"
         />
       ))}
       {festivalBooths.map(([x, y, z, color], index) => (
         <DistantBooth key={`roadside-festival-booth-${index}`} position={[x, y, z]} color={color} />
       ))}
-      <FestivalRoadsideSign position={[3.1, 0.02, -7.15]} />
+      <FestivalRoadsideSign position={[3.1, 0.02, 11.8]} />
       <RoadsideBuntingLine position={[-4.7, 0.02, 6.9]} rotationY={0.08} width={7.4} />
       <RoadsideBuntingLine position={[4.5, 0.02, 7.0]} rotationY={-0.08} width={7.2} />
       <ReferenceFence position={[-10.2, 0.05, -7.1]} rotationY={0.02} segments={8} />
@@ -1974,8 +2039,14 @@ function RoadsideVillageBackdrop() {
 function AmbulanceLightGlow({ position }: { position: Vec3 }) {
   const redRef = useRef<THREE.MeshStandardMaterial>(null);
   const blueRef = useRef<THREE.MeshStandardMaterial>(null);
+  const reduceMotion = useReducedMotion();
 
   useFrame(({ clock }) => {
+    if (reduceMotion) {
+      if (redRef.current) redRef.current.emissiveIntensity = 0.72;
+      if (blueRef.current) blueRef.current.emissiveIntensity = 0.72;
+      return;
+    }
     const pulse = (Math.sin(clock.getElapsedTime() * 5.2) + 1) / 2;
     if (redRef.current) redRef.current.emissiveIntensity = 0.45 + pulse * 1.25;
     if (blueRef.current) blueRef.current.emissiveIntensity = 1.7 - pulse * 1.05;
@@ -2023,9 +2094,15 @@ function SceneAmbulance({
 
 function FloatingWalkieTalkie({ position, scale = 0.52 }: { position: Vec3; scale?: number }) {
   const root = useRef<THREE.Group>(null);
+  const reduceMotion = useReducedMotion();
 
   useFrame(({ clock }) => {
     if (!root.current) return;
+    if (reduceMotion) {
+      root.current.position.y = position[1];
+      root.current.rotation.y = -0.45;
+      return;
+    }
     root.current.position.y = position[1] + Math.sin(clock.getElapsedTime() * 1.35) * 0.035;
     root.current.rotation.y = -0.45 + Math.sin(clock.getElapsedTime() * 0.8) * 0.08;
   });
@@ -2581,6 +2658,9 @@ function FindingBubble({ text, speaker = "coach" }: { text?: string; speaker?: "
   const content = (
     <div
       data-testid="scene-finding-bubble"
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
       className={`w-[min(230px,calc(100vw-24px))] rounded-lg border px-3 py-2 text-left text-[11px] font-bold leading-4 shadow-xl backdrop-blur transition-opacity sm:w-[210px] sm:px-2.5 sm:py-1.5 sm:text-[10px] ${bubbleClass} ${isVisible ? "opacity-100 duration-200" : "opacity-0 duration-[1400ms]"}`}
     >
       <div className="mb-0.5 text-[8px] font-black uppercase tracking-[0.16em] opacity-75">
@@ -2627,6 +2707,9 @@ function MobileFindingBubble({ text, speaker = "coach" }: { text?: string; speak
   return (
     <div
       data-testid="mobile-scene-finding-bubble"
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
       className={`pointer-events-none absolute left-3 top-[68px] z-20 w-[min(260px,calc(100%-24px))] rounded-xl border px-3 py-2 text-left text-[11px] font-bold leading-4 shadow-2xl backdrop-blur transition-opacity md:hidden ${bubbleClass} ${isVisible ? "opacity-100 duration-200" : "opacity-0 duration-[1400ms]"}`}
     >
       <div className="mb-0.5 text-[8px] font-black uppercase tracking-[0.16em] opacity-75">
@@ -2647,6 +2730,7 @@ function CameraDirector({
   controlsRef?: RefObject<any>;
 }) {
   const { camera, size } = useThree();
+  const reduceMotion = useReducedMotion();
   const target = useMemo(() => new THREE.Vector3(), []);
   const desiredPosition = useMemo(() => new THREE.Vector3(), []);
 
@@ -2677,11 +2761,19 @@ function CameraDirector({
       desiredPosition.set(...(focusObject?.focusPosition ?? fallbackPosition));
       target.set(...(focusObject?.focusTarget ?? fallbackTarget));
     }
-    camera.position.lerp(desiredPosition, 0.045);
+    if (reduceMotion) {
+      camera.position.copy(desiredPosition);
+    } else {
+      camera.position.lerp(desiredPosition, 0.045);
+    }
 
     const controls = controlsRef?.current;
     if (controls?.target) {
-      controls.target.lerp(target, 0.06);
+      if (reduceMotion) {
+        controls.target.copy(target);
+      } else {
+        controls.target.lerp(target, 0.06);
+      }
       controls.update?.();
     } else {
       camera.lookAt(target);
@@ -2709,6 +2801,7 @@ function GuideCameraRig({
   normalMobileTarget?: Vec3;
 }) {
   const { camera, size } = useThree();
+  const reduceMotion = useReducedMotion();
   const isMobile = size.width < 768;
   const desiredPosition = useMemo(() => new THREE.Vector3(), []);
   const desiredTarget = useMemo(() => new THREE.Vector3(), []);
@@ -2725,11 +2818,19 @@ function GuideCameraRig({
     desiredPosition.set(...(mode === "guide" ? guidePosition : normalPosition));
     desiredTarget.set(...(mode === "guide" ? guideTarget : normalTarget));
 
-    camera.position.lerp(desiredPosition, mode === "guide" ? 0.055 : 0.065);
+    if (reduceMotion) {
+      camera.position.copy(desiredPosition);
+    } else {
+      camera.position.lerp(desiredPosition, mode === "guide" ? 0.055 : 0.065);
+    }
 
     const controls = controlsRef.current;
     if (controls?.target) {
-      controls.target.lerp(desiredTarget, mode === "guide" ? 0.08 : 0.075);
+      if (reduceMotion) {
+        controls.target.copy(desiredTarget);
+      } else {
+        controls.target.lerp(desiredTarget, mode === "guide" ? 0.08 : 0.075);
+      }
       controls.update();
     } else {
       camera.lookAt(desiredTarget);
@@ -2787,7 +2888,7 @@ function SceneLoadingOverlay() {
   const [visible, setVisible] = useState(true);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setMinimumElapsed(true), 850);
+    const timer = window.setTimeout(() => setMinimumElapsed(true), 600);
     return () => window.clearTimeout(timer);
   }, []);
 
@@ -2803,7 +2904,7 @@ function SceneLoadingOverlay() {
     }
     if (!complete) return;
 
-    const timer = window.setTimeout(() => setVisible(false), 450);
+    const timer = window.setTimeout(() => setVisible(false), 280);
     return () => window.clearTimeout(timer);
   }, [active, complete]);
 
@@ -2815,6 +2916,14 @@ function SceneLoadingOverlay() {
       : minimumElapsed
         ? 100
         : 10;
+  const loadingMessage =
+    errors.length > 0
+      ? "Finishing the scene with the available assets."
+      : displayedProgress < 36
+        ? "Loading the emergency environment."
+        : displayedProgress < 76
+          ? "Preparing the patient and medical equipment."
+          : "Finishing scene lighting and controls.";
 
   return (
     <div
@@ -2842,7 +2951,7 @@ function SceneLoadingOverlay() {
         <p className="mt-2 text-sm leading-6 text-slate-300">
           {complete
             ? "Your training scene is ready."
-            : "Loading the environment and medical assets."}
+            : loadingMessage}
         </p>
 
         <div className="mt-7 w-full">
@@ -2886,18 +2995,30 @@ function InteractiveHotspot({
 }) {
   const [hovered, setHovered] = useState(false);
   const mesh = useRef<THREE.Mesh>(null);
+  const reduceMotion = useReducedMotion();
   const color = object.completed ? "#34d399" : object.highlightColor ?? "#2dd4bf";
   const disabled = object.enabled === false;
   const isSuggested = Boolean(suggested && !disabled && !object.completed);
   const highlightVisible = accessibilityMode || hovered || selected || isSuggested || object.category === "movement";
   const labelVisible =
     !selected && (accessibilityMode || hovered || isSuggested || object.category === "movement");
+  const isClinicalDecisionHotspot = [
+    "epinephrine-treatment",
+    "oxygen-support",
+    "spinal-protection",
+    "extrication-plan",
+    "focused-history",
+    "focused-exam",
+    "rapid-trauma-exam",
+    "patient-reassessment",
+  ].includes(object.id);
   const compactLabel =
     object.category === "movement" ||
     object.id === "ambulance-radio" ||
-    object.id === "medical-bag";
+    object.id === "medical-bag" ||
+    isClinicalDecisionHotspot;
   const labelText =
-    isSuggested && !selected && showSelectionPrompt
+    isSuggested && !selected && showSelectionPrompt && !isClinicalDecisionHotspot
       ? `Select ${object.name}`
       : object.name;
 
@@ -2912,6 +3033,10 @@ function InteractiveHotspot({
 
   useFrame(({ clock }) => {
     if (!mesh.current) return;
+    if (reduceMotion) {
+      mesh.current.scale.setScalar(selected ? 1.12 : 1);
+      return;
+    }
     const pulse = 1 + Math.sin(clock.getElapsedTime() * 3.2) * (isSuggested ? 0.14 : 0.08);
     mesh.current.scale.setScalar(selected ? pulse * 1.12 : pulse);
   });
@@ -2940,35 +3065,49 @@ function InteractiveHotspot({
           depthWrite={false}
         />
       </mesh>
-      {labelVisible ? (
-        <Html
-          center
-          distanceFactor={
-            object.id === "ambulance-radio" || object.id === "medical-bag"
-              ? 7
-              : compactLabel
-                ? 12
-                : 9
-          }
-          position={[0, compactLabel ? 0.46 : 0.58, 0]}
-          zIndexRange={SCENE_HTML_Z_INDEX_RANGE}
+      <Html
+        center
+        distanceFactor={
+          object.id === "ambulance-radio" || object.id === "medical-bag"
+            ? 7
+            : isClinicalDecisionHotspot
+              ? 8
+            : compactLabel
+              ? 12
+              : 9
+        }
+        position={[0, compactLabel ? 0.46 : 0.58, 0]}
+        zIndexRange={SCENE_HTML_Z_INDEX_RANGE}
+      >
+        <button
+          type="button"
+          aria-pressed={selected}
+          aria-disabled={disabled}
+          aria-label={`${object.completed ? "Completed: " : isSuggested ? "Recommended next object: " : ""}${object.name}${disabled && object.disabledReason ? `. ${object.disabledReason}` : ""}`}
+          onFocus={() => setHovered(true)}
+          onBlur={() => setHovered(false)}
+          onKeyDown={(event) => {
+            if (event.key !== "Enter" && event.key !== " ") return;
+            event.preventDefault();
+            event.stopPropagation();
+            onSelect?.(object.id);
+          }}
+          onClick={(event) => {
+            event.stopPropagation();
+            onSelect?.(object.id);
+          }}
+          className={`${compactLabel ? "max-w-[112px] px-2 py-1 text-[8px] leading-3 tracking-[0.08em]" : "max-w-[136px] px-2.5 py-1 text-[9px] leading-4 tracking-[0.08em]"} min-h-9 cursor-pointer rounded-full border text-center font-black uppercase shadow-xl backdrop-blur transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${
+            labelVisible ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
+          } ${disabled
+            ? "border-slate-400/30 bg-slate-950/75 text-slate-300"
+            : object.completed
+              ? "border-emerald-200/60 bg-emerald-500/35 text-emerald-50"
+              : "border-teal-200/55 bg-slate-950/82 text-teal-50"
+            }`}
         >
-          <div
-            onClick={(event) => {
-              event.stopPropagation();
-              onSelect?.(object.id);
-            }}
-            className={`${compactLabel ? "max-w-[104px] px-2 py-0.5 text-[8px] leading-3 tracking-[0.08em]" : "max-w-[126px] px-2.5 py-0.5 text-[9px] leading-4 tracking-[0.08em]"} pointer-events-auto cursor-pointer rounded-full border text-center font-black uppercase shadow-xl backdrop-blur ${disabled
-              ? "border-slate-400/30 bg-slate-950/60 text-slate-300"
-              : object.completed
-                ? "border-emerald-200/60 bg-emerald-500/25 text-emerald-50"
-                : "border-teal-200/55 bg-slate-950/70 text-teal-50"
-              }`}
-          >
-            {labelText}
-          </div>
-        </Html>
-      ) : null}
+          {labelText}
+        </button>
+      </Html>
     </group>
   );
 }
@@ -3020,9 +3159,16 @@ function BarkingDog({
 }) {
   const root = useRef<THREE.Group>(null);
   const head = useRef<THREE.Group>(null);
+  const reduceMotion = useReducedMotion();
 
   useFrame(({ clock }) => {
     const t = clock.getElapsedTime();
+    if (reduceMotion) {
+      root.current?.position.set(...position);
+      if (root.current) root.current.rotation.z = 0;
+      if (head.current) head.current.rotation.set(-0.08, 0, 0);
+      return;
+    }
     const shouldBarkJump = Boolean(agitated && !secured);
     const barkCycle = (t % 2.4) / 2.4;
     const jumpPulse = shouldBarkJump && barkCycle < 0.18 ? Math.sin((barkCycle / 0.18) * Math.PI) : 0;
@@ -3182,10 +3328,20 @@ function GLBParamedicGuide({
   const guidePulse = useRef<THREE.Mesh>(null);
   const guidePulseMaterial = useRef<THREE.MeshStandardMaterial>(null);
   const { size } = useThree();
+  const reduceMotion = useReducedMotion();
   const actualRotationY = size.width < 768 ? mobileRotationY ?? rotationY : rotationY;
 
   useFrame(({ clock }) => {
     const t = clock.getElapsedTime();
+    if (reduceMotion) {
+      if (root.current) {
+        root.current.rotation.y = actualRotationY;
+        root.current.position.y = position[1];
+      }
+      if (guidePulse.current) guidePulse.current.scale.setScalar(1);
+      if (guidePulseMaterial.current) guidePulseMaterial.current.opacity = showGuidePulse ? 0.1 : 0;
+      return;
+    }
     if (root.current) {
       root.current.rotation.y = actualRotationY + Math.sin(t * 0.62) * 0.012;
       root.current.position.y = position[1] + Math.sin(t * 1.45) * 0.006;
@@ -4306,6 +4462,24 @@ export default function ThreeDScene({
   const [guideStep, setGuideStep] = useState<GuideStep>(showGuideIntro ? "welcome" : "done");
   const [guideName, setGuideName] = useState("");
   const [cameraMode, setCameraMode] = useState<CameraMode>(showGuideIntro ? "guide" : "normal");
+  const [compactRendering, setCompactRendering] = useState(false);
+  const [pageVisible, setPageVisible] = useState(true);
+
+  useEffect(() => {
+    const compactQuery = window.matchMedia("(max-width: 767px)");
+    const updateRenderingProfile = () => setCompactRendering(compactQuery.matches);
+    const updatePageVisibility = () => setPageVisible(document.visibilityState !== "hidden");
+
+    updateRenderingProfile();
+    updatePageVisibility();
+    compactQuery.addEventListener("change", updateRenderingProfile);
+    document.addEventListener("visibilitychange", updatePageVisibility);
+
+    return () => {
+      compactQuery.removeEventListener("change", updateRenderingProfile);
+      document.removeEventListener("visibilitychange", updatePageVisibility);
+    };
+  }, []);
 
   const focusGuideParamedic = () => {
     if (!showGuideIntro) return;
@@ -4348,11 +4522,27 @@ export default function ThreeDScene({
 
   return (
     <div className="relative h-full w-full" style={{ height }}>
-      <Canvas shadows dpr={[1, 1.5]} camera={{ position: normalCameraPosition, fov: 50 }}>
+      <p id="scene-keyboard-instructions" className="sr-only">
+        Use Tab to move between interactive scene objects. Press Enter or Space to select an object,
+        then choose an action from the action panel.
+      </p>
+      <Canvas
+        shadows
+        dpr={compactRendering ? 1 : [1, 1.35]}
+        frameloop={pageVisible ? "always" : "never"}
+        performance={{ min: compactRendering ? 0.72 : 0.8 }}
+        camera={{ position: normalCameraPosition, fov: 50 }}
+        aria-label="Interactive 3D EMT training scene"
+        aria-describedby="scene-keyboard-instructions"
+      >
         <color attach="background" args={["#a9e5ff"]} />
         <fog attach="fog" args={["#dcf4ff", 66, 132]} />
         <SkyGradient />
-        <SoftShadows size={24} samples={12} focus={0.45} />
+        <SoftShadows
+          size={compactRendering ? 16 : 24}
+          samples={compactRendering ? 4 : 8}
+          focus={0.45}
+        />
 
         <ambientLight intensity={0.9} />
         <hemisphereLight args={["#e8f7ff", "#8ea563", 1.95]} />
@@ -4361,8 +4551,8 @@ export default function ThreeDScene({
           intensity={3.65}
           color="#fff1d4"
           position={[-8, 12, 7]}
-          shadow-mapSize-width={1536}
-          shadow-mapSize-height={1536}
+          shadow-mapSize-width={compactRendering ? 512 : 1024}
+          shadow-mapSize-height={compactRendering ? 512 : 1024}
           shadow-camera-near={0.1}
           shadow-camera-far={38}
           shadow-camera-left={-13}

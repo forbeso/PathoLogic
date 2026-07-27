@@ -121,13 +121,13 @@ export function DownloadedParamedicGuideModel(props: ModelProps) {
 }
 
 export function CustomFirstAidBagModel(props: ModelProps) {
-  return <AssetModel url="/models/emt-scene/custom/first-aid-bag.glb" enhanceMaterials {...props} />;
+  return <AssetModel url="/models/emt-scene/custom/first-aid-bag-optimized.glb" enhanceMaterials {...props} />;
 }
 
 export function CustomAmbulanceModel(props: ModelProps) {
-  return <AssetModel url="/models/emt-scene/custom/ambulance.glb" enhanceMaterials {...props} />;
+  return <AssetModel url="/models/emt-scene/custom/ambulance-optimized.glb" enhanceMaterials {...props} />;
 }
 
 export function CustomPatientModel(props: ModelProps) {
-  return <AssetModel url="/models/emt-scene/custom/patient.glb" enhanceMaterials {...props} />;
+  return <AssetModel url="/models/emt-scene/custom/patient-optimized.glb" enhanceMaterials {...props} />;
 }

@@ -7,6 +7,8 @@ import {
   ArrowRight,
   Award,
   BarChart2,
+  BookOpen,
+  RotateCcw,
   Target,
   Flame,
   Clock,
@@ -49,7 +51,8 @@ type ScenarioAttemptRow = {
   id: string;
   scenario_id: "anaphylaxis" | "car-accident";
   simulation_mode: "guided" | "scenario" | "exam";
-  score_percent: number;
+  score_percent: number | string;
+  score_breakdown: Partial<Record<ScenarioScoreKey, number>>;
   completed_objectives: number;
   total_objectives: number;
   elapsed_seconds: number;
@@ -61,14 +64,58 @@ type StudyRecommendation = {
   title: string;
   description: string;
   actionLabel: string;
-  href: "/emtrainer" | "/exam/nremt" | "/emtscene";
+  href: string;
   topic?: string;
 };
+
+type ScenarioScoreKey =
+  | "safety"
+  | "assessment"
+  | "clinicalDecisions"
+  | "treatment"
+  | "reassessment"
+  | "communication"
+  | "efficiency";
 
 const SCENARIO_TITLES: Record<ScenarioAttemptRow["scenario_id"], string> = {
   anaphylaxis: "Teen With Shortness of Breath",
   "car-accident": "Driver Trapped After Collision",
 };
+
+const SCENARIO_REVIEW_LINKS: Record<
+  ScenarioAttemptRow["scenario_id"],
+  { href: string; label: string }
+> = {
+  anaphylaxis: {
+    href: "/learn/recognizing-anaphylaxis-emt-assessment",
+    label: "Review anaphylaxis",
+  },
+  "car-accident": {
+    href: "/learn/emt-shock-vital-sign-patterns",
+    label: "Review shock patterns",
+  },
+};
+
+const SCENARIO_SCORE_LABELS: Record<ScenarioScoreKey, string> = {
+  safety: "Scene safety",
+  assessment: "Assessment",
+  clinicalDecisions: "Clinical decisions",
+  treatment: "Treatment",
+  reassessment: "Reassessment",
+  communication: "Communication",
+  efficiency: "Efficiency",
+};
+
+function getWeakestScenarioScore(attempt: ScenarioAttemptRow) {
+  const scores = Object.entries(attempt.score_breakdown ?? {}).filter(
+    (entry): entry is [ScenarioScoreKey, number] =>
+      entry[0] in SCENARIO_SCORE_LABELS && Number.isFinite(entry[1])
+  );
+  if (!scores.length) return null;
+
+  const [key, score] = scores.sort((a, b) => a[1] - b[1])[0];
+  return { label: SCENARIO_SCORE_LABELS[key], score };
+}
 
 function formatDuration(totalSeconds: number) {
   const minutes = Math.floor(totalSeconds / 60);
@@ -133,7 +180,7 @@ export default function ProgressPage() {
       supabase
         .from("scenario_attempts")
         .select(
-          "id, scenario_id, simulation_mode, score_percent, completed_objectives, total_objectives, elapsed_seconds, hints_used, completed_at"
+          "id, scenario_id, simulation_mode, score_percent, score_breakdown, completed_objectives, total_objectives, elapsed_seconds, hints_used, completed_at"
         )
         .eq("user_id", user.id)
         .eq("status", "completed")
@@ -286,11 +333,25 @@ export default function ProgressPage() {
     }
 
     if (scenarioTotals.average < 75) {
+      const latestScenario = scenarioRows[0];
+      const weakestScenarioScore = latestScenario
+        ? getWeakestScenarioScore(latestScenario)
+        : null;
       return {
-        title: "Repeat a simulation with less guidance",
-        description: `Your simulation average is ${scenarioTotals.average}%. Another run will help turn the assessment sequence into a reliable habit.`,
-        actionLabel: "Open EMT Scene",
-        href: "/emtscene",
+        title: weakestScenarioScore
+          ? `Rehearse ${weakestScenarioScore.label.toLowerCase()}`
+          : "Repeat a simulation with less guidance",
+        description: latestScenario
+          ? `Your latest ${SCENARIO_TITLES[
+              latestScenario.scenario_id
+            ].toLowerCase()} call scored ${Math.round(
+              Number(latestScenario.score_percent)
+            )}%. Replay it and make the next run more deliberate.`
+          : `Your simulation average is ${scenarioTotals.average}%. Another run will help turn the assessment sequence into a reliable habit.`,
+        actionLabel: "Replay this call",
+        href: latestScenario
+          ? `/emtscene?scenario=${latestScenario.scenario_id}`
+          : "/emtscene",
       };
     }
 
@@ -302,7 +363,7 @@ export default function ProgressPage() {
       href: "/emtrainer",
       topic: weakestTopic.topic,
     };
-  }, [examRows, rows, scenarioRows.length, scenarioTotals.average, totals.attempts]);
+  }, [examRows, rows, scenarioRows, scenarioTotals.average, totals.attempts]);
 
   function openRecommendation(next: StudyRecommendation) {
     if (next.topic) {
@@ -429,10 +490,23 @@ export default function ProgressPage() {
             label="Last Practiced"
             value={
               <span className="text-base font-semibold">
-              {totals.last ? new Date(totals.last).toLocaleString() : "-"}
+                {totals.last
+                  ? new Date(totals.last).toLocaleDateString(undefined, {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })
+                  : "-"}
               </span>
             }
-            detail="Most recent update"
+            detail={
+              totals.last
+                ? `${new Date(totals.last).toLocaleTimeString(undefined, {
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })} · Most recent update`
+                : "Most recent update"
+            }
           />
         </section>
 
@@ -557,38 +631,74 @@ export default function ProgressPage() {
                 </div>
 
                 <div className="mt-4 divide-y divide-slate-100 border-t border-slate-100">
-                  {scenarioRows.slice(0, 5).map((attempt) => (
-                    <div
-                      key={attempt.id}
-                      className="flex items-center justify-between gap-4 py-3 text-sm"
-                    >
-                      <div className="min-w-0">
-                        <div className="truncate font-medium text-slate-900">
-                          {SCENARIO_TITLES[attempt.scenario_id]}
-                        </div>
-                        <div className="mt-0.5 text-xs text-slate-500">
-                          {attempt.simulation_mode === "guided"
-                            ? "Guided"
-                            : attempt.simulation_mode === "exam"
-                              ? "Exam"
-                              : "Scenario"}{" "}
-                          · {formatDuration(attempt.elapsed_seconds)} ·{" "}
-                          {new Date(attempt.completed_at).toLocaleDateString()}
-                        </div>
-                      </div>
-                      <div
-                        className={`shrink-0 text-lg font-semibold tabular-nums ${
-                          attempt.score_percent >= 75
-                            ? "text-emerald-700"
-                            : attempt.score_percent >= 60
-                              ? "text-amber-700"
-                              : "text-rose-700"
-                        }`}
+                  {scenarioRows.slice(0, 5).map((attempt) => {
+                    const score = Math.round(Number(attempt.score_percent));
+                    const weakestScore = getWeakestScenarioScore(attempt);
+                    const review = SCENARIO_REVIEW_LINKS[attempt.scenario_id];
+
+                    return (
+                      <article
+                        key={attempt.id}
+                        className="grid gap-3 py-4 text-sm sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
                       >
-                        {attempt.score_percent}%
-                      </div>
-                    </div>
-                  ))}
+                        <div className="min-w-0">
+                          <div className="font-semibold text-slate-950">
+                            {SCENARIO_TITLES[attempt.scenario_id]}
+                          </div>
+                          <div className="mt-1 text-xs leading-5 text-slate-500">
+                            {attempt.simulation_mode === "guided"
+                              ? "Guided"
+                              : attempt.simulation_mode === "exam"
+                                ? "Exam"
+                                : "Scenario"}{" "}
+                            · {formatDuration(attempt.elapsed_seconds)} ·{" "}
+                            {new Date(attempt.completed_at).toLocaleDateString()}
+                            {attempt.hints_used > 0
+                              ? ` · ${attempt.hints_used} ${
+                                  attempt.hints_used === 1 ? "hint" : "hints"
+                                }`
+                              : ""}
+                          </div>
+                          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
+                            {weakestScore ? (
+                              <span className="text-xs text-slate-600">
+                                Focus next:{" "}
+                                <strong className="font-semibold text-slate-900">
+                                  {weakestScore.label} ({Math.round(weakestScore.score)}%)
+                                </strong>
+                              </span>
+                            ) : null}
+                            <Link
+                              href={`/emtscene?scenario=${attempt.scenario_id}`}
+                              className="inline-flex items-center gap-1.5 text-xs font-semibold text-teal-700 hover:text-teal-900"
+                            >
+                              <RotateCcw size={13} aria-hidden="true" />
+                              Replay
+                            </Link>
+                            <Link
+                              href={review.href}
+                              className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-950"
+                            >
+                              <BookOpen size={13} aria-hidden="true" />
+                              {review.label}
+                            </Link>
+                          </div>
+                        </div>
+                        <div
+                          className={`text-2xl font-semibold tabular-nums sm:text-right ${
+                            score >= 75
+                              ? "text-emerald-700"
+                              : score >= 60
+                                ? "text-amber-700"
+                                : "text-rose-700"
+                          }`}
+                          aria-label={`Score ${score}%`}
+                        >
+                          {score}%
+                        </div>
+                      </article>
+                    );
+                  })}
                 </div>
               </>
             ) : (

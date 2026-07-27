@@ -199,7 +199,11 @@ function PracticeCard({
 
 export default function LandingPage() {
   return (
-    <main className="relative isolate overflow-hidden text-slate-900">
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className="relative isolate overflow-hidden text-slate-900"
+    >
       <section className="relative isolate overflow-hidden bg-slate-950 text-white">
         <img
           src="/emt.png"

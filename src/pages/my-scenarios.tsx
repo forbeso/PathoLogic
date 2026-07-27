@@ -147,6 +147,7 @@ export default function MyScenariosPage() {
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
             <input
+              aria-label="Search saved scenarios"
               value={q}
               onChange={(e) => { setPage(0); setQ(e.target.value); }}
               placeholder="Search vignette or question..."
@@ -157,6 +158,7 @@ export default function MyScenariosPage() {
           <div className="relative">
             <Filter className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
             <select
+              aria-label="Filter saved scenarios by topic"
               value={topic}
               onChange={(e) => { setPage(0); setTopic(e.target.value); }}
               className={`${inputClass} w-48 pl-9 pr-8`}

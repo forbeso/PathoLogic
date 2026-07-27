@@ -31,6 +31,7 @@ export type SceneEvent =
   | "DOG_SELECTED"
   | "DOG_INSPECTED"
   | "DOG_AGITATED"
+  | "CRASH_HAZARD_BREACHED"
   | "CAR_INSPECTED"
   | "CRASH_SCENE_INSPECTED"
   | "FIRE_RESCUE_CALLED"
@@ -52,7 +53,14 @@ export type SceneEvent =
   | "SPO2_OBTAINED"
   | "WORKING_IMPRESSION_SELECTED"
   | "TRANSPORT_SELECTED"
-  | "SECONDARY_UNLOCKED";
+  | "SECONDARY_UNLOCKED"
+  | "EPINEPHRINE_ADMINISTERED"
+  | "OXYGEN_APPLIED"
+  | "SPINAL_PRECAUTIONS_MAINTAINED"
+  | "EXTRICATION_COORDINATED"
+  | "FOCUSED_HISTORY_OBTAINED"
+  | "FOCUSED_EXAM_COMPLETED"
+  | "REASSESSMENT_COMPLETED";
 
 export type InteractionAction = {
   id: string;
@@ -106,6 +114,18 @@ export type PatientVitals = {
 
 export type PatientVitalKey = keyof PatientVitals;
 
+export type ScenarioDecision = {
+  objectId: string;
+  objectName: string;
+  actionId: string;
+  actionLabel: string;
+  outcome: "correct" | "incorrect";
+  feedback?: string;
+  phase: ScenarioPhase;
+  objectiveId: string;
+  elapsedTime: number;
+};
+
 export type ScenarioState = {
   scenarioId: string;
   currentPhase: ScenarioPhase;
@@ -113,6 +133,7 @@ export type ScenarioState = {
   completedObjectives: string[];
   failedObjectives: string[];
   triggeredEvents: SceneEvent[];
+  decisionHistory: ScenarioDecision[];
   selectedObjectId?: string;
   focusedObjectId?: string;
   inventory: string[];
@@ -297,28 +318,100 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
       hintLevels: ["Check pulse and skin signs.", "Use the wrist hotspot.", "Check the radial pulse."],
     },
     {
-      id: "baseline-vitals",
-      label: "Baseline Vitals",
-      subtleGoal: "Gather baseline vital signs using equipment.",
-      phase: "primaryAssessment",
-      requiredEvents: ["BLOOD_PRESSURE_OBTAINED", "SPO2_OBTAINED"],
-      hintLevels: ["Not all vital signs come from looking.", "Use equipment after the ABCs.", "Use the blood pressure cuff and pulse oximeter."],
-    },
-    {
       id: "working-impression",
       label: "Working Impression",
-      subtleGoal: "Use the gathered findings to form a working impression.",
+      subtleGoal: "Recognize the life-threatening pattern from the primary assessment.",
       phase: "primaryAssessment",
       requiredEvents: ["WORKING_IMPRESSION_SELECTED"],
-      hintLevels: ["Connect the respiratory distress with the skin findings.", "Consider allergy exposure plus hypotension.", "Choose severe allergic reaction with shock signs."],
+      hintLevels: [
+        "Connect the respiratory distress with the skin findings.",
+        "Throat tightness, wheezing, hives, and a rapid pulse indicate a systemic reaction.",
+        "Choose anaphylaxis with respiratory and perfusion compromise.",
+      ],
+    },
+    {
+      id: "epinephrine-treatment",
+      label: "Immediate Medication",
+      subtleGoal: "Choose the first-line medication for this life-threatening allergic reaction.",
+      phase: "interventions",
+      requiredEvents: ["EPINEPHRINE_ADMINISTERED"],
+      hintLevels: [
+        "This patient has airway, breathing, and perfusion compromise.",
+        "Do not delay the first-line treatment for anaphylaxis.",
+        "Administer IM epinephrine per local protocol.",
+      ],
+    },
+    {
+      id: "oxygen-support",
+      label: "Breathing Support",
+      subtleGoal: "Support oxygenation while preparing for rapid transport.",
+      phase: "interventions",
+      requiredEvents: ["OXYGEN_APPLIED"],
+      hintLevels: [
+        "SpO2 is 89% with increased work of breathing.",
+        "Support oxygenation and be ready to assist ventilation.",
+        "Apply oxygen and monitor respiratory effort.",
+      ],
     },
     {
       id: "transport-priority",
       label: "Transport Priority",
-      subtleGoal: "Decide transport urgency from your findings.",
-      phase: "primaryAssessment",
+      subtleGoal: "Choose urgent transport after immediate life-saving care begins.",
+      phase: "transport",
       requiredEvents: ["TRANSPORT_SELECTED"],
-      hintLevels: ["Use the primary findings to decide urgency.", "This patient has respiratory compromise and hypotension.", "Choose urgent transport."],
+      hintLevels: [
+        "Use the primary findings to decide urgency.",
+        "This patient has respiratory compromise and signs of poor perfusion.",
+        "Choose urgent transport while treatment and monitoring continue.",
+      ],
+    },
+    {
+      id: "baseline-vitals",
+      label: "Baseline Vitals",
+      subtleGoal: "Gather baseline vital signs without delaying treatment or transport.",
+      phase: "secondaryAssessment",
+      requiredEvents: ["BLOOD_PRESSURE_OBTAINED", "SPO2_OBTAINED"],
+      hintLevels: [
+        "Immediate treatment has started; now establish objective baselines.",
+        "Use monitoring equipment while urgent transport is prepared.",
+        "Use the blood pressure cuff and pulse oximeter.",
+      ],
+    },
+    {
+      id: "focused-history",
+      label: "Focused History",
+      subtleGoal: "Clarify the allergen exposure, symptom timeline, and relevant SAMPLE history.",
+      phase: "secondaryAssessment",
+      requiredEvents: ["FOCUSED_HISTORY_OBTAINED"],
+      hintLevels: [
+        "Treatment should continue while you collect a concise history.",
+        "Ask about the exposure, onset, prior reactions, medications, and epinephrine access.",
+        "Select the focused history hotspot and choose a targeted SAMPLE and allergy history.",
+      ],
+    },
+    {
+      id: "focused-exam",
+      label: "Focused Exam",
+      subtleGoal: "Look for persistent airway, breathing, skin, and perfusion findings.",
+      phase: "secondaryAssessment",
+      requiredEvents: ["FOCUSED_EXAM_COMPLETED"],
+      hintLevels: [
+        "Recheck the body systems affected by anaphylaxis.",
+        "Focus on airway swelling, breath sounds, skin findings, and perfusion.",
+        "Select the focused exam hotspot and perform an airway, breathing, skin, and perfusion exam.",
+      ],
+    },
+    {
+      id: "treatment-reassessment",
+      label: "Reassess After Treatment",
+      subtleGoal: "Repeat the ABCs and vital signs to determine the response to treatment.",
+      phase: "reassessment",
+      requiredEvents: ["REASSESSMENT_COMPLETED"],
+      hintLevels: [
+        "A treatment is not complete until its effect is checked.",
+        "Repeat airway, breathing, circulation, mental status, and vital signs.",
+        "Select the patient reassessment hotspot.",
+      ],
     },
   ],
   interactiveObjects: [
@@ -364,7 +457,8 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
           id: "approach-dog",
           label: "Approach the dog",
           description: "Unsafe. The dog blocks your path and forces you back.",
-          successEvents: ["DOG_AGITATED"],
+          outcome: "incorrect",
+          failureEvents: ["DOG_AGITATED"],
           scoreEffect: -8,
           timeEffect: 20,
         },
@@ -372,7 +466,8 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
           id: "ask-bystander-secure-dog",
           label: "Ask bystander to secure dog",
           description: "A bystander backs away and says they do not know the dog.",
-          successEvents: ["DOG_AGITATED"],
+          outcome: "incorrect",
+          failureEvents: ["DOG_AGITATED"],
           scoreEffect: -3,
           timeEffect: 15,
         },
@@ -380,7 +475,8 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
           id: "ignore-dog",
           label: "Ignore dog and approach patient",
           description: "Unsafe. The dog lunges and you lose access to the patient.",
-          successEvents: ["DOG_AGITATED"],
+          outcome: "incorrect",
+          failureEvents: ["DOG_AGITATED"],
           scoreEffect: -10,
           timeEffect: 25,
         },
@@ -690,19 +786,19 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
       id: "transport-decision",
       name: "Transport Decision",
       category: "movement",
-      visibleWhen: ["WORKING_IMPRESSION_SELECTED"],
+      visibleWhen: ["OXYGEN_APPLIED"],
       position: [3.9, 0.12, 0.95],
       focusPosition: [5.8, 2.8, 4.2],
       focusTarget: [2.4, 0.8, 1.3],
       highlightColor: "#a7f3d0",
-      enabledWhen: ["PULSE_CHECKED"],
+      enabledWhen: ["OXYGEN_APPLIED"],
       actions: [
         {
           id: "urgent-transport",
           label: "Urgent transport",
           description: "Primary survey supports urgent transport with respiratory compromise and hypotension.",
           outcome: "correct",
-          onSuccessEvents: ["TRANSPORT_SELECTED", "SECONDARY_UNLOCKED"],
+          onSuccessEvents: ["TRANSPORT_SELECTED"],
           scoreEffect: 8,
         },
         {
@@ -731,13 +827,13 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
       id: "working-impression",
       name: "Working Impression",
       category: "patient",
-      visibleWhen: ["BLOOD_PRESSURE_OBTAINED", "SPO2_OBTAINED"],
+      visibleWhen: ["PULSE_CHECKED"],
       completedWhen: ["WORKING_IMPRESSION_SELECTED"],
       position: [3.0, 0.4, 1.55],
       focusPosition: [5.4, 2.45, 4.2],
       focusTarget: [2.25, 0.85, 1.45],
       highlightColor: "#f0abfc",
-      enabledWhen: ["BLOOD_PRESSURE_OBTAINED", "SPO2_OBTAINED"],
+      enabledWhen: ["PULSE_CHECKED"],
       actions: [
         {
           id: "suspect-severe-allergic-reaction",
@@ -776,6 +872,231 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
             "The setting alone should not outweigh the clinical pattern. Hives, airway symptoms, wheezing, and hypotension after food exposure indicate anaphylaxis.",
           scoreEffect: -4,
           timeEffect: 15,
+        },
+      ],
+    },
+    {
+      id: "epinephrine-treatment",
+      name: "Medication Decision",
+      category: "patient",
+      visibleWhen: ["WORKING_IMPRESSION_SELECTED"],
+      completedWhen: ["EPINEPHRINE_ADMINISTERED"],
+      position: [2.65, 0.72, 1.5],
+      focusPosition: [5.0, 2.5, 4.4],
+      focusTarget: [2.2, 0.8, 1.45],
+      highlightColor: "#fb7185",
+      enabledWhen: ["WORKING_IMPRESSION_SELECTED"],
+      actions: [
+        {
+          id: "administer-im-epinephrine",
+          label: "Administer IM epinephrine per protocol",
+          description: "Give the first-line medication without delaying transport preparation.",
+          outcome: "correct",
+          onSuccessEvents: ["EPINEPHRINE_ADMINISTERED"],
+          scoreEffect: 10,
+          timeEffect: 20,
+        },
+        {
+          id: "give-antihistamine-only",
+          label: "Give an antihistamine and observe",
+          description: "Use an antihistamine alone before considering epinephrine.",
+          outcome: "incorrect",
+          feedback:
+            "Antihistamines do not rapidly reverse airway swelling, bronchospasm, or shock. IM epinephrine is the first-line treatment for anaphylaxis.",
+          scoreEffect: -7,
+          timeEffect: 20,
+        },
+        {
+          id: "wait-for-als-epinephrine",
+          label: "Wait for ALS before treating",
+          description: "Delay medication until another unit arrives.",
+          outcome: "incorrect",
+          feedback:
+            "This patient has respiratory compromise and hypotension. Use the epinephrine option authorized by your scope and local protocol without avoidable delay.",
+          scoreEffect: -7,
+          timeEffect: 25,
+        },
+        {
+          id: "oral-fluids-anaphylaxis",
+          label: "Give oral fluids",
+          description: "Treat the low blood pressure with oral hydration.",
+          outcome: "incorrect",
+          feedback:
+            "Oral fluids are unsafe with possible airway swelling and do not treat anaphylactic shock. Prioritize epinephrine, oxygenation, and rapid transport.",
+          scoreEffect: -6,
+          timeEffect: 15,
+        },
+      ],
+    },
+    {
+      id: "oxygen-support",
+      name: "Breathing Support",
+      category: "equipment",
+      visibleWhen: ["EPINEPHRINE_ADMINISTERED"],
+      completedWhen: ["OXYGEN_APPLIED"],
+      position: [2.38, 0.68, 1.08],
+      focusPosition: [4.8, 2.35, 4.0],
+      focusTarget: [2.15, 0.8, 1.4],
+      highlightColor: "#38bdf8",
+      enabledWhen: ["EPINEPHRINE_ADMINISTERED"],
+      actions: [
+        {
+          id: "apply-oxygen-anaphylaxis",
+          label: "Apply oxygen and monitor ventilation",
+          description: "Support the hypoxemic patient and prepare to assist ventilation if respiratory effort worsens.",
+          outcome: "correct",
+          onSuccessEvents: ["OXYGEN_APPLIED"],
+          scoreEffect: 8,
+          timeEffect: 15,
+        },
+        {
+          id: "withhold-oxygen-anaphylaxis",
+          label: "Withhold oxygen because the patient is talking",
+          description: "Use speech as proof that oxygenation is adequate.",
+          outcome: "incorrect",
+          feedback:
+            "The patient is speaking but has SpO2 89%, wheezing, and increased work of breathing. Support oxygenation and watch for fatigue.",
+          scoreEffect: -5,
+          timeEffect: 15,
+        },
+        {
+          id: "force-supine-anaphylaxis",
+          label: "Force the patient flat",
+          description: "Lay the patient supine despite respiratory distress.",
+          outcome: "incorrect",
+          feedback:
+            "Do not force a conscious patient with respiratory distress into a position that worsens breathing. Support a position of comfort while managing perfusion.",
+          scoreEffect: -4,
+          timeEffect: 12,
+        },
+      ],
+    },
+    {
+      id: "focused-history",
+      name: "Focused History",
+      category: "patient",
+      visibleWhen: ["TRANSPORT_SELECTED", "BLOOD_PRESSURE_OBTAINED", "SPO2_OBTAINED"],
+      completedWhen: ["FOCUSED_HISTORY_OBTAINED"],
+      position: [2.02, 1.08, 1.5],
+      focusPosition: [4.9, 2.45, 4.15],
+      focusTarget: [2.15, 0.9, 1.42],
+      highlightColor: "#c084fc",
+      enabledWhen: ["TRANSPORT_SELECTED", "BLOOD_PRESSURE_OBTAINED", "SPO2_OBTAINED"],
+      actions: [
+        {
+          id: "obtain-focused-allergy-history",
+          label: "Ask a focused SAMPLE and allergy history",
+          description: "Clarify the exposure, onset, prior reactions, medications, epinephrine access, and relevant history while transport is prepared.",
+          outcome: "correct",
+          onSuccessEvents: ["FOCUSED_HISTORY_OBTAINED"],
+          scoreEffect: 8,
+          timeEffect: 20,
+        },
+        {
+          id: "obtain-exhaustive-history",
+          label: "Complete an exhaustive medical history",
+          description: "Delay transport preparation until every past medical detail is documented.",
+          outcome: "incorrect",
+          feedback:
+            "This is a time-critical allergic emergency. Obtain a concise, targeted history while treatment and urgent transport preparation continue.",
+          scoreEffect: -4,
+          timeEffect: 25,
+        },
+        {
+          id: "skip-history-after-epinephrine",
+          label: "Skip history because epinephrine was given",
+          description: "Assume the treatment response provides all the information needed.",
+          outcome: "incorrect",
+          feedback:
+            "Epinephrine does not replace a focused history. Exposure, timing, prior reactions, medications, and epinephrine access affect ongoing care and recurrence risk.",
+          scoreEffect: -4,
+          timeEffect: 12,
+        },
+      ],
+    },
+    {
+      id: "focused-exam",
+      name: "Focused Exam",
+      category: "patient",
+      visibleWhen: ["FOCUSED_HISTORY_OBTAINED"],
+      completedWhen: ["FOCUSED_EXAM_COMPLETED"],
+      position: [2.3, 0.98, 1.43],
+      focusPosition: [4.8, 2.4, 4.05],
+      focusTarget: [2.16, 0.85, 1.42],
+      highlightColor: "#f59e0b",
+      enabledWhen: ["FOCUSED_HISTORY_OBTAINED"],
+      actions: [
+        {
+          id: "perform-focused-anaphylaxis-exam",
+          label: "Examine airway, breathing, skin, and perfusion",
+          description: "Check for swelling or stridor, auscultate breath sounds, inspect hives, and reassess perfusion.",
+          outcome: "correct",
+          onSuccessEvents: ["FOCUSED_EXAM_COMPLETED"],
+          scoreEffect: 8,
+          timeEffect: 25,
+        },
+        {
+          id: "perform-skin-only-exam",
+          label: "Inspect only the hives",
+          description: "Use the visible rash as the entire focused exam.",
+          outcome: "incorrect",
+          feedback:
+            "Anaphylaxis affects more than the skin. Assess airway swelling, breath sounds, work of breathing, and perfusion as well as the rash.",
+          scoreEffect: -5,
+          timeEffect: 15,
+        },
+        {
+          id: "delay-exam-until-resolved",
+          label: "Wait until symptoms fully resolve",
+          description: "Delay the focused exam until the patient appears comfortable.",
+          outcome: "incorrect",
+          feedback:
+            "Do not wait for symptoms to resolve. A focused exam now establishes whether airway, breathing, skin, and perfusion findings persist after treatment.",
+          scoreEffect: -5,
+          timeEffect: 18,
+        },
+      ],
+    },
+    {
+      id: "patient-reassessment",
+      name: "Reassess Patient",
+      category: "patient",
+      visibleWhen: ["FOCUSED_EXAM_COMPLETED"],
+      completedWhen: ["REASSESSMENT_COMPLETED"],
+      position: [2.2, 0.94, 1.45],
+      focusPosition: [4.9, 2.5, 4.3],
+      focusTarget: [2.15, 0.8, 1.42],
+      highlightColor: "#2dd4bf",
+      enabledWhen: ["FOCUSED_EXAM_COMPLETED"],
+      actions: [
+        {
+          id: "repeat-abcs-and-vitals-anaphylaxis",
+          label: "Repeat ABCs and vital signs",
+          description: "Recheck airway swelling, breathing effort, perfusion, mental status, BP, and SpO2.",
+          outcome: "correct",
+          onSuccessEvents: ["REASSESSMENT_COMPLETED"],
+          scoreEffect: 10,
+          timeEffect: 30,
+        },
+        {
+          id: "assume-epinephrine-worked",
+          label: "Assume treatment worked and move on",
+          description: "Continue transport preparation without checking the patient's response.",
+          outcome: "incorrect",
+          feedback:
+            "Anaphylaxis can persist or recur. Repeat the ABCs and vital signs after treatment and continue frequent reassessment during transport.",
+          scoreEffect: -6,
+          timeEffect: 15,
+        },
+        {
+          id: "recheck-spo2-only",
+          label: "Recheck only the pulse oximeter",
+          description: "Use one monitor value as the full reassessment.",
+          outcome: "incorrect",
+          feedback:
+            "SpO2 alone can miss worsening airway swelling, fatigue, or shock. Repeat airway, breathing, circulation, mental status, and vital signs.",
+          scoreEffect: -4,
+          timeEffect: 12,
         },
       ],
     },
@@ -893,7 +1214,11 @@ export const carAccidentScenario: SceneScenarioConfig = {
       subtleGoal: "Assess airway while protecting the cervical spine.",
       phase: "primaryAssessment",
       requiredEvents: ["AIRWAY_OPENED"],
-      hintLevels: ["The mechanism creates spinal risk.", "Stabilize the head before manipulating the airway.", "Use manual stabilization and a jaw-thrust assessment."],
+      hintLevels: [
+        "The mechanism creates spinal risk.",
+        "The responsive driver is speaking, so assess patency while limiting neck movement.",
+        "Maintain manual stabilization and inspect the airway without unnecessary manipulation.",
+      ],
     },
     {
       id: "breathing",
@@ -902,6 +1227,18 @@ export const carAccidentScenario: SceneScenarioConfig = {
       phase: "primaryAssessment",
       requiredEvents: ["RESPIRATIONS_COUNTED"],
       hintLevels: ["Inspect the chest after airway.", "Compare chest movement and count respirations.", "Select the chest hotspot."],
+    },
+    {
+      id: "oxygen-support",
+      label: "Breathing Support",
+      subtleGoal: "Support oxygenation while continuing to watch ventilation.",
+      phase: "primaryAssessment",
+      requiredEvents: ["OXYGEN_APPLIED"],
+      hintLevels: [
+        "The driver has rapid, shallow breathing and a significant chest mechanism.",
+        "Support oxygenation and be ready to assist ventilation if breathing becomes inadequate.",
+        "Apply oxygen from the equipment dock, then continue the primary assessment.",
+      ],
     },
     {
       id: "circulation",
@@ -935,6 +1272,66 @@ export const carAccidentScenario: SceneScenarioConfig = {
       requiredEvents: ["TRANSPORT_SELECTED"],
       hintLevels: ["Use mechanism, mentation, breathing, and perfusion.", "Coordinate extrication while minimizing scene time.", "Choose rapid transport to an appropriate trauma center."],
     },
+    {
+      id: "spinal-protection",
+      label: "Protect the Spine",
+      subtleGoal: "Choose the safest immediate stabilization for the trapped driver.",
+      phase: "interventions",
+      requiredEvents: ["SPINAL_PRECAUTIONS_MAINTAINED"],
+      hintLevels: [
+        "The driver is confused and reports neck pain after a significant mechanism.",
+        "Limit unnecessary movement while care and extrication continue.",
+        "Maintain manual stabilization and apply spinal motion restriction per protocol.",
+      ],
+    },
+    {
+      id: "controlled-extrication",
+      label: "Coordinate Extrication",
+      subtleGoal: "Choose an extrication plan that balances spinal protection with rapid transport.",
+      phase: "interventions",
+      requiredEvents: ["EXTRICATION_COORDINATED"],
+      hintLevels: [
+        "The patient needs rapid transport but is not in immediate danger from fire.",
+        "Coordinate with fire-rescue instead of pulling the driver out alone.",
+        "Use a controlled, time-conscious extrication with ongoing ABC support.",
+      ],
+    },
+    {
+      id: "rapid-trauma-exam",
+      label: "Rapid Trauma Exam",
+      subtleGoal: "Perform a rapid head-to-toe exam without delaying transport.",
+      phase: "secondaryAssessment",
+      requiredEvents: ["FOCUSED_EXAM_COMPLETED"],
+      hintLevels: [
+        "The mechanism and altered mentation call for a rapid exam, not a single-system check.",
+        "Assess the head, neck, chest, abdomen, pelvis, and extremities during controlled movement.",
+        "Select the rapid trauma exam hotspot and perform a time-conscious head-to-toe exam.",
+      ],
+    },
+    {
+      id: "focused-trauma-history",
+      label: "Focused Trauma History",
+      subtleGoal: "Obtain relevant AMPLE history and repeat neurologic and distal circulation checks.",
+      phase: "secondaryAssessment",
+      requiredEvents: ["FOCUSED_HISTORY_OBTAINED"],
+      hintLevels: [
+        "Use the patient's limited responses and available scene information.",
+        "Ask concise AMPLE questions and repeat neurologic and distal pulse, motor, and sensation checks.",
+        "Select the focused history hotspot and obtain AMPLE with neurologic and distal PMS checks.",
+      ],
+    },
+    {
+      id: "trauma-reassessment",
+      label: "Reassess During Extrication",
+      subtleGoal: "Repeat the primary assessment and vital signs while preparing to transport.",
+      phase: "reassessment",
+      requiredEvents: ["REASSESSMENT_COMPLETED"],
+      hintLevels: [
+        "Trauma findings can worsen during movement and extrication.",
+        "Repeat mental status, airway, breathing, perfusion, and vital signs.",
+        "Select the driver reassessment hotspot.",
+      ],
+    },
   ],
   interactiveObjects: [
     {
@@ -962,6 +1359,7 @@ export const carAccidentScenario: SceneScenarioConfig = {
           label: "Run directly to the driver",
           description: "Cross the active lane and enter the unstable vehicle immediately.",
           outcome: "incorrect",
+          failureEvents: ["CRASH_HAZARD_BREACHED"],
           feedback:
             "Moving traffic, engine smoke, and an unstabilized vehicle make that approach unsafe. Complete the scene size-up and request specialized resources first.",
           scoreEffect: -8,
@@ -972,6 +1370,7 @@ export const carAccidentScenario: SceneScenarioConfig = {
           label: "Open the smoking hood",
           description: "Approach the engine compartment to investigate the smoke.",
           outcome: "incorrect",
+          failureEvents: ["CRASH_HAZARD_BREACHED"],
           feedback:
             "Do not place yourself over a smoking engine compartment. Keep distance, identify the hazards, and request fire-rescue.",
           scoreEffect: -6,
@@ -1116,9 +1515,9 @@ export const carAccidentScenario: SceneScenarioConfig = {
       enabledWhen: ["RESPONSIVENESS_CHECKED"],
       actions: [
         {
-          id: "jaw-thrust-with-stabilization",
-          label: "Stabilize the head and assess with a jaw-thrust",
-          description: "Maintain manual cervical stabilization while checking speech, the mouth, and airway patency.",
+          id: "assess-airway-with-stabilization",
+          label: "Maintain stabilization and assess airway",
+          description: "Because the driver is speaking, maintain manual cervical stabilization while checking speech, the mouth, and airway patency.",
           outcome: "correct",
           onSuccessEvents: ["AIRWAY_OPENED"],
           scoreEffect: 6,
@@ -1129,7 +1528,7 @@ export const carAccidentScenario: SceneScenarioConfig = {
           description: "Extend the neck to open the airway.",
           outcome: "incorrect",
           feedback:
-            "Use a jaw-thrust while maintaining manual stabilization when trauma suggests cervical spine injury. Avoid unnecessary neck extension.",
+            "The speaking driver's airway is patent. Maintain manual stabilization and avoid unnecessary neck extension; use a jaw-thrust if airway opening becomes necessary.",
           scoreEffect: -5,
           timeEffect: 12,
         },
@@ -1285,7 +1684,7 @@ export const carAccidentScenario: SceneScenarioConfig = {
           label: "Rapid transport to an appropriate trauma center",
           description: "Coordinate controlled extrication, spinal motion restriction, and rapid transport with ongoing reassessment.",
           outcome: "correct",
-          onSuccessEvents: ["TRANSPORT_SELECTED", "SECONDARY_UNLOCKED"],
+          onSuccessEvents: ["TRANSPORT_SELECTED"],
           scoreEffect: 8,
         },
         {
@@ -1310,6 +1709,221 @@ export const carAccidentScenario: SceneScenarioConfig = {
         },
       ],
     },
+    {
+      id: "spinal-protection",
+      name: "Spinal Protection",
+      category: "patient",
+      visibleWhen: ["TRANSPORT_SELECTED"],
+      completedWhen: ["SPINAL_PRECAUTIONS_MAINTAINED"],
+      position: [1.72, 1.58, 0.62],
+      focusPosition: [4.5, 2.5, 4.1],
+      focusTarget: [1.78, 1.48, 0.6],
+      highlightColor: "#fbbf24",
+      enabledWhen: ["TRANSPORT_SELECTED"],
+      actions: [
+        {
+          id: "maintain-spinal-precautions",
+          label: "Maintain stabilization and restrict spinal motion",
+          description: "Continue manual stabilization and apply spinal motion restriction per local protocol.",
+          outcome: "correct",
+          onSuccessEvents: ["SPINAL_PRECAUTIONS_MAINTAINED"],
+          scoreEffect: 9,
+          timeEffect: 18,
+        },
+        {
+          id: "allow-driver-to-turn",
+          label: "Ask the driver to turn and look at you",
+          description: "Have the patient rotate the head to improve communication.",
+          outcome: "incorrect",
+          feedback:
+            "The mechanism, confusion, and neck pain create spinal injury risk. Communicate without asking the patient to rotate the head or neck.",
+          scoreEffect: -6,
+          timeEffect: 12,
+        },
+        {
+          id: "remove-stabilization",
+          label: "Release stabilization after a patent airway",
+          description: "Stop spinal protection because the patient is talking.",
+          outcome: "incorrect",
+          feedback:
+            "A patent airway does not remove spinal risk. Maintain stabilization and limit unnecessary movement through extrication.",
+          scoreEffect: -6,
+          timeEffect: 12,
+        },
+      ],
+    },
+    {
+      id: "extrication-plan",
+      name: "Extrication Plan",
+      category: "movement",
+      visibleWhen: ["SPINAL_PRECAUTIONS_MAINTAINED"],
+      completedWhen: ["EXTRICATION_COORDINATED"],
+      position: [2.5, 1.2, 0.25],
+      focusPosition: [6.0, 3.0, 5.5],
+      focusTarget: [2.2, 1.1, 0.45],
+      highlightColor: "#67e8f9",
+      enabledWhen: ["SPINAL_PRECAUTIONS_MAINTAINED"],
+      actions: [
+        {
+          id: "coordinate-controlled-extrication",
+          label: "Coordinate a controlled rapid extrication",
+          description: "Work with fire-rescue to remove the patient promptly while maintaining ABC support and spinal motion restriction.",
+          outcome: "correct",
+          onSuccessEvents: ["EXTRICATION_COORDINATED"],
+          scoreEffect: 10,
+          timeEffect: 30,
+        },
+        {
+          id: "self-extricate-driver",
+          label: "Have the driver climb out",
+          description: "Ask the confused patient to exit the vehicle without assistance.",
+          outcome: "incorrect",
+          feedback:
+            "Confusion, neck pain, chest injury, and poor perfusion make unassisted self-extrication unsafe. Coordinate controlled removal with fire-rescue.",
+          scoreEffect: -7,
+          timeEffect: 18,
+        },
+        {
+          id: "prolonged-roadside-exam",
+          label: "Delay extrication for a full head-to-toe exam",
+          description: "Keep the high-priority patient in the vehicle for a prolonged assessment.",
+          outcome: "incorrect",
+          feedback:
+            "Do not prolong scene time for this unstable trauma patient. Coordinate extrication, treat immediate threats, and continue assessment during transport.",
+          scoreEffect: -6,
+          timeEffect: 25,
+        },
+      ],
+    },
+    {
+      id: "rapid-trauma-exam",
+      name: "Rapid Trauma Exam",
+      category: "patient",
+      visibleWhen: ["EXTRICATION_COORDINATED"],
+      completedWhen: ["FOCUSED_EXAM_COMPLETED"],
+      position: [2.05, 1.36, 0.62],
+      focusPosition: [5.1, 2.6, 4.7],
+      focusTarget: [2.05, 1.3, 0.55],
+      highlightColor: "#f59e0b",
+      enabledWhen: ["EXTRICATION_COORDINATED"],
+      actions: [
+        {
+          id: "perform-rapid-trauma-exam",
+          label: "Perform a rapid head-to-toe trauma exam",
+          description: "Assess the head, neck, chest, abdomen, pelvis, and extremities during controlled extrication without prolonging scene time.",
+          outcome: "correct",
+          onSuccessEvents: ["FOCUSED_EXAM_COMPLETED"],
+          scoreEffect: 9,
+          timeEffect: 30,
+        },
+        {
+          id: "examine-chest-only",
+          label: "Examine only the painful chest",
+          description: "Limit the exam to the patient's chief complaint.",
+          outcome: "incorrect",
+          feedback:
+            "A significant collision with altered mentation can cause multisystem injury. Perform a rapid head-to-toe trauma exam rather than anchoring on the chest.",
+          scoreEffect: -6,
+          timeEffect: 18,
+        },
+        {
+          id: "detailed-extremity-exam-first",
+          label: "Start with a detailed extremity exam",
+          description: "Document every extremity finding before assessing the torso.",
+          outcome: "incorrect",
+          feedback:
+            "Prioritize a rapid exam for life threats in the head, neck, chest, abdomen, and pelvis. Detailed extremity assessment can continue during transport.",
+          scoreEffect: -5,
+          timeEffect: 22,
+        },
+      ],
+    },
+    {
+      id: "focused-history",
+      name: "Focused Trauma History",
+      category: "patient",
+      visibleWhen: ["FOCUSED_EXAM_COMPLETED"],
+      completedWhen: ["FOCUSED_HISTORY_OBTAINED"],
+      position: [1.86, 1.58, 0.62],
+      focusPosition: [4.9, 2.55, 4.55],
+      focusTarget: [2.02, 1.38, 0.58],
+      highlightColor: "#c084fc",
+      enabledWhen: ["FOCUSED_EXAM_COMPLETED"],
+      actions: [
+        {
+          id: "obtain-ample-and-neurologic-checks",
+          label: "Obtain AMPLE and repeat neurologic and distal PMS checks",
+          description: "Use concise questions and available scene information while checking pupils, mentation, and distal pulse, motor, and sensation.",
+          outcome: "correct",
+          onSuccessEvents: ["FOCUSED_HISTORY_OBTAINED"],
+          scoreEffect: 8,
+          timeEffect: 25,
+        },
+        {
+          id: "rely-on-vehicle-damage",
+          label: "Rely on vehicle damage alone",
+          description: "Use the collision appearance instead of asking the patient or checking neurologic status.",
+          outcome: "incorrect",
+          feedback:
+            "Mechanism guides suspicion but does not replace AMPLE history, neurologic reassessment, or distal pulse, motor, and sensation checks.",
+          scoreEffect: -5,
+          timeEffect: 15,
+        },
+        {
+          id: "obtain-complete-social-history",
+          label: "Take a complete social history",
+          description: "Delay transport to collect nonurgent background details.",
+          outcome: "incorrect",
+          feedback:
+            "Keep the history focused and time-conscious. Prioritize AMPLE, event details, neurologic status, and distal PMS while transport continues.",
+          scoreEffect: -4,
+          timeEffect: 20,
+        },
+      ],
+    },
+    {
+      id: "patient-reassessment",
+      name: "Reassess Driver",
+      category: "patient",
+      visibleWhen: ["FOCUSED_HISTORY_OBTAINED"],
+      completedWhen: ["REASSESSMENT_COMPLETED"],
+      position: [2.05, 1.42, 0.62],
+      focusPosition: [5.1, 2.6, 4.7],
+      focusTarget: [2.05, 1.3, 0.55],
+      highlightColor: "#2dd4bf",
+      enabledWhen: ["FOCUSED_HISTORY_OBTAINED"],
+      actions: [
+        {
+          id: "repeat-trauma-primary-and-vitals",
+          label: "Repeat primary assessment and vital signs",
+          description: "Recheck mental status, airway, breathing, perfusion, BP, and SpO2 during extrication.",
+          outcome: "correct",
+          onSuccessEvents: ["REASSESSMENT_COMPLETED"],
+          scoreEffect: 10,
+          timeEffect: 30,
+        },
+        {
+          id: "wait-until-hospital-reassessment",
+          label: "Wait until hospital arrival to reassess",
+          description: "Assume the initial findings remain unchanged through extrication.",
+          outcome: "incorrect",
+          feedback:
+            "Trauma patients can deteriorate quickly, especially during movement. Repeat the primary assessment and vital signs now and throughout transport.",
+          scoreEffect: -7,
+          timeEffect: 20,
+        },
+        {
+          id: "recheck-pain-only",
+          label: "Ask only whether the pain changed",
+          description: "Use the pain report as the sole reassessment.",
+          outcome: "incorrect",
+          feedback:
+            "Pain is only one data point. Repeat mental status, airway, breathing, circulation, and vital signs to identify deterioration.",
+          scoreEffect: -4,
+          timeEffect: 12,
+        },
+      ],
+    },
   ],
 };
 
@@ -1321,6 +1935,7 @@ export function createScenarioState(scenario: SceneScenarioConfig = anaphylaxisF
     completedObjectives: [],
     failedObjectives: [],
     triggeredEvents: ["DISPATCH_RECEIVED"],
+    decisionHistory: [],
     selectedObjectId: undefined,
     focusedObjectId: scenario.interactiveObjects.find((object) =>
       (object.visibleWhen ?? []).every((event) => event === "DISPATCH_RECEIVED")
@@ -1350,6 +1965,10 @@ export function hasEvents(state: ScenarioState, events: string[] = []) {
 
 export function getActionSuccessEvents(action: InteractionAction) {
   return action.successEvents ?? action.onSuccessEvents ?? [];
+}
+
+export function getActionFailureEvents(action: InteractionAction) {
+  return action.failureEvents ?? action.onFailureEvents ?? [];
 }
 
 export function isInteractiveObjectComplete(object: InteractiveObjectConfig, state: ScenarioState) {
@@ -1399,6 +2018,8 @@ function feedbackForEvent(event: SceneEvent, state: ScenarioState): string {
       return "Hazard identified: the dog is blocking safe patient access. Rotate the scene to find the highlighted ambulance radio.";
     case "DOG_AGITATED":
       return "The dog lunges closer. You step back and lose time. The patient is still not safely reachable.";
+    case "CRASH_HAZARD_BREACHED":
+      return "Unsafe approach stopped: moving traffic, smoke, and an unstabilized vehicle still threaten the crew and patient.";
     case "CAR_INSPECTED":
       return "Vehicle checked from a safe distance. Smoke is present, but this patient appears to be a separate medical call.";
     case "CRASH_SCENE_INSPECTED":
@@ -1456,13 +2077,35 @@ function feedbackForEvent(event: SceneEvent, state: ScenarioState): string {
     case "WORKING_IMPRESSION_SELECTED":
       return isCrash
         ? "Working impression: multisystem trauma with possible cervical spine, chest, and internal injuries."
-        : "Working impression: severe allergic reaction with respiratory compromise and shock signs.";
+        : "Working impression: anaphylaxis with respiratory compromise and signs of poor perfusion. Treat the life threat now.";
     case "TRANSPORT_SELECTED":
       return isCrash
         ? "Rapid trauma transport selected. Maintain spinal motion restriction and coordinate extrication with fire-rescue."
-        : "Urgent transport selected. Primary assessment is complete; secondary assessment is now unlocked.";
+        : "Urgent transport selected. Obtain baseline monitor values while transport preparation continues.";
     case "SECONDARY_UNLOCKED":
       return "Primary assessment complete. Secondary assessment is now unlocked.";
+    case "EPINEPHRINE_ADMINISTERED":
+      return "IM epinephrine administered per protocol. Continue oxygenation support and prepare for rapid transport.";
+    case "OXYGEN_APPLIED":
+      return isCrash
+        ? "Oxygen applied. Continue assessing ventilation, chest movement, perfusion, and any need for assisted ventilation."
+        : "Oxygen applied. Work of breathing remains increased; continue urgent transport preparation and reassess the full response.";
+    case "SPINAL_PRECAUTIONS_MAINTAINED":
+      return "Manual stabilization and spinal motion restriction are maintained. Coordinate a controlled, time-conscious extrication.";
+    case "EXTRICATION_COORDINATED":
+      return "Fire-rescue begins controlled extrication while you maintain ABC support and spinal protection. Continue with a rapid trauma exam.";
+    case "FOCUSED_HISTORY_OBTAINED":
+      return isCrash
+        ? "Focused history: the restrained driver recalls the impact poorly, reports no anticoagulant use or known allergies, and has intact distal pulse, motor, and sensation. Mentation remains confused."
+        : "Focused history: symptoms began within minutes of eating dessert containing nuts. The patient had a prior mild reaction and was prescribed an auto-injector but does not have it today.";
+    case "FOCUSED_EXAM_COMPLETED":
+      return isCrash
+        ? "Rapid trauma exam: cervical tenderness, left chest tenderness and guarded movement, and a seat-belt bruise are present. The pelvis is stable and no major external bleeding is found."
+        : "Focused exam: mild lip swelling, widespread hives, bilateral wheezing, and weak peripheral perfusion persist. There is no stridor, and breathing is beginning to improve.";
+    case "REASSESSMENT_COMPLETED":
+      return isCrash
+        ? "Reassessment: the driver is more confused, respirations are 26, pulse 118 and weak, BP 98/64, and SpO2 93%. Continue rapid trauma transport with frequent reassessment."
+        : "Reassessment: throat tightness and wheezing are improving. HR 116, RR 22, BP 104/68, and SpO2 95%. Continue urgent transport and monitor for recurrence.";
     default:
       return "Action complete.";
   }
@@ -1515,12 +2158,16 @@ function applyEvent(state: ScenarioState, event: SceneEvent): ScenarioState {
   }
   if (event === "DOG_AGITATED") {
     next.environment = { ...next.environment, dogAgitated: true };
-    next.score = Math.max(0, next.score - 8);
-    next.elapsedTime += 20;
     next.focusedObjectId = "dog";
     next.failedObjectives = next.failedObjectives.includes("dog-hazard")
       ? next.failedObjectives
       : [...next.failedObjectives, "dog-hazard"];
+  }
+  if (event === "CRASH_HAZARD_BREACHED") {
+    next.focusedObjectId = "crash-vehicle";
+    next.failedObjectives = next.failedObjectives.includes("crash-hazard")
+      ? next.failedObjectives
+      : [...next.failedObjectives, "crash-hazard"];
   }
   if (event === "DOG_SECURED") {
     next.environment = { ...next.environment, dogSecured: true, sceneSafe: true, dogAgitated: false };
@@ -1532,7 +2179,7 @@ function applyEvent(state: ScenarioState, event: SceneEvent): ScenarioState {
   if (event === "RESPONSIVENESS_CHECKED") next.focusedObjectId = "airway-hotspot";
   if (event === "AIRWAY_OPENED") next.focusedObjectId = "chest-hotspot";
   if (event === "RESPIRATIONS_COUNTED") next.focusedObjectId = "pulse-hotspot";
-  if (event === "PULSE_CHECKED") next.focusedObjectId = "patient";
+  if (event === "PULSE_CHECKED") next.focusedObjectId = "working-impression";
   if (event === "MEDICAL_BAG_OPENED") next.focusedObjectId = "medical-bag";
   if (event === "GLOVES_EQUIPPED" || event === "PPE_EQUIPPED") {
     next.inventory = next.inventory.includes("gloves") ? next.inventory : [...next.inventory, "gloves"];
@@ -1636,26 +2283,145 @@ function applyEvent(state: ScenarioState, event: SceneEvent): ScenarioState {
       findingsDiscovered: addFinding(next, isCrash ? "SpO2 94% on room air" : "Low SpO2: 89%"),
       vitalsRevealed: revealVital(next, "spo2"),
     };
-    next.focusedObjectId = "working-impression";
+    next.focusedObjectId = isCrash ? "working-impression" : "focused-history";
   }
   if (event === "WORKING_IMPRESSION_SELECTED") {
     next.patient = {
       ...next.patient,
       workingImpression: isCrash
         ? "Multisystem trauma with possible cervical spine, chest, and internal injuries"
-        : "Severe allergic reaction with respiratory compromise and shock signs",
+        : "Anaphylaxis with respiratory compromise and signs of poor perfusion",
       findingsDiscovered: addFinding(
         next,
         isCrash
           ? "Working impression selected from mechanism, altered mentation, chest pain, and perfusion findings"
-          : "Working impression selected from hives, wheezing, hypoxia, and hypotension"
+          : "Working impression selected from throat tightness, hives, wheezing, and poor perfusion"
       ),
     };
     next.focusedObjectId = "transport-decision";
   }
-  if (event === "TRANSPORT_SELECTED" || event === "SECONDARY_UNLOCKED") {
+  if (event === "TRANSPORT_SELECTED") {
+    next.currentPhase = isCrash ? "interventions" : "primaryAssessment";
+    next.focusedObjectId = isCrash ? "spinal-protection" : "patient";
+  }
+  if (event === "SECONDARY_UNLOCKED") {
     next.currentPhase = "secondaryAssessment";
-    next.focusedObjectId = "patient";
+    next.focusedObjectId = isCrash ? "rapid-trauma-exam" : "focused-history";
+  }
+  if (event === "EPINEPHRINE_ADMINISTERED") {
+    next.currentPhase = "interventions";
+    next.patient = {
+      ...next.patient,
+      medicationGiven: next.patient.medicationGiven.includes("epinephrine")
+        ? next.patient.medicationGiven
+        : [...next.patient.medicationGiven, "epinephrine"],
+      findingsDiscovered: addFinding(next, "IM epinephrine administered for anaphylaxis"),
+    };
+    next.focusedObjectId = "oxygen-support";
+  }
+  if (event === "OXYGEN_APPLIED") {
+    next.currentPhase = isCrash ? "primaryAssessment" : "interventions";
+    next.patient = {
+      ...next.patient,
+      oxygenApplied: true,
+      findingsDiscovered: addFinding(
+        next,
+        isCrash
+          ? "Oxygen applied while ventilation and chest movement are monitored"
+          : "Oxygen applied with ventilation monitored"
+      ),
+    };
+    next.focusedObjectId = isCrash ? "pulse-hotspot" : "transport-decision";
+  }
+  if (event === "SPINAL_PRECAUTIONS_MAINTAINED") {
+    next.currentPhase = "interventions";
+    next.patient = {
+      ...next.patient,
+      findingsDiscovered: addFinding(next, "Spinal motion restriction maintained during care"),
+    };
+    next.focusedObjectId = "extrication-plan";
+  }
+  if (event === "EXTRICATION_COORDINATED") {
+    next.currentPhase = "interventions";
+    next.patient = {
+      ...next.patient,
+      position: "controlled-extrication",
+      findingsDiscovered: addFinding(next, "Controlled rapid extrication coordinated with fire-rescue"),
+    };
+    next.focusedObjectId = "rapid-trauma-exam";
+  }
+  if (event === "FOCUSED_HISTORY_OBTAINED") {
+    next.currentPhase = "secondaryAssessment";
+    next.patient = {
+      ...next.patient,
+      findingsDiscovered: addFinding(
+        next,
+        isCrash
+          ? "AMPLE history obtained with persistent confusion and intact distal pulse, motor, and sensation"
+          : "Nut exposure with rapid symptom onset, prior reaction, and prescribed auto-injector not available"
+      ),
+    };
+    next.focusedObjectId = isCrash ? "patient-reassessment" : "focused-exam";
+  }
+  if (event === "FOCUSED_EXAM_COMPLETED") {
+    next.currentPhase = "secondaryAssessment";
+    next.patient = {
+      ...next.patient,
+      findingsDiscovered: addFinding(
+        next,
+        isCrash
+          ? "Rapid trauma exam finds cervical and left chest tenderness with seat-belt bruising and no major external bleeding"
+          : "Focused exam finds mild lip swelling, hives, bilateral wheezing, and weak peripheral perfusion without stridor"
+      ),
+    };
+    next.focusedObjectId = isCrash ? "focused-history" : "patient-reassessment";
+  }
+  if (event === "REASSESSMENT_COMPLETED") {
+    next.currentPhase = "complete";
+    next.patient = {
+      ...next.patient,
+      responsiveness: isCrash
+        ? "Responds to voice, increasingly confused"
+        : "Alert, less anxious, speaking in longer phrases",
+      airwayStatus: isCrash
+        ? "Patent with spinal motion restriction maintained"
+        : "Patent, throat tightness improving",
+      breathingStatus: isCrash
+        ? "Shallow respirations, RR 26, persistent left chest pain"
+        : "Wheezing improving, RR 22, work of breathing reduced",
+      circulationStatus: isCrash
+        ? "Rapid weak radial pulse, pale cool skin, worsening perfusion"
+        : "Rapid radial pulse, hives persist, perfusion improving",
+      findingsDiscovered: addFinding(
+        next,
+        isCrash
+          ? "Repeat ABCs and vital signs show worsening compensated shock"
+          : "Repeat ABCs and vital signs show partial response to epinephrine and oxygen"
+      ),
+      vitalsRevealed: [
+        "heartRate",
+        "respiratoryRate",
+        "systolicBP",
+        "diastolicBP",
+        "spo2",
+      ],
+      vitals: isCrash
+        ? {
+            heartRate: 118,
+            respiratoryRate: 26,
+            systolicBP: 98,
+            diastolicBP: 64,
+            spo2: 93,
+          }
+        : {
+            heartRate: 116,
+            respiratoryRate: 22,
+            systolicBP: 104,
+            diastolicBP: 68,
+            spo2: 95,
+          },
+    };
+    next.focusedObjectId = "patient-reassessment";
   }
 
   return next;
@@ -1670,6 +2436,15 @@ function completeObjectives(scenario: SceneScenarioConfig, state: ScenarioState)
   if (!completed.length) return state;
 
   const completedObjectives = [...state.completedObjectives, ...completed];
+  if (completedObjectives.length === scenario.objectives.length) {
+    return {
+      ...state,
+      completedObjectives,
+      currentObjectiveId: scenario.objectives[scenario.objectives.length - 1].id,
+      currentPhase: "complete",
+      focusedObjectId: "patient-reassessment",
+    };
+  }
   const currentObjective = nextObjective(scenario, state, completedObjectives);
 
   return {
@@ -1749,17 +2524,41 @@ export function scenarioReducer(
         };
       }
 
+      const decisionOutcome =
+        interaction.outcome ?? "correct";
+
       if (interaction.outcome === "incorrect") {
-        const maxScore = state.failedObjectives.includes("dog-hazard") ? 88 : 100;
+        let next = state;
+        getActionFailureEvents(interaction).forEach((event) => {
+          next = applyEvent(next, event);
+        });
+        const hasSafetyFailure =
+          next.failedObjectives.includes("dog-hazard") ||
+          next.failedObjectives.includes("crash-hazard");
+        const maxScore = hasSafetyFailure ? 88 : 100;
         return {
-          ...state,
+          ...next,
+          decisionHistory: [
+            ...next.decisionHistory,
+            {
+              objectId: object.id,
+              objectName: object.name,
+              actionId: interaction.id,
+              actionLabel: interaction.label,
+              outcome: "incorrect",
+              feedback: interaction.feedback,
+              phase: state.currentPhase,
+              objectiveId: state.currentObjectiveId,
+              elapsedTime: state.elapsedTime,
+            },
+          ],
           selectedObjectId: object.id,
           focusedObjectId: object.id,
           feedback:
             interaction.feedback ??
             "That action does not fit the patient's current presentation. Reassess and choose another option.",
-          elapsedTime: state.elapsedTime + (interaction.timeEffect ?? 10),
-          score: Math.max(0, Math.min(maxScore, state.score + (interaction.scoreEffect ?? -3))),
+          elapsedTime: next.elapsedTime + (interaction.timeEffect ?? 10),
+          score: Math.max(0, Math.min(maxScore, next.score + (interaction.scoreEffect ?? -3))),
         };
       }
 
@@ -1777,9 +2576,26 @@ export function scenarioReducer(
       const shouldKeepSelection =
         (object.id === "dog" && next.environment.dogAgitated && !next.environment.dogSecured) ||
         ((object.id === "medical-bag" || object.id === "patient") && hasRemainingObjectActions);
-      const maxScore = next.failedObjectives.includes("dog-hazard") ? 88 : 100;
+      const hasSafetyFailure =
+        next.failedObjectives.includes("dog-hazard") ||
+        next.failedObjectives.includes("crash-hazard");
+      const maxScore = hasSafetyFailure ? 88 : 100;
       next = {
         ...next,
+        decisionHistory: [
+          ...next.decisionHistory,
+          {
+            objectId: object.id,
+            objectName: object.name,
+              actionId: interaction.id,
+              actionLabel: interaction.label,
+              outcome: decisionOutcome,
+            feedback: interaction.feedback ?? interaction.description,
+            phase: state.currentPhase,
+            objectiveId: state.currentObjectiveId,
+            elapsedTime: state.elapsedTime,
+          },
+        ],
         selectedObjectId: shouldKeepSelection ? object.id : undefined,
         elapsedTime: next.elapsedTime + (interaction.timeEffect ?? 8),
         score: Math.max(0, Math.min(maxScore, next.score + (interaction.scoreEffect ?? 0))),
@@ -1806,6 +2622,12 @@ export function getScenarioScoreBreakdown(state: ScenarioState): ScenarioScoreBr
   const isCrash = state.scenarioId === carAccidentScenario.id;
   const unsafeDog = state.failedObjectives.includes("dog-hazard");
   const unsafeCrash = state.failedObjectives.includes("crash-hazard");
+  const sceneInspected = state.triggeredEvents.includes(
+    isCrash ? "CRASH_SCENE_INSPECTED" : "DOG_INSPECTED"
+  );
+  const resourcesRequested = state.triggeredEvents.includes(
+    isCrash ? "FIRE_RESCUE_CALLED" : "ANIMAL_CONTROL_CALLED"
+  );
   const assessmentEvents: SceneEvent[] = [
     "GENERAL_IMPRESSION_OBSERVED",
     "RESPONSIVENESS_CHECKED",
@@ -1814,40 +2636,46 @@ export function getScenarioScoreBreakdown(state: ScenarioState): ScenarioScoreBr
     "PULSE_CHECKED",
     "BLOOD_PRESSURE_OBTAINED",
     "SPO2_OBTAINED",
+    "FOCUSED_HISTORY_OBTAINED",
+    "FOCUSED_EXAM_COMPLETED",
   ];
   const completedAssessment = assessmentEvents.filter((event) => state.triggeredEvents.includes(event)).length;
+  const workingImpressionSelected = state.triggeredEvents.includes("WORKING_IMPRESSION_SELECTED");
+  const transportSelected = state.triggeredEvents.includes("TRANSPORT_SELECTED");
+  const treatmentEvents: SceneEvent[] = isCrash
+    ? ["OXYGEN_APPLIED", "SPINAL_PRECAUTIONS_MAINTAINED", "EXTRICATION_COORDINATED"]
+    : ["EPINEPHRINE_ADMINISTERED", "OXYGEN_APPLIED"];
+  const completedTreatment = treatmentEvents.filter((event) => state.triggeredEvents.includes(event)).length;
+  const reassessmentCompleted = state.triggeredEvents.includes("REASSESSMENT_COMPLETED");
+  const incorrectDecisionCount = state.decisionHistory.filter(
+    (decision) => decision.outcome === "incorrect"
+  ).length;
+  const clinicalDecisionPenalty = Math.min(60, incorrectDecisionCount * 12);
 
   return {
-    safety: isCrash
-      ? Math.max(
-          55,
-          100 -
-            (unsafeCrash ? 28 : 0) -
-            (state.triggeredEvents.includes("CRASH_SCENE_INSPECTED") ? 0 : 18)
-        )
-      : Math.max(
-          55,
-          100 -
-            (unsafeDog ? 28 : 0) -
-            (state.triggeredEvents.includes("DOG_INSPECTED") ? 0 : 18)
-        ),
+    safety: Math.max(
+      0,
+      100 -
+        (isCrash ? (unsafeCrash ? 35 : 0) : unsafeDog ? 35 : 0) -
+        (sceneInspected ? 0 : 35) -
+        (resourcesRequested ? 0 : 30)
+    ),
     assessment: Math.round((completedAssessment / assessmentEvents.length) * 100),
-    clinicalDecisions: state.triggeredEvents.includes("WORKING_IMPRESSION_SELECTED")
-      ? state.triggeredEvents.includes("TRANSPORT_SELECTED")
-        ? 94
-        : 82
-      : 45,
-    treatment: state.triggeredEvents.includes("TRANSPORT_SELECTED") ? 72 : 35,
-    reassessment: state.currentPhase === "secondaryAssessment" ? 55 : 0,
-    communication: state.triggeredEvents.includes(
-      isCrash ? "FIRE_RESCUE_CALLED" : "ANIMAL_CONTROL_CALLED"
-    )
-      ? 90
-      : 52,
+    clinicalDecisions: Math.max(
+      0,
+      (workingImpressionSelected ? (transportSelected ? 100 : 65) : 0) -
+        clinicalDecisionPenalty
+    ),
+    treatment: Math.round((completedTreatment / treatmentEvents.length) * 100),
+    reassessment: reassessmentCompleted ? 100 : 0,
+    communication:
+      (resourcesRequested ? 50 : 0) +
+      (state.triggeredEvents.includes("RESPONSIVENESS_CHECKED") ? 50 : 0),
     efficiency: Math.max(
       45,
       100 -
         state.hintsUsed * 6 -
+        incorrectDecisionCount * 5 -
         Math.floor(state.elapsedTime / 60) * 3 -
         (isCrash ? (unsafeCrash ? 14 : 0) : unsafeDog ? 14 : 0)
     ),
@@ -1860,6 +2688,19 @@ export function buildScenarioDebrief(state: ScenarioState) {
   const correct: string[] = [];
   const missed: string[] = [];
   const unsafe: string[] = [];
+  const decisionReview = state.decisionHistory
+    .filter((decision) => decision.outcome === "incorrect")
+    .filter(
+      (decision, index, decisions) =>
+        decisions.findIndex((candidate) => candidate.actionId === decision.actionId) === index
+    )
+    .map((decision) => ({
+      choice: decision.actionLabel,
+      context: decision.objectName,
+      rationale:
+        decision.feedback ??
+        "Reassess the available findings and choose the action that addresses the highest-priority threat.",
+    }));
 
   if (isCrash) {
     if (state.triggeredEvents.includes("CRASH_SCENE_INSPECTED")) {
@@ -1890,6 +2731,23 @@ export function buildScenarioDebrief(state: ScenarioState) {
   if (state.triggeredEvents.includes("GLOVES_EQUIPPED")) correct.push("Equipped PPE before touching the patient.");
   else missed.push("PPE was not equipped before patient contact.");
 
+  const primaryAssessmentEvents: SceneEvent[] = [
+    "GENERAL_IMPRESSION_OBSERVED",
+    "RESPONSIVENESS_CHECKED",
+    "AIRWAY_OPENED",
+    "RESPIRATIONS_COUNTED",
+    "PULSE_CHECKED",
+  ];
+  if (primaryAssessmentEvents.every((event) => state.triggeredEvents.includes(event))) {
+    correct.push(
+      isCrash
+        ? "Completed general impression, responsiveness, airway with spinal precautions, breathing, and circulation."
+        : "Completed general impression, responsiveness, airway, breathing, and circulation before equipment-based vital signs."
+    );
+  } else {
+    missed.push("The general impression and primary ABC assessment were incomplete.");
+  }
+
   if (state.triggeredEvents.includes("BLOOD_PRESSURE_OBTAINED") && state.triggeredEvents.includes("SPO2_OBTAINED")) {
     correct.push("Obtained baseline BP and SpO2 after the ABC assessment.");
   } else {
@@ -1906,6 +2764,64 @@ export function buildScenarioDebrief(state: ScenarioState) {
     missed.push("Working impression was not selected from the gathered findings.");
   }
 
+  if (state.triggeredEvents.includes("TRANSPORT_SELECTED")) {
+    correct.push(
+      isCrash
+        ? "Selected rapid transport to an appropriate trauma center while coordinating controlled extrication."
+        : "Recognized the patient as high priority and selected urgent transport without prolonging scene time."
+    );
+  } else {
+    missed.push("Transport priority was not selected from the primary assessment findings.");
+  }
+
+  if (isCrash) {
+    if (
+      state.triggeredEvents.includes("OXYGEN_APPLIED") &&
+      state.triggeredEvents.includes("SPINAL_PRECAUTIONS_MAINTAINED") &&
+      state.triggeredEvents.includes("EXTRICATION_COORDINATED")
+    ) {
+      correct.push(
+        "Supported oxygenation, maintained spinal protection, and coordinated a controlled, time-conscious extrication."
+      );
+    } else {
+      missed.push("Breathing support, spinal protection, and controlled extrication were not all completed.");
+    }
+  } else if (
+    state.triggeredEvents.includes("EPINEPHRINE_ADMINISTERED") &&
+    state.triggeredEvents.includes("OXYGEN_APPLIED")
+  ) {
+    correct.push("Administered first-line epinephrine and supported oxygenation without delaying transport.");
+  } else {
+    missed.push("Immediate anaphylaxis treatment with epinephrine and oxygenation support was incomplete.");
+  }
+
+  if (
+    state.triggeredEvents.includes("FOCUSED_HISTORY_OBTAINED") &&
+    state.triggeredEvents.includes("FOCUSED_EXAM_COMPLETED")
+  ) {
+    correct.push(
+      isCrash
+        ? "Completed a rapid head-to-toe trauma exam, focused AMPLE history, neurologic reassessment, and distal PMS checks without delaying transport."
+        : "Completed a focused allergy history and targeted airway, breathing, skin, and perfusion exam while urgent transport preparation continued."
+    );
+  } else {
+    missed.push(
+      isCrash
+        ? "The rapid trauma exam and focused trauma history were not both completed."
+        : "The focused allergy history and targeted secondary exam were not both completed."
+    );
+  }
+
+  if (state.triggeredEvents.includes("REASSESSMENT_COMPLETED")) {
+    correct.push(
+      isCrash
+        ? "Repeated the primary assessment and vital signs during extrication, identifying worsening perfusion."
+        : "Repeated the ABCs and vital signs after treatment, confirming improvement while watching for recurrence."
+    );
+  } else {
+    missed.push("The patient's response to treatment was not reassessed.");
+  }
+
   if (isCrash && state.failedObjectives.includes("crash-hazard")) {
     unsafe.push("Entered the active roadway or approached the unstable vehicle before hazards were controlled.");
   } else if (state.failedObjectives.includes("dog-hazard")) {
@@ -1917,12 +2833,34 @@ export function buildScenarioDebrief(state: ScenarioState) {
     correct,
     missed,
     unsafe,
+    decisionReview,
+    decisionsMade: state.decisionHistory.length,
+    incorrectDecisions: state.decisionHistory.filter(
+      (decision) => decision.outcome === "incorrect"
+    ).length,
+    priorityTakeaway:
+      unsafe[0] ??
+      decisionReview[0]?.rationale ??
+      (isCrash
+        ? "Significant mechanism, altered mentation, chest findings, and worsening perfusion demand rapid trauma transport with repeated primary assessment."
+        : "Anaphylaxis with respiratory and perfusion compromise requires early epinephrine, oxygenation support, urgent transport, and frequent reassessment."),
+    recommendedReview: isCrash
+      ? {
+          title: "Review shock vital-sign patterns",
+          href: "/learn/emt-shock-vital-sign-patterns",
+        }
+      : {
+          title: "Review recognizing anaphylaxis",
+          href: "/learn/recognizing-anaphylaxis-emt-assessment",
+        },
     findings: state.patient.findingsDiscovered,
     summary:
-      state.triggeredEvents.includes("TRANSPORT_SELECTED")
+      state.triggeredEvents.includes("REASSESSMENT_COMPLETED")
         ? isCrash
-          ? "Primary trauma assessment complete: significant mechanism, altered mentation, and chest and neck findings support rapid transport to a trauma center."
-          : "Primary assessment complete: respiratory distress, skin findings, hypoxia, and hypotension support urgent transport and rapid treatment."
+          ? "Scenario complete: worsening mentation, breathing, and perfusion during extrication confirm the need for rapid transport to a trauma center and continuous reassessment."
+          : "Scenario complete: epinephrine and oxygenation support produced a partial response, but anaphylaxis still requires urgent transport and monitoring for recurrence."
+        : state.triggeredEvents.includes("TRANSPORT_SELECTED")
+          ? "Transport priority selected. Continue immediate treatment and reassess the patient before completing the scenario."
         : "Scenario in progress. Continue collecting assessment findings before choosing transport priority.",
   };
 }

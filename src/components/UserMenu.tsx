@@ -11,22 +11,56 @@ type Props = {
 export default function UserMenu({ email, avatarUrl }: Props) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
-  // useEffect(() => {
-  //   function onDocClick(e: MouseEvent) {
-  //     if (!menuRef.current) return;
-  //     if (!menuRef.current.contains(e.target as Node)) setOpen(false);
-  //   }
-  //   function onEsc(e: KeyboardEvent) {
-  //     if (e.key === "Escape") setOpen(false);
-  //   }
-  //   document.addEventListener("mousedown", onDocClick);
-  //   document.addEventListener("keydown", onEsc);
-  //   return () => {
-  //     document.removeEventListener("mousedown", onDocClick);
-  //     document.removeEventListener("keydown", onEsc);
-  //   };
-  // }, []);
+  useEffect(() => {
+    if (!open) return;
+
+    function closeMenu({ restoreFocus = false } = {}) {
+      setOpen(false);
+      if (restoreFocus) {
+        window.requestAnimationFrame(() => triggerRef.current?.focus());
+      }
+    }
+
+    function onDocClick(event: MouseEvent) {
+      if (!menuRef.current?.contains(event.target as Node)) closeMenu();
+    }
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (!menuRef.current) return;
+      const items = Array.from(
+        menuRef.current.querySelectorAll<HTMLElement>('[role="menuitem"]')
+      );
+      const currentIndex = items.indexOf(document.activeElement as HTMLElement);
+
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeMenu({ restoreFocus: true });
+      } else if (event.key === "ArrowDown") {
+        event.preventDefault();
+        items[(currentIndex + 1 + items.length) % items.length]?.focus();
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        items[(currentIndex - 1 + items.length) % items.length]?.focus();
+      } else if (event.key === "Home") {
+        event.preventDefault();
+        items[0]?.focus();
+      } else if (event.key === "End") {
+        event.preventDefault();
+        items[items.length - 1]?.focus();
+      } else if (event.key === "Tab") {
+        closeMenu();
+      }
+    }
+
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
 
   const initials = useMemo(() => {
     if (!email) return "U";
@@ -38,17 +72,31 @@ export default function UserMenu({ email, avatarUrl }: Props) {
   return (
     <div className="relative" ref={menuRef}>
       <button
+        ref={triggerRef}
+        type="button"
         onClick={() => setOpen((s) => !s)}
+        onKeyDown={(event) => {
+          if (event.key !== "ArrowDown") return;
+          event.preventDefault();
+          setOpen(true);
+          window.requestAnimationFrame(() => {
+            menuRef.current
+              ?.querySelector<HTMLElement>('[role="menuitem"]')
+              ?.focus();
+          });
+        }}
         className="inline-flex items-center gap-2 rounded-md border border-[#b7ccc5] bg-white px-2.5 py-2 text-sm text-slate-700 shadow-sm transition hover:border-teal-500 hover:bg-teal-50"
         aria-haspopup="menu"
         aria-expanded={open}
+        aria-controls="user-account-menu"
+        aria-label="Open account menu"
       >
         {/* Avatar */}
         {avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={avatarUrl}
-            alt="avatar"
+            alt=""
             className="h-6 w-6 rounded-full object-cover"
           />
         ) : (
@@ -63,6 +111,7 @@ export default function UserMenu({ email, avatarUrl }: Props) {
       {/* Dropdown */}
       {open && (
         <div
+          id="user-account-menu"
           role="menu"
           className="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl"
         >

@@ -190,6 +190,7 @@ export default function FlashcardTrainer() {
             <div className="relative">
               <Filter size={14} className="pointer-events-none absolute left-3 top-2.5 text-slate-400" />
               <select
+                aria-label="Filter flashcards by domain"
                 value={domainFilter}
                 onChange={(e) => {
                   setDomainFilter(e.target.value as any);
@@ -215,7 +216,7 @@ export default function FlashcardTrainer() {
                 setIndex(0);
                 setFlipped(false);
               }}
-              className={`inline-flex items-center gap-1 rounded-md border px-3 py-2 text-xs font-semibold ${
+              className={`inline-flex min-h-11 items-center gap-1 rounded-md border px-3 py-2 text-xs font-semibold ${
                 shuffleMode
                   ? "border-teal-300 bg-teal-50 text-teal-700"
                   : "border-slate-200 bg-white text-slate-700"

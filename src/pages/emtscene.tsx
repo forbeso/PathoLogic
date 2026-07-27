@@ -1,10 +1,21 @@
 import Seo from "@/components/Seo";
 import Link from "next/link";
-import ThreeDScene from "@/components/ThreeDScene";
-import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import dynamic from "next/dynamic";
+import Head from "next/head";
+import { useRouter } from "next/router";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
 import { AppShell, StatusPill } from "@/components/AppShell";
 import { useLearnerProgress } from "@/hooks/useLearnerProgress";
 import { awardProgress, createProgressionRunId } from "@/lib/progression";
+import { trackProductEvent } from "@/lib/telemetry";
+import { useModalFocus } from "@/hooks/useModalFocus";
 import {
   abandonScenarioAttempt,
   saveScenarioProgress,
@@ -14,6 +25,7 @@ import {
   Activity,
   AlertTriangle,
   Ambulance,
+  BookOpen,
   CheckCircle2,
   ChevronRight,
   ClipboardCheck,
@@ -21,6 +33,7 @@ import {
   Flame,
   HeartPulse,
   Lightbulb,
+  LoaderCircle,
   LogOut,
   MapPin,
   Menu,
@@ -55,7 +68,48 @@ import {
   type PatientVitalKey,
 } from "@/lib/emtSceneEngine";
 
+function SceneModuleLoader() {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="grid h-full min-h-[320px] place-items-center bg-slate-950 px-6 text-center text-white"
+    >
+      <div>
+        <LoaderCircle
+          aria-hidden="true"
+          className="mx-auto animate-spin text-teal-300"
+          size={30}
+          strokeWidth={2.2}
+        />
+        <p className="mt-4 text-[11px] font-black uppercase tracking-[0.22em] text-teal-300">
+          PathoLogix
+        </p>
+        <h2 className="mt-2 text-2xl font-bold">Preparing EMT Scene</h2>
+        <p className="mt-2 text-sm text-slate-300">
+          Loading the interactive training environment...
+        </p>
+      </div>
+    </div>
+  );
+}
+
+const ThreeDScene = dynamic(() => import("@/components/ThreeDScene"), {
+  ssr: false,
+  loading: SceneModuleLoader,
+});
+
 type StageKey = "primary" | "secondary" | "impression" | "interventions" | "transport" | "reassessment";
+
+const DEBRIEF_SCORE_LABELS: Record<string, string> = {
+  safety: "Scene safety",
+  assessment: "Assessment",
+  clinicalDecisions: "Clinical decisions",
+  treatment: "Treatment",
+  reassessment: "Reassessment",
+  communication: "Communication",
+  efficiency: "Efficiency",
+};
 type SimulationMode = "guided" | "scenario" | "exam";
 type MobileHudSection = "objective" | "dispatch" | "vitals" | "equipment" | "progress";
 
@@ -418,12 +472,14 @@ function SceneTopBar({
   level,
   levelProgress,
   recentXpAward,
+  onObjectivesClick,
 }: {
   totalXp: number;
   currentStreak: number;
   level: number;
   levelProgress: number;
   recentXpAward: number;
+  onObjectivesClick: () => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -483,7 +539,9 @@ function SceneTopBar({
       <div className="flex items-center gap-2">
         <button
           type="button"
-          className="hidden items-center gap-2 rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-xs font-black text-slate-100 transition hover:border-teal-200/50 hover:bg-teal-300/10 md:flex"
+          onClick={onObjectivesClick}
+          aria-controls="scene-objective-panel"
+          className="hidden items-center gap-2 rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-xs font-black text-slate-100 transition hover:border-teal-200/50 hover:bg-teal-300/10 xl:flex"
         >
           <ClipboardCheck size={16} />
           Objectives
@@ -560,6 +618,7 @@ function makeOpeningLog(scenario: Scenario): LogEntry[] {
 }
 
 export default function EMTScene() {
+  const router = useRouter();
   const [scenarioId, setScenarioId] = useState(SCENARIOS[0].id);
   const scenario = useMemo(
     () => SCENARIOS.find((item) => item.id === scenarioId) ?? SCENARIOS[0],
@@ -593,7 +652,22 @@ export default function EMTScene() {
     createProgressionRunId("emt-scene")
   );
   const previousCompletedObjectives = useRef<string[]>([]);
+  const lastTrackedRunId = useRef<string | null>(null);
   const xpAwardTimer = useRef<number | null>(null);
+  const initialScenarioQueryApplied = useRef(false);
+  const decisionPromptRef = useRef<HTMLElement>(null);
+  const sceneActionTriggerRef = useRef<HTMLElement | null>(null);
+  const previousSelectedObjectId = useRef<string | undefined>(undefined);
+  const mobileHudRef = useRef<HTMLElement>(null);
+  const mobileHudCloseRef = useRef<HTMLButtonElement>(null);
+
+  useModalFocus({
+    active: mobileHudOpen,
+    containerRef: mobileHudRef,
+    initialFocusRef: mobileHudCloseRef,
+    returnFocusId: "mobile-hud-toggle",
+    onEscape: () => setMobileHudOpen(false),
+  });
 
   useEffect(() => {
     const updateSceneHeight = () => {
@@ -696,12 +770,29 @@ export default function EMTScene() {
   const activeStage = STAGES.find((item) => item.key === stage) ?? STAGES[0];
   const completedCount = phaseObjectives.filter((objective) => gameState.completedObjectives.includes(objective.id)).length;
   const totalTasks = phaseObjectives.length || activeStage.tasks.length;
-  const progressPercent = totalTasks > 0 ? Math.round((completedCount / totalTasks) * 100) : 0;
   const scenarioTasks = sceneScenario.objectives;
   const scenarioCompletedCount = gameState.completedObjectives.length;
+  const scenarioComplete = scenarioCompletedCount === scenarioTasks.length;
+  const progressPercent = scenarioComplete
+    ? 100
+    : totalTasks > 0
+      ? Math.round((completedCount / totalTasks) * 100)
+      : 0;
   const scenarioProgressPercent = Math.round((scenarioCompletedCount / scenarioTasks.length) * 100);
 
   useEffect(() => {
+    if (!router.isReady) return;
+    const requestedScenario = Array.isArray(router.query.scenario)
+      ? router.query.scenario[0]
+      : router.query.scenario;
+    if (
+      requestedScenario &&
+      requestedScenario !== scenario.id &&
+      SCENARIOS.some((item) => item.id === requestedScenario)
+    ) {
+      return;
+    }
+
     void startScenarioAttempt({
       runId: progressionRunId,
       scenarioId: scenario.id,
@@ -711,8 +802,19 @@ export default function EMTScene() {
       // The simulation remains playable while signed out, offline, or before
       // the scenario-attempt migration is deployed.
     });
+
+    if (lastTrackedRunId.current !== progressionRunId) {
+      lastTrackedRunId.current = progressionRunId;
+      trackProductEvent("emt_scene_started", {
+        scenarioId: scenario.id,
+        mode: simulationMode,
+        objectiveCount: scenarioTasks.length,
+      });
+    }
   }, [
     progressionRunId,
+    router.isReady,
+    router.query.scenario,
     scenario.id,
     scenarioTasks.length,
     simulationMode,
@@ -752,6 +854,20 @@ export default function EMTScene() {
         },
       });
       if (completionBonus.awarded) earnedXp += 40;
+
+      const debriefScore = buildScenarioDebrief(gameState).score;
+      const scoreValues = Object.values(debriefScore);
+      const overallScore = Math.round(
+        scoreValues.reduce((sum, value) => sum + value, 0) /
+          scoreValues.length
+      );
+      trackProductEvent("emt_scene_completed", {
+        scenarioId: scenario.id,
+        mode: simulationMode,
+        score: overallScore,
+        elapsedSeconds: gameState.elapsedTime,
+        hintsUsed: gameState.hintsUsed,
+      });
     }
 
     if (earnedXp > 0) {
@@ -775,6 +891,7 @@ export default function EMTScene() {
     progressionRunId,
     scenario.id,
     scenarioTasks.length,
+    simulationMode,
   ]);
 
   useEffect(
@@ -789,7 +906,24 @@ export default function EMTScene() {
   const revealedVitals = gameState.patient.vitalsRevealed;
   const vitalsPanelVisible = revealedVitals.length > 0;
   const equipmentDockVisible = sceneSecured;
-  const monitorVitals = useMemo(() => getMonitorVitals(vitals, scenario.id, revealedVitals), [scenario.id, vitals, revealedVitals]);
+  const monitorVitalSource = useMemo<VitalSet>(() => {
+    if (!hasEvents(gameState, ["REASSESSMENT_COMPLETED"])) return vitals;
+
+    const reassessed = gameState.patient.vitals;
+    return {
+      ...vitals,
+      loc: gameState.patient.responsiveness,
+      breathing: `RR ${reassessed.respiratoryRate}`,
+      pulse: `${reassessed.heartRate}`,
+      bp: `${reassessed.systolicBP}/${reassessed.diastolicBP}`,
+      spo2: `${reassessed.spo2}%`,
+      skin: gameState.patient.circulationStatus,
+    };
+  }, [gameState, vitals]);
+  const monitorVitals = useMemo(
+    () => getMonitorVitals(monitorVitalSource, scenario.id, revealedVitals),
+    [monitorVitalSource, revealedVitals, scenario.id]
+  );
   const latestSceneMessage = useMemo(() => {
     for (let index = log.length - 1; index >= 0; index -= 1) {
       if (log[index].who !== "student") return log[index];
@@ -820,6 +954,7 @@ export default function EMTScene() {
       return !completed && hasEvents(gameState, action.requires);
     });
   const selectedObject = sceneObjects.find((object) => object.id === gameState.selectedObjectId);
+  const selectedObjectId = selectedObject?.id;
   const requestedResources = hasEvents(gameState, [
     isCrashScenario ? "FIRE_RESCUE_CALLED" : "ANIMAL_CONTROL_CALLED",
   ]);
@@ -838,6 +973,42 @@ export default function EMTScene() {
   const nextStepActions = nextSceneObject ? availableActionsForObject(nextSceneObject) : [];
 
   useEffect(() => {
+    const previouslySelected = previousSelectedObjectId.current;
+    previousSelectedObjectId.current = selectedObjectId;
+
+    if (!selectedObjectId) {
+      if (!previouslySelected || !sceneActionTriggerRef.current?.isConnected) return;
+      const restoreFocusFrame = window.requestAnimationFrame(() => {
+        sceneActionTriggerRef.current?.focus({ preventScroll: true });
+      });
+      return () => window.cancelAnimationFrame(restoreFocusFrame);
+    }
+
+    const activeElement = document.activeElement;
+    if (
+      activeElement instanceof HTMLElement &&
+      activeElement !== document.body &&
+      activeElement !== decisionPromptRef.current
+    ) {
+      sceneActionTriggerRef.current = activeElement;
+    }
+
+    const focusFrame = window.requestAnimationFrame(() => {
+      decisionPromptRef.current?.focus({ preventScroll: true });
+    });
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      dispatchGame({ type: "SELECT_OBJECT", objectId: undefined });
+    };
+    window.addEventListener("keydown", closeOnEscape);
+
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [selectedObjectId]);
+
+  useEffect(() => {
     if (!selectedObject?.completed || selectedActions.length > 0) return;
 
     const closeCompletedObjectTimer = window.setTimeout(() => {
@@ -847,13 +1018,15 @@ export default function EMTScene() {
     return () => window.clearTimeout(closeCompletedObjectTimer);
   }, [selectedActions.length, selectedObject?.completed]);
 
-  const currentObjectiveUsesEquipment = currentObjective.id === "baseline-vitals";
+  const currentObjectiveUsesEquipment =
+    currentObjective.id === "baseline-vitals" || currentObjective.id === "oxygen-support";
   const currentObjectiveStepAvailable =
     simulationMode === "guided" && (Boolean(nextSceneObject) || currentObjectiveUsesEquipment);
   const nextStepButtonLabel = (() => {
     if (resourceResponsePending) return isCrashScenario ? "Fire-rescue responding" : "Animal control responding";
+    if (currentObjective.id === "oxygen-support") return "Apply oxygen";
     if (currentObjective.id === "baseline-vitals") return simulationMode === "guided" ? "Gather baseline vitals" : "Gather vitals";
-    if (!nextSceneObject) return "Primary complete";
+    if (!nextSceneObject) return scenarioComplete ? "Scenario complete" : "Continue";
     if (simulationMode === "exam") return "Continue";
     if (simulationMode === "scenario") {
       if (currentObjective.id === "inspect-dog") return "Assess the scene";
@@ -871,6 +1044,28 @@ export default function EMTScene() {
   })();
   const currentTaskCards = useMemo(
     () => {
+      if (
+        gameState.currentPhase === "interventions" ||
+        gameState.currentPhase === "secondaryAssessment" ||
+        gameState.currentPhase === "transport" ||
+        gameState.currentPhase === "reassessment" ||
+        gameState.currentPhase === "complete"
+      ) {
+        const laterPhaseObjectives = sceneScenario.objectives.filter((objective) =>
+          gameState.currentPhase === "complete"
+            ? objective.phase === "interventions" ||
+              objective.phase === "secondaryAssessment" ||
+              objective.phase === "reassessment"
+            : objective.phase === gameState.currentPhase
+        );
+
+        return laterPhaseObjectives.map((objective) => ({
+          label: objective.label,
+          completed: gameState.completedObjectives.includes(objective.id) ? 1 : 0,
+          total: 1,
+        }));
+      }
+
       if (!sceneSecured) {
         if (isCrashScenario) {
           return [
@@ -946,33 +1141,72 @@ export default function EMTScene() {
         },
       ];
     },
-    [gameState, isCrashScenario, sceneSecured]
+    [gameState, isCrashScenario, sceneScenario.objectives, sceneSecured]
   );
+  const objectiveTaskLabel =
+    gameState.currentPhase === "interventions"
+      ? "Treatment tasks"
+      : gameState.currentPhase === "secondaryAssessment"
+        ? "Secondary assessment"
+      : gameState.currentPhase === "reassessment"
+        ? "Reassessment tasks"
+        : gameState.currentPhase === "complete"
+          ? "Completed care"
+          : gameState.currentPhase === "sceneSafety"
+            ? "Scene safety tasks"
+            : "Primary tasks";
+  const treatmentComplete = isCrashScenario
+    ? hasEvents(gameState, ["SPINAL_PRECAUTIONS_MAINTAINED", "EXTRICATION_COORDINATED"])
+    : hasEvents(gameState, ["EPINEPHRINE_ADMINISTERED", "OXYGEN_APPLIED"]);
   const phaseProgressItems = [
-    { label: "Scene Safety", complete: sceneSecured },
-    { label: "Primary Survey", complete: hasEvents(gameState, ["TRANSPORT_SELECTED"]) },
-    { label: "Secondary Survey", complete: gameState.currentPhase === "secondaryAssessment" },
-    { label: "Interventions", complete: gameState.currentPhase === "interventions" },
-    { label: "Transport", complete: hasEvents(gameState, ["TRANSPORT_SELECTED"]) },
+    { label: "Scene Safety", shortLabel: "Safety", complete: sceneSecured },
+    { label: "Primary Survey", shortLabel: "Primary", complete: hasEvents(gameState, ["TRANSPORT_SELECTED"]) },
+    { label: "Transport Plan", shortLabel: "Transport", complete: hasEvents(gameState, ["TRANSPORT_SELECTED"]) },
+    { label: "Treatment", shortLabel: "Treatment", complete: treatmentComplete },
+    {
+      label: "Secondary",
+      shortLabel: "Secondary",
+      complete: hasEvents(gameState, ["FOCUSED_HISTORY_OBTAINED", "FOCUSED_EXAM_COMPLETED"]),
+    },
+    { label: "Reassessment", shortLabel: "Reassess", complete: hasEvents(gameState, ["REASSESSMENT_COMPLETED"]) },
   ];
-  const resetScene = (
-    nextScenario = scenario,
-    nextSceneScenario = SCENE_SCENARIOS[nextScenario.id as keyof typeof SCENE_SCENARIOS]
-  ) => {
-    void abandonScenarioAttempt(progressionRunId).catch(() => {});
-    setProgressionRunId(createProgressionRunId("emt-scene"));
-    previousCompletedObjectives.current = [];
-    setRecentXpAward(0);
-    dispatchGame({ type: "RESET", scenario: nextSceneScenario });
-    setStage("primary");
-    setChecked({});
-    setVitals(nextScenario.vitals);
-    setLog(makeOpeningLog(nextScenario));
-    setPrimaryStepIndex(0);
-    setPrimaryFeedback("Start with the action that protects you, your partner, and the patient.");
-    setSceneFinding("");
-    setAnimalControlResponseActive(false);
-  };
+  const sceneIntervention = gameState.patient.oxygenApplied
+    ? "oxygen"
+    : gameState.patient.medicationGiven.length > 0
+      ? "medication"
+      : hasEvents(gameState, ["SPINAL_PRECAUTIONS_MAINTAINED"])
+        ? "positioning"
+        : "none";
+  const patientVisualState = hasEvents(gameState, ["REASSESSMENT_COMPLETED"])
+    ? isCrashScenario
+      ? "critical"
+      : "improving"
+    : "distressed";
+  const resetScene = useCallback(
+    (
+      nextScenario = scenario,
+      nextSceneScenario = SCENE_SCENARIOS[
+        nextScenario.id as keyof typeof SCENE_SCENARIOS
+      ]
+    ) => {
+      void abandonScenarioAttempt(progressionRunId).catch(() => {});
+      setProgressionRunId(createProgressionRunId("emt-scene"));
+      previousCompletedObjectives.current = [];
+      setRecentXpAward(0);
+      dispatchGame({ type: "RESET", scenario: nextSceneScenario });
+      setStage("primary");
+      setChecked({});
+      setVitals(nextScenario.vitals);
+      setLog(makeOpeningLog(nextScenario));
+      setPrimaryStepIndex(0);
+      setPrimaryFeedback(
+        "Start with the action that protects you, your partner, and the patient."
+      );
+      setSceneFinding("");
+      setAnimalControlResponseActive(false);
+    },
+    [progressionRunId, scenario]
+  );
 
   const runSceneAction = (object: InteractiveObjectConfig, actionId: string) => {
     const action = object.actions.find((item) => item.id === actionId);
@@ -997,6 +1231,22 @@ export default function EMTScene() {
         return;
       }
 
+      if (!isCrashScenario && !hasEvents(gameState, ["TRANSPORT_SELECTED"])) {
+        const message =
+          "Do not delay immediate anaphylaxis care for monitor values. Recognize the life threat, give epinephrine, support oxygenation, and choose urgent transport first.";
+        setSceneFinding(message);
+        setLog((prev) => [...prev, { who: "coach", text: message }]);
+        return;
+      }
+
+      if (isCrashScenario && !hasEvents(gameState, ["OXYGEN_APPLIED"])) {
+        const message =
+          "Support this driver's rapid, shallow breathing before moving to equipment-based vital signs.";
+        setSceneFinding(message);
+        setLog((prev) => [...prev, { who: "coach", text: message }]);
+        return;
+      }
+
       const event = itemId === "bp" ? "BLOOD_PRESSURE_OBTAINED" : "SPO2_OBTAINED";
       if (hasEvents(gameState, [event])) {
         const message = itemId === "bp" ? "Blood pressure is already recorded." : "Pulse oximetry is already recorded.";
@@ -1007,6 +1257,65 @@ export default function EMTScene() {
 
       setLog((prev) => [...prev, { who: "student", text: itemId === "bp" ? "Apply blood pressure cuff" : "Apply pulse oximeter" }]);
       dispatchGame({ type: "APPLY_EVENT", event });
+      return;
+    }
+
+    if (itemId === "oxygen" || itemId === "mask") {
+      if (isCrashScenario) {
+        if (!hasEvents(gameState, ["RESPIRATIONS_COUNTED"])) {
+          const message = "Assess airway and breathing before selecting oxygen delivery.";
+          setSceneFinding(message);
+          setLog((prev) => [...prev, { who: "coach", text: message }]);
+          return;
+        }
+
+        if (gameState.patient.oxygenApplied) {
+          const message = "Oxygen is already in use. Continue the primary assessment and monitor ventilation.";
+          setSceneFinding(message);
+          setLog((prev) => [...prev, { who: "coach", text: message }]);
+          return;
+        }
+
+        setLog((prev) => [
+          ...prev,
+          {
+            who: "student",
+            text: "Apply oxygen and monitor ventilation",
+          },
+        ]);
+        setSceneFinding(
+          "Oxygen applied. Continue assessing chest movement and be ready to assist ventilation if breathing becomes inadequate."
+        );
+        dispatchGame({ type: "APPLY_EVENT", event: "OXYGEN_APPLIED" });
+        return;
+      }
+
+      if (!hasEvents(gameState, ["EPINEPHRINE_ADMINISTERED"])) {
+        const message =
+          "This patient needs first-line epinephrine now. Add oxygenation support immediately after the medication decision.";
+        setSceneFinding(message);
+        setLog((prev) => [...prev, { who: "coach", text: message }]);
+        return;
+      }
+
+      if (gameState.patient.oxygenApplied) {
+        const message = "Oxygen and the delivery mask are already in use. Reassess the patient's response.";
+        setSceneFinding(message);
+        setLog((prev) => [...prev, { who: "coach", text: message }]);
+        return;
+      }
+
+      setLog((prev) => [
+        ...prev,
+        {
+          who: "student",
+          text: "Apply oxygen and monitor ventilation",
+        },
+      ]);
+      setSceneFinding(
+        "Oxygen applied. Continue monitoring respiratory effort and prepare to assist ventilation if the patient tires."
+      );
+      dispatchGame({ type: "APPLY_EVENT", event: "OXYGEN_APPLIED" });
       return;
     }
 
@@ -1042,6 +1351,11 @@ export default function EMTScene() {
   };
 
   const runCurrentObjectiveStep = () => {
+    if (currentObjective.id === "oxygen-support") {
+      runEquipmentDockAction("oxygen");
+      return;
+    }
+
     if (currentObjective.id === "baseline-vitals") {
       if (!hasEvents(gameState, ["BLOOD_PRESSURE_OBTAINED"])) {
         runEquipmentDockAction("bp");
@@ -1153,16 +1467,51 @@ export default function EMTScene() {
     setPrimaryStepIndex(nextIndex);
   };
 
-  const selectScenario = (id: string) => {
-    const nextScenario = SCENARIOS.find((item) => item.id === id) ?? SCENARIOS[0];
-    const nextSceneScenario = SCENE_SCENARIOS[nextScenario.id as keyof typeof SCENE_SCENARIOS];
-    setScenarioId(nextScenario.id);
-    resetScene(nextScenario, nextSceneScenario);
-  };
+  const selectScenario = useCallback(
+    (id: string) => {
+      const nextScenario =
+        SCENARIOS.find((item) => item.id === id) ?? SCENARIOS[0];
+      const nextSceneScenario =
+        SCENE_SCENARIOS[
+          nextScenario.id as keyof typeof SCENE_SCENARIOS
+        ];
+      setScenarioId(nextScenario.id);
+      resetScene(nextScenario, nextSceneScenario);
+    },
+    [resetScene]
+  );
+
+  useEffect(() => {
+    if (!router.isReady || initialScenarioQueryApplied.current) return;
+    initialScenarioQueryApplied.current = true;
+
+    const requestedScenario = Array.isArray(router.query.scenario)
+      ? router.query.scenario[0]
+      : router.query.scenario;
+    if (
+      requestedScenario &&
+      requestedScenario !== scenarioId &&
+      SCENARIOS.some((item) => item.id === requestedScenario)
+    ) {
+      selectScenario(requestedScenario);
+    }
+  }, [router.isReady, router.query.scenario, scenarioId, selectScenario]);
 
   const changeSimulationMode = (mode: SimulationMode) => {
     if (mode === simulationMode) return;
+    trackProductEvent("emt_scene_mode_changed", {
+      scenarioId: scenario.id,
+      fromMode: simulationMode,
+      toMode: mode,
+    });
     setSimulationMode(mode);
+    resetScene();
+    setMobileHudOpen(false);
+    setMobileHudSection("objective");
+  };
+
+  const retryScenario = () => {
+    if (simulationMode === "guided") setSimulationMode("scenario");
     resetScene();
     setMobileHudOpen(false);
     setMobileHudSection("objective");
@@ -1342,20 +1691,75 @@ export default function EMTScene() {
         description="Practice scene safety, primary assessment, patient interaction, and clinical decision-making in an interactive 3D EMT simulation."
         path="/emtscene"
       />
+      <Head>
+        <link
+          rel="preload"
+          href="/models/emt-scene/custom/ambulance-optimized.glb"
+          as="fetch"
+          crossOrigin="anonymous"
+        />
+        <link
+          rel="preload"
+          href="/models/emt-scene/custom/first-aid-bag-optimized.glb"
+          as="fetch"
+          crossOrigin="anonymous"
+        />
+        <link
+          rel="preload"
+          href="/models/emt-scene/custom/patient-optimized.glb"
+          as="fetch"
+          crossOrigin="anonymous"
+        />
+        <link
+          rel="preload"
+          href="/models/emt-scene/paramedic-guide.glb"
+          as="fetch"
+          crossOrigin="anonymous"
+        />
+      </Head>
       <SceneTopBar
         totalXp={learnerProgress.totalXp}
         currentStreak={learnerProgress.currentStreak}
         level={learnerLevel.level}
         levelProgress={learnerLevel.percent}
         recentXpAward={recentXpAward}
+        onObjectivesClick={() => {
+          document.getElementById("scene-objective-panel")?.focus({ preventScroll: true });
+        }}
       />
 
-      <main className="relative isolate min-h-0 overflow-hidden bg-slate-950" style={{ height: sceneHeight }}>
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="relative isolate min-h-0 overflow-hidden bg-slate-950"
+        style={{ height: sceneHeight }}
+      >
+        <div
+          data-testid="scene-objective-announcer"
+          className="sr-only"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          {scenarioComplete
+            ? `Scenario complete. ${debrief.summary}`
+            : `${currentObjective.label}. ${
+                resourceResponsePending
+                  ? isCrashScenario
+                    ? "Fire-rescue and police are responding."
+                    : "Animal control is responding."
+                  : nextSceneObject
+                    ? `Interactive object available: ${nextSceneObject.name}.`
+                    : nextStepButtonLabel
+              }`}
+        </div>
         <div className="absolute inset-0">
           <ThreeDScene
             key={`${scenario.id}-${simulationMode}`}
             height={sceneHeight}
             scenarioId={scenario.id}
+            intervention={sceneIntervention}
+            patientState={patientVisualState}
             sceneFinding={isDesktopLayout && selectedObject ? undefined : sceneFinding}
             sceneSpeaker={latestSceneMessage?.who === "patient" ? "patient" : "coach"}
             interactiveObjects={actionableSceneObjects}
@@ -1377,17 +1781,20 @@ export default function EMTScene() {
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-slate-950/65 via-transparent to-slate-950/55" />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-slate-950/35" />
 
-        <button
-          type="button"
-          data-testid="mobile-hud-toggle"
-          onClick={() => setMobileHudOpen((open) => !open)}
-          className="absolute right-3 top-3 z-[80] inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/15 bg-slate-950/86 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-white shadow-2xl shadow-slate-950/40 backdrop-blur-xl transition hover:border-teal-300/60 hover:bg-teal-400/10 xl:hidden"
-          aria-expanded={mobileHudOpen}
-          aria-controls="mobile-hud-panel"
-        >
-          {mobileHudOpen ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
-          {mobileHudOpen ? "Close HUD" : "Show HUD"}
-        </button>
+        {!mobileHudOpen ? (
+          <button
+            id="mobile-hud-toggle"
+            type="button"
+            data-testid="mobile-hud-toggle"
+            onClick={() => setMobileHudOpen(true)}
+            className="absolute right-3 top-3 z-[80] inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/15 bg-slate-950/86 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-white shadow-2xl shadow-slate-950/40 backdrop-blur-xl transition hover:border-teal-300/60 hover:bg-teal-400/10 xl:hidden"
+            aria-expanded={false}
+            aria-controls="mobile-hud-panel"
+          >
+            <PanelRightOpen size={16} />
+            Show HUD
+          </button>
+        ) : null}
 
         {!mobileHudOpen ? (
           <button
@@ -1419,7 +1826,13 @@ export default function EMTScene() {
                 dispatchGame({ type: "SELECT_OBJECT", objectId: nextSceneObject.id });
                 return;
               }
-              setMobileHudSection(currentObjectiveUsesEquipment ? "equipment" : "objective");
+              setMobileHudSection(
+                scenarioComplete
+                  ? "progress"
+                  : currentObjectiveUsesEquipment
+                    ? "equipment"
+                    : "objective"
+              );
               setMobileHudOpen(true);
             }}
             className="absolute inset-x-3 bottom-3 z-40 flex min-h-[72px] items-center justify-between gap-3 rounded-2xl border border-teal-200/45 bg-slate-950/86 px-4 py-3 text-left text-white shadow-2xl shadow-slate-950/45 backdrop-blur-xl transition active:scale-[0.99] md:left-[236px] xl:hidden"
@@ -1429,9 +1842,13 @@ export default function EMTScene() {
                 <ClipboardCheck size={13} />
                 Current goal
               </div>
-              <div className="mt-1 truncate text-sm font-black leading-5">{currentObjective.label}</div>
+              <div className="mt-1 truncate text-sm font-black leading-5">
+                {scenarioComplete ? "Scenario complete" : currentObjective.label}
+              </div>
               <div className="truncate text-[11px] font-semibold text-slate-300">
-                {resourceResponsePending
+                {scenarioComplete
+                  ? "View your clinical debrief"
+                  : resourceResponsePending
                   ? isCrashScenario
                     ? "Fire-rescue and police responding"
                     : "Animal control responding"
@@ -1457,12 +1874,28 @@ export default function EMTScene() {
 
         {mobileHudOpen ? (
           <section
+            ref={mobileHudRef}
             id="mobile-hud-panel"
             data-testid="mobile-hud-panel"
-            className="absolute inset-x-0 bottom-0 z-[70] flex max-h-[72%] flex-col overflow-hidden rounded-t-2xl border-x border-t border-white/15 bg-slate-950/94 pb-[env(safe-area-inset-bottom)] text-white shadow-2xl shadow-slate-950/60 backdrop-blur-xl xl:hidden"
+            role="dialog"
+            aria-modal="true"
+            aria-label="EMT Scene HUD"
+            tabIndex={-1}
+            className="absolute inset-x-0 bottom-0 z-[70] flex max-h-[72%] flex-col overflow-hidden rounded-t-2xl border-x border-t border-white/15 bg-slate-950/94 pb-[env(safe-area-inset-bottom)] text-white shadow-2xl shadow-slate-950/60 backdrop-blur-xl outline-none xl:hidden"
           >
             <div className="shrink-0 border-b border-white/10 px-3 pb-2 pt-2">
-              <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-white/25" />
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <div className="h-1 w-10 rounded-full bg-white/25" />
+                <button
+                  ref={mobileHudCloseRef}
+                  type="button"
+                  onClick={() => setMobileHudOpen(false)}
+                  aria-label="Close HUD"
+                  className="grid h-11 w-11 place-items-center rounded-xl border border-white/15 bg-white/5 text-white transition hover:border-teal-300/60 hover:bg-teal-400/10"
+                >
+                  <PanelRightClose size={18} />
+                </button>
+              </div>
               <div className="grid grid-cols-5 gap-1">
                 {MOBILE_HUD_SECTIONS.map((item) => {
                   const Icon = item.icon;
@@ -1504,8 +1937,12 @@ export default function EMTScene() {
                         <ClipboardCheck size={14} />
                         Current objective
                       </div>
-                      <h2 className="mt-2 text-xl font-black leading-6 text-white">{currentObjective.label}</h2>
-                      <p className="mt-1 text-xs font-semibold leading-5 text-slate-300">{currentObjective.subtleGoal}</p>
+                      <h2 className="mt-2 text-xl font-black leading-6 text-white">
+                        {scenarioComplete ? "Scenario complete" : currentObjective.label}
+                      </h2>
+                      <p className="mt-1 text-xs font-semibold leading-5 text-slate-300">
+                        {scenarioComplete ? debrief.summary : currentObjective.subtleGoal}
+                      </p>
                     </div>
                     <div className="shrink-0 text-2xl font-black text-teal-300">{progressPercent}%</div>
                   </div>
@@ -1746,10 +2183,19 @@ export default function EMTScene() {
                       const active =
                         (item.id === "gloves" && glovesEquipped) ||
                         (item.id === "bp" && hasEvents(gameState, ["BLOOD_PRESSURE_OBTAINED"])) ||
-                        (item.id === "pulseox" && hasEvents(gameState, ["SPO2_OBTAINED"]));
+                        (item.id === "pulseox" && hasEvents(gameState, ["SPO2_OBTAINED"])) ||
+                        ((item.id === "oxygen" || item.id === "mask") && gameState.patient.oxygenApplied);
                       const available =
                         (item.id === "gloves" && sceneSecured) ||
-                        ((item.id === "bp" || item.id === "pulseox") && hasEvents(gameState, ["PULSE_CHECKED"]));
+                        ((item.id === "bp" || item.id === "pulseox") &&
+                          hasEvents(gameState, ["PULSE_CHECKED"]) &&
+                          hasEvents(gameState, [
+                            isCrashScenario ? "OXYGEN_APPLIED" : "TRANSPORT_SELECTED",
+                          ])) ||
+                        ((item.id === "oxygen" || item.id === "mask") &&
+                          hasEvents(gameState, [
+                            isCrashScenario ? "RESPIRATIONS_COUNTED" : "EPINEPHRINE_ADMINISTERED",
+                          ]));
 
                       return (
                         <button
@@ -1782,7 +2228,7 @@ export default function EMTScene() {
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-teal-300">
                       <Star size={14} />
-                      {primaryComplete ? "Primary debrief" : "Scenario progress"}
+                      {scenarioComplete ? "Scenario debrief" : "Scenario progress"}
                     </div>
                     <div className="text-3xl font-black text-teal-300">{scenarioProgressPercent}%</div>
                   </div>
@@ -1809,27 +2255,94 @@ export default function EMTScene() {
                     {scenarioCompletedCount} of {scenarioTasks.length} scenario objectives complete
                   </div>
 
-                  <div className="mt-5 grid grid-cols-5 gap-1">
+                  <div className="mt-5 grid grid-cols-6 gap-1">
                     {phaseProgressItems.map((item) => (
                       <div key={item.label} className="flex min-w-0 flex-col items-center gap-2 text-center">
                         <span className={`h-3.5 w-3.5 rounded-full border-2 ${
                           item.complete ? "border-teal-200 bg-teal-300" : "border-slate-500 bg-slate-950"
                         }`} />
-                        <span className="text-[8px] font-bold leading-3 text-slate-400">{item.label}</span>
+                        <span className="text-[8px] font-bold leading-3 text-slate-400">{item.shortLabel}</span>
                       </div>
                     ))}
                   </div>
 
-                  {primaryComplete ? (
+                  {scenarioComplete ? (
                     <div className="mt-5 space-y-3 border-t border-white/10 pt-4">
                       <p className="text-xs font-semibold leading-5 text-slate-200">{debrief.summary}</p>
                       <div className="grid grid-cols-2 gap-2">
                         {Object.entries(debrief.score).map(([label, value]) => (
                           <div key={label} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
-                            <div className="text-[9px] font-black uppercase tracking-wider text-slate-400">{label}</div>
-                            <div className="mt-1 text-lg font-black text-teal-200">{value}</div>
+                            <div className="text-[9px] font-black uppercase tracking-wider text-slate-400">
+                              {DEBRIEF_SCORE_LABELS[label] ?? label}
+                            </div>
+                            <div className="mt-1 text-lg font-black text-teal-200">{value}%</div>
                           </div>
                         ))}
+                      </div>
+                      <div className="space-y-2 text-xs leading-4 text-slate-300">
+                        {debrief.correct.slice(0, 2).map((note) => (
+                          <div key={note} className="rounded-lg border border-teal-300/15 bg-teal-300/5 px-3 py-2">
+                            <span className="font-black text-teal-300">Strong call: </span>
+                            {note}
+                          </div>
+                        ))}
+                        {debrief.unsafe.slice(0, 1).map((note) => (
+                          <div key={note} className="rounded-lg border border-rose-300/20 bg-rose-300/5 px-3 py-2">
+                            <span className="font-black text-rose-300">Unsafe action: </span>
+                            {note}
+                          </div>
+                        ))}
+                        {debrief.missed.slice(0, 1).map((note) => (
+                          <div key={note} className="rounded-lg border border-amber-300/20 bg-amber-300/5 px-3 py-2">
+                            <span className="font-black text-amber-300">Review: </span>
+                            {note}
+                          </div>
+                        ))}
+                      </div>
+                      <div className="rounded-xl border border-teal-300/20 bg-teal-300/[0.06] px-3 py-3">
+                        <div className="text-[9px] font-black uppercase tracking-[0.16em] text-teal-300">
+                          Priority takeaway
+                        </div>
+                        <p className="mt-2 text-xs font-semibold leading-5 text-slate-100">
+                          {debrief.priorityTakeaway}
+                        </p>
+                      </div>
+                      {debrief.decisionReview.length ? (
+                        <div className="space-y-2">
+                          <div className="text-[9px] font-black uppercase tracking-[0.16em] text-amber-300">
+                            Decisions to revisit
+                          </div>
+                          {debrief.decisionReview.slice(0, 2).map((decision) => (
+                            <div
+                              key={decision.choice}
+                              className="rounded-xl border border-amber-300/20 bg-amber-300/[0.06] px-3 py-3"
+                            >
+                              <div className="text-xs font-black text-amber-100">{decision.choice}</div>
+                              <p className="mt-1 text-xs leading-5 text-slate-300">{decision.rationale}</p>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="rounded-xl border border-emerald-300/20 bg-emerald-300/[0.06] px-3 py-3 text-xs leading-5 text-emerald-50">
+                          <span className="font-black">Clean decision path.</span> No incorrect clinical choices were recorded.
+                        </div>
+                      )}
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={retryScenario}
+                          className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-teal-200/35 bg-teal-400/15 px-3 text-xs font-black text-teal-50"
+                        >
+                          <RefreshCcw size={14} />
+                          {simulationMode === "guided" ? "Try solo" : "Retry"}
+                        </button>
+                        <Link
+                          href={debrief.recommendedReview.href}
+                          className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.06] px-3 text-center text-xs font-black text-slate-100"
+                        >
+                          <BookOpen size={14} />
+                          Review
+                        </Link>
                       </div>
                     </div>
                   ) : null}
@@ -1844,14 +2357,19 @@ export default function EMTScene() {
         ) : null}
 
         <section
+          id="scene-objective-panel"
+          tabIndex={-1}
+          aria-labelledby="scene-objective-title"
           data-testid="scene-objective-prompt"
-          className="absolute right-4 top-4 z-30 hidden w-[360px] rounded-2xl border border-white/15 bg-slate-950/78 p-4 text-white shadow-2xl shadow-slate-950/45 backdrop-blur-xl xl:block"
+          className={`absolute right-4 top-4 z-30 hidden w-[360px] rounded-2xl border border-white/15 bg-slate-950/78 p-4 text-white shadow-2xl shadow-slate-950/45 backdrop-blur-xl focus:outline-none focus:ring-2 focus:ring-teal-300/80 ${
+            scenarioComplete ? "xl:hidden" : "xl:block"
+          }`}
         >
           <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-teal-300">
             <ClipboardCheck size={15} />
             Objective
           </div>
-          <h2 className="mt-4 text-2xl font-black leading-7 text-white">{currentObjective.label}</h2>
+          <h2 id="scene-objective-title" className="mt-4 text-2xl font-black leading-7 text-white">{currentObjective.label}</h2>
           <p className="mt-2 text-sm font-medium leading-5 text-slate-300">{currentObjective.subtleGoal}</p>
 
           {simulationMode === "guided" && currentObjectiveStepAvailable && !selectedObject ? (
@@ -1867,7 +2385,7 @@ export default function EMTScene() {
           ) : null}
 
           <div className="mt-5 flex items-center justify-between gap-3">
-            <div className="text-[10px] font-black uppercase tracking-[0.18em] text-teal-300">Primary tasks</div>
+            <div className="text-[10px] font-black uppercase tracking-[0.18em] text-teal-300">{objectiveTaskLabel}</div>
             {simulationMode === "guided" ? (
               <button
                 type="button"
@@ -1925,7 +2443,7 @@ export default function EMTScene() {
                       <span className={`h-0.5 min-w-0 flex-1 ${phaseProgressItems[index + 1].complete ? "bg-teal-300" : "bg-slate-600"}`} />
                     ) : null}
                   </div>
-                  <span className="text-[9px] font-bold leading-3 text-slate-300">{item.label}</span>
+                  <span className="text-[8px] font-bold leading-3 text-slate-300">{item.shortLabel}</span>
                 </div>
               ))}
             </div>
@@ -1933,10 +2451,14 @@ export default function EMTScene() {
         </section>
 
         {selectedObject ? (
-          <div className="absolute bottom-28 left-4 right-4 z-50 xl:bottom-auto xl:left-[52%] xl:right-auto xl:top-[46%] xl:w-[300px] xl:-translate-y-1/2">
+          <div className="absolute bottom-28 left-4 right-4 z-50 xl:bottom-auto xl:left-[47%] xl:right-auto xl:top-[46%] xl:w-[300px] xl:-translate-y-1/2">
             {sceneFinding ? (
               <div
+                id="scene-action-feedback-text"
                 data-testid="scene-action-feedback"
+                role="status"
+                aria-live="polite"
+                aria-atomic="true"
                 className={`mb-2 hidden rounded-xl border px-3 py-2.5 text-left text-[11px] font-bold leading-4 text-white shadow-2xl backdrop-blur-xl xl:block ${latestSceneMessage?.who === "patient"
                   ? "border-teal-200/55 bg-teal-950/92"
                   : "border-sky-200/55 bg-slate-950/92"
@@ -1950,19 +2472,26 @@ export default function EMTScene() {
             ) : null}
 
             <section
+              ref={decisionPromptRef}
+              role="dialog"
+              aria-modal="false"
+              aria-labelledby="scene-decision-title"
+              aria-describedby={sceneFinding ? "scene-action-feedback-text" : undefined}
+              tabIndex={-1}
               data-testid="scene-decision-prompt"
-              className="max-h-[min(62vh,520px)] overflow-y-auto rounded-2xl border border-white/15 bg-slate-950/88 p-3 text-white shadow-2xl shadow-slate-950/50 backdrop-blur-xl xl:rounded-xl"
+              className="max-h-[min(62vh,520px)] overflow-y-auto rounded-2xl border border-white/15 bg-slate-950/88 p-3 text-white shadow-2xl shadow-slate-950/50 backdrop-blur-xl focus:outline-none focus:ring-2 focus:ring-teal-300/80 xl:rounded-xl"
             >
             <div className="flex items-center justify-between gap-3">
               <div>
                 <div className="text-[9px] font-black uppercase tracking-[0.18em] text-teal-200">
                   Choose an action
                 </div>
-                <h2 className="mt-0.5 text-sm font-black leading-5 text-white">{selectedObject.name}</h2>
+                <h2 id="scene-decision-title" className="mt-0.5 text-sm font-black leading-5 text-white">{selectedObject.name}</h2>
               </div>
               <button
                 type="button"
                 onClick={() => dispatchGame({ type: "SELECT_OBJECT", objectId: undefined })}
+                aria-label={`Close action choices for ${selectedObject.name}`}
                 className="rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-[10px] font-black text-white transition hover:bg-white/20"
               >
                 Close
@@ -2159,10 +2688,19 @@ export default function EMTScene() {
                 const active =
                   (item.id === "gloves" && glovesEquipped) ||
                   (item.id === "bp" && hasEvents(gameState, ["BLOOD_PRESSURE_OBTAINED"])) ||
-                  (item.id === "pulseox" && hasEvents(gameState, ["SPO2_OBTAINED"]));
+                  (item.id === "pulseox" && hasEvents(gameState, ["SPO2_OBTAINED"])) ||
+                  ((item.id === "oxygen" || item.id === "mask") && gameState.patient.oxygenApplied);
                 const available =
                   (item.id === "gloves" && sceneSecured) ||
-                  ((item.id === "bp" || item.id === "pulseox") && hasEvents(gameState, ["PULSE_CHECKED"]));
+                  ((item.id === "bp" || item.id === "pulseox") &&
+                    hasEvents(gameState, ["PULSE_CHECKED"]) &&
+                    hasEvents(gameState, [
+                      isCrashScenario ? "OXYGEN_APPLIED" : "TRANSPORT_SELECTED",
+                    ])) ||
+                  ((item.id === "oxygen" || item.id === "mask") &&
+                    hasEvents(gameState, [
+                      isCrashScenario ? "RESPIRATIONS_COUNTED" : "EPINEPHRINE_ADMINISTERED",
+                    ]));
 
                 return (
                   <button
@@ -2224,41 +2762,104 @@ export default function EMTScene() {
 
         <section
           data-testid="scenario-progress-panel"
-          className={`absolute bottom-4 right-4 z-40 hidden w-[380px] rounded-2xl border border-white/15 bg-slate-950/80 p-4 text-white shadow-2xl shadow-slate-950/40 backdrop-blur-xl xl:block ${primaryComplete ? "max-h-[420px] overflow-y-auto" : "h-[156px]"}`}
+          className={`absolute bottom-4 right-4 z-40 hidden w-[380px] rounded-2xl border border-white/15 bg-slate-950/80 p-4 text-white shadow-2xl shadow-slate-950/40 backdrop-blur-xl xl:block ${scenarioComplete ? "max-h-[calc(100%-2rem)] overflow-y-auto" : "h-[156px]"}`}
         >
           <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-teal-300">
             <Star size={15} />
-            {primaryComplete ? "Primary debrief" : "Scenario progress"}
+            {scenarioComplete ? "Scenario debrief" : "Scenario progress"}
           </div>
 
-          {primaryComplete ? (
+          {scenarioComplete ? (
             <div className="mt-3 space-y-3">
               <p className="text-xs font-semibold leading-5 text-slate-200">{debrief.summary}</p>
               <div className="grid grid-cols-2 gap-2">
                 {Object.entries(debrief.score).map(([label, value]) => (
                   <div key={label} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
-                    <div className="text-[9px] font-black uppercase tracking-wider text-slate-400">{label}</div>
-                    <div className="mt-1 text-lg font-black text-teal-200">{value}</div>
+                    <div className="text-[9px] font-black uppercase tracking-wider text-slate-400">
+                      {DEBRIEF_SCORE_LABELS[label] ?? label}
+                    </div>
+                    <div className="mt-1 text-lg font-black text-teal-200">{value}%</div>
                   </div>
                 ))}
               </div>
               <div className="space-y-2 text-xs leading-4 text-slate-300">
                 <div>
                   <div className="font-black uppercase tracking-wider text-teal-300">Good calls</div>
-                  <p className="mt-1">{debrief.correct[0] ?? "Keep assessing to unlock debrief notes."}</p>
+                  {debrief.correct.length ? (
+                    <ul className="mt-1 space-y-1">
+                      {debrief.correct.slice(0, 3).map((note) => (
+                        <li key={note}>• {note}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-1">Keep assessing to unlock debrief notes.</p>
+                  )}
                 </div>
                 {debrief.unsafe.length ? (
                   <div>
                     <div className="font-black uppercase tracking-wider text-rose-300">Unsafe action</div>
-                    <p className="mt-1">{debrief.unsafe[0]}</p>
+                    <ul className="mt-1 space-y-1">
+                      {debrief.unsafe.slice(0, 2).map((note) => (
+                        <li key={note}>• {note}</li>
+                      ))}
+                    </ul>
                   </div>
                 ) : null}
                 {debrief.missed.length ? (
                   <div>
                     <div className="font-black uppercase tracking-wider text-amber-300">Review</div>
-                    <p className="mt-1">{debrief.missed[0]}</p>
+                    <ul className="mt-1 space-y-1">
+                      {debrief.missed.slice(0, 2).map((note) => (
+                        <li key={note}>• {note}</li>
+                      ))}
+                    </ul>
                   </div>
                 ) : null}
+              </div>
+              <div className="rounded-xl border border-teal-300/20 bg-teal-300/[0.06] px-3 py-3">
+                <div className="text-[9px] font-black uppercase tracking-[0.16em] text-teal-300">
+                  Priority takeaway
+                </div>
+                <p className="mt-2 text-xs font-semibold leading-5 text-slate-100">
+                  {debrief.priorityTakeaway}
+                </p>
+              </div>
+              {debrief.decisionReview.length ? (
+                <div className="space-y-2">
+                  <div className="text-[9px] font-black uppercase tracking-[0.16em] text-amber-300">
+                    Decisions to revisit
+                  </div>
+                  {debrief.decisionReview.slice(0, 2).map((decision) => (
+                    <div
+                      key={decision.choice}
+                      className="rounded-xl border border-amber-300/20 bg-amber-300/[0.06] px-3 py-3"
+                    >
+                      <div className="text-xs font-black text-amber-100">{decision.choice}</div>
+                      <p className="mt-1 text-xs leading-5 text-slate-300">{decision.rationale}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-xl border border-emerald-300/20 bg-emerald-300/[0.06] px-3 py-3 text-xs leading-5 text-emerald-50">
+                  <span className="font-black">Clean decision path.</span> No incorrect clinical choices were recorded.
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={retryScenario}
+                  className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-teal-200/35 bg-teal-400/15 px-3 text-xs font-black text-teal-50 transition hover:border-teal-200 hover:bg-teal-400/25"
+                >
+                  <RefreshCcw size={14} />
+                  {simulationMode === "guided" ? "Try without guidance" : "Retry scenario"}
+                </button>
+                <Link
+                  href={debrief.recommendedReview.href}
+                  className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.06] px-3 text-center text-xs font-black text-slate-100 transition hover:border-white/30 hover:bg-white/10"
+                >
+                  <BookOpen size={14} />
+                  {debrief.recommendedReview.title}
+                </Link>
               </div>
             </div>
           ) : (

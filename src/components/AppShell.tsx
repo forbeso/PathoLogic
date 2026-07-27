@@ -12,19 +12,19 @@ export const mutedCardClass =
   "rounded-lg border border-[#c8dcd6] bg-[#eef7f4]/90 shadow-sm backdrop-blur";
 
 export const inputClass =
-  "rounded-md border border-[#b7ccc5] bg-white/95 px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-teal-600 focus:ring-2 focus:ring-teal-200 disabled:bg-[#edf3f0] disabled:text-slate-500";
+  "min-h-11 rounded-md border border-[#b7ccc5] bg-white/95 px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-500 focus:border-teal-700 focus:ring-2 focus:ring-teal-200 disabled:bg-[#edf3f0] disabled:text-slate-500";
 
 export const primaryButtonClass =
-  "inline-flex items-center justify-center gap-2 rounded-md bg-teal-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-300 disabled:cursor-not-allowed disabled:opacity-60";
+  "inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-teal-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-300 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60";
 
 export const darkButtonClass =
-  "inline-flex items-center justify-center gap-2 rounded-md bg-slate-800 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-300 disabled:cursor-not-allowed disabled:opacity-60";
+  "inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-slate-800 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-300 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60";
 
 export const secondaryButtonClass =
-  "inline-flex items-center justify-center gap-2 rounded-md border border-[#b7ccc5] bg-white/95 px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-teal-600 hover:bg-white focus:outline-none focus:ring-2 focus:ring-teal-200 disabled:cursor-not-allowed disabled:opacity-60";
+  "inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-[#b7ccc5] bg-white/95 px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-teal-700 hover:bg-white focus:outline-none focus:ring-2 focus:ring-teal-200 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60";
 
 export const iconButtonClass =
-  "grid h-9 w-9 place-items-center rounded-md border border-[#b7ccc5] bg-white/95 text-slate-700 shadow-sm transition hover:border-teal-600 hover:bg-white focus:outline-none focus:ring-2 focus:ring-teal-200";
+  "grid h-11 w-11 place-items-center rounded-md border border-[#b7ccc5] bg-white/95 text-slate-700 shadow-sm transition hover:border-teal-600 hover:bg-white focus:outline-none focus:ring-2 focus:ring-teal-200";
 
 export function AppShell({
   children,
@@ -52,7 +52,11 @@ export function PageContainer({
   const maxWidth = size === "wide" ? "max-w-6xl" : "max-w-4xl";
 
   return (
-    <main className={`mx-auto w-full ${maxWidth} px-4 py-8 sm:px-6 lg:px-8 ${className}`}>
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className={`mx-auto w-full ${maxWidth} px-4 py-8 sm:px-6 lg:px-8 ${className}`}
+    >
       {children}
     </main>
   );

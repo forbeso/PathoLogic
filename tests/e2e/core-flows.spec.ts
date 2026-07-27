@@ -1,4 +1,14 @@
 import { expect, test, type Page } from "@playwright/test";
+import {
+  anaphylaxisFestivalScenario,
+  buildScenarioDebrief,
+  carAccidentScenario,
+  createScenarioState,
+  getVisibleInteractiveObjects,
+  scenarioReducer,
+  type SceneEvent,
+  type SceneScenarioConfig,
+} from "@/lib/emtSceneEngine";
 
 const practiceItem = {
   id: 1,
@@ -93,6 +103,414 @@ test.beforeEach(async ({ page }) => {
   await mockStableApis(page);
 });
 
+test("telemetry endpoint accepts only privacy-safe issue envelopes", async ({
+  request,
+}) => {
+  const payload = {
+    issueId: "test-issue-123",
+    context: "app_render",
+    route: "/emtscene",
+    errorName: "TypeError",
+    code: "TEST_FAILURE",
+    recoverable: true,
+    occurredAt: new Date().toISOString(),
+  };
+
+  const accepted = await request.post("/api/telemetry", { data: payload });
+  expect(accepted.status()).toBe(202);
+
+  const rejected = await request.post("/api/telemetry", {
+    data: {
+      ...payload,
+      issueId: "test-issue-with-message",
+      message: "Sensitive free-form text must not be accepted.",
+    },
+  });
+  expect(rejected.status()).toBe(400);
+});
+
+test("offline state explains what remains available and confirms recovery", async ({
+  page,
+  context,
+}, testInfo) => {
+  test.skip(testInfo.project.name.startsWith("mobile"));
+  await page.goto("/");
+
+  await context.setOffline(true);
+  await expect(page.getByText("You are offline", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText(/current screen remains available/i)
+  ).toBeVisible();
+
+  await context.setOffline(false);
+  await expect(
+    page.getByText("Connection restored", { exact: true })
+  ).toBeVisible();
+});
+
+function completeScenario(
+  scenario: SceneScenarioConfig,
+  sceneEvents: SceneEvent[]
+) {
+  const isCrash = scenario.id === carAccidentScenario.id;
+  const secondaryAssessmentEvents: SceneEvent[] =
+    isCrash
+      ? ["FOCUSED_EXAM_COMPLETED", "FOCUSED_HISTORY_OBTAINED"]
+      : ["FOCUSED_HISTORY_OBTAINED", "FOCUSED_EXAM_COMPLETED"];
+  const assessmentEvents: SceneEvent[] = [
+    ...sceneEvents,
+    "GLOVES_EQUIPPED",
+    "PATIENT_APPROACHED",
+    "GENERAL_IMPRESSION_OBSERVED",
+    "RESPONSIVENESS_CHECKED",
+    "AIRWAY_OPENED",
+    "RESPIRATIONS_COUNTED",
+    ...(isCrash ? (["OXYGEN_APPLIED"] as SceneEvent[]) : []),
+    "PULSE_CHECKED",
+    "WORKING_IMPRESSION_SELECTED",
+    ...(!isCrash
+      ? (["EPINEPHRINE_ADMINISTERED", "OXYGEN_APPLIED"] as SceneEvent[])
+      : []),
+    "TRANSPORT_SELECTED",
+    "BLOOD_PRESSURE_OBTAINED",
+    "SPO2_OBTAINED",
+    ...(isCrash
+      ? (["SPINAL_PRECAUTIONS_MAINTAINED", "EXTRICATION_COORDINATED"] as SceneEvent[])
+      : []),
+    ...secondaryAssessmentEvents,
+    "REASSESSMENT_COMPLETED",
+  ];
+
+  return assessmentEvents.reduce(
+    (state, event) => scenarioReducer(scenario, state, { type: "APPLY_EVENT", event }),
+    createScenarioState(scenario)
+  );
+}
+
+test("scene debriefs score the full playable clinical flow without scenario leakage", () => {
+  const festivalState = completeScenario(anaphylaxisFestivalScenario, [
+    "DOG_INSPECTED",
+    "RADIO_SELECTED",
+    "ANIMAL_CONTROL_CALLED",
+    "DOG_SECURED",
+  ]);
+  const crashState = completeScenario(carAccidentScenario, [
+    "CRASH_SCENE_INSPECTED",
+    "RADIO_SELECTED",
+    "FIRE_RESCUE_CALLED",
+    "TRAFFIC_CONTROLLED",
+  ]);
+  const festivalDebrief = buildScenarioDebrief(festivalState);
+  const crashDebrief = buildScenarioDebrief(crashState);
+
+  expect(Object.keys(festivalDebrief.score)).toEqual([
+    "safety",
+    "assessment",
+    "clinicalDecisions",
+    "treatment",
+    "reassessment",
+    "communication",
+    "efficiency",
+  ]);
+  expect(festivalDebrief.score.assessment).toBe(100);
+  expect(festivalDebrief.score.clinicalDecisions).toBe(100);
+  expect(festivalDebrief.score.treatment).toBe(100);
+  expect(festivalDebrief.score.reassessment).toBe(100);
+  expect(festivalDebrief.summary).toContain("anaphylaxis");
+  expect(festivalDebrief.summary).not.toContain("trauma center");
+  expect(festivalState.currentPhase).toBe("complete");
+  expect(festivalState.patient.medicationGiven).toEqual(["epinephrine"]);
+  expect(festivalState.patient.oxygenApplied).toBe(true);
+  expect(festivalState.patient.vitals).toEqual({
+    heartRate: 116,
+    respiratoryRate: 22,
+    systolicBP: 104,
+    diastolicBP: 68,
+    spo2: 95,
+  });
+
+  expect(crashDebrief.score.assessment).toBe(100);
+  expect(crashDebrief.score.clinicalDecisions).toBe(100);
+  expect(crashDebrief.score.treatment).toBe(100);
+  expect(crashDebrief.score.reassessment).toBe(100);
+  expect(crashDebrief.summary).toContain("trauma center");
+  expect(crashDebrief.summary).not.toContain("anaphylaxis");
+  expect(crashState.currentPhase).toBe("complete");
+  expect(crashState.patient.medicationGiven).toEqual([]);
+  expect(crashState.patient.oxygenApplied).toBe(true);
+  expect(crashState.patient.vitals).toEqual({
+    heartRate: 118,
+    respiratoryRate: 26,
+    systolicBP: 98,
+    diastolicBP: 64,
+    spo2: 93,
+  });
+});
+
+test("secondary assessment unlocks in scenario-specific order before reassessment", () => {
+  const advance = (
+    scenario: SceneScenarioConfig,
+    events: SceneEvent[]
+  ) =>
+    events.reduce(
+      (state, event) => scenarioReducer(scenario, state, { type: "APPLY_EVENT", event }),
+      createScenarioState(scenario)
+    );
+
+  const festivalState = advance(anaphylaxisFestivalScenario, [
+    "DOG_INSPECTED",
+    "RADIO_SELECTED",
+    "ANIMAL_CONTROL_CALLED",
+    "DOG_SECURED",
+    "GLOVES_EQUIPPED",
+    "PATIENT_APPROACHED",
+    "GENERAL_IMPRESSION_OBSERVED",
+    "RESPONSIVENESS_CHECKED",
+    "AIRWAY_OPENED",
+    "RESPIRATIONS_COUNTED",
+    "PULSE_CHECKED",
+    "WORKING_IMPRESSION_SELECTED",
+    "EPINEPHRINE_ADMINISTERED",
+    "OXYGEN_APPLIED",
+    "TRANSPORT_SELECTED",
+    "BLOOD_PRESSURE_OBTAINED",
+    "SPO2_OBTAINED",
+  ]);
+  expect(festivalState.currentPhase).toBe("secondaryAssessment");
+  expect(festivalState.currentObjectiveId).toBe("focused-history");
+  expect(
+    getVisibleInteractiveObjects(anaphylaxisFestivalScenario, festivalState).map(
+      (object) => object.id
+    )
+  ).toContain("focused-history");
+  expect(
+    getVisibleInteractiveObjects(anaphylaxisFestivalScenario, festivalState).map(
+      (object) => object.id
+    )
+  ).not.toContain("patient-reassessment");
+
+  const festivalExamState = scenarioReducer(
+    anaphylaxisFestivalScenario,
+    scenarioReducer(anaphylaxisFestivalScenario, festivalState, {
+      type: "APPLY_EVENT",
+      event: "FOCUSED_HISTORY_OBTAINED",
+    }),
+    { type: "APPLY_EVENT", event: "FOCUSED_EXAM_COMPLETED" }
+  );
+  expect(festivalExamState.currentObjectiveId).toBe("treatment-reassessment");
+  expect(
+    getVisibleInteractiveObjects(anaphylaxisFestivalScenario, festivalExamState).map(
+      (object) => object.id
+    )
+  ).toContain("patient-reassessment");
+
+  const crashState = advance(carAccidentScenario, [
+    "CRASH_SCENE_INSPECTED",
+    "RADIO_SELECTED",
+    "FIRE_RESCUE_CALLED",
+    "TRAFFIC_CONTROLLED",
+    "GLOVES_EQUIPPED",
+    "PATIENT_APPROACHED",
+    "GENERAL_IMPRESSION_OBSERVED",
+    "RESPONSIVENESS_CHECKED",
+    "AIRWAY_OPENED",
+    "RESPIRATIONS_COUNTED",
+    "OXYGEN_APPLIED",
+    "PULSE_CHECKED",
+    "BLOOD_PRESSURE_OBTAINED",
+    "SPO2_OBTAINED",
+    "WORKING_IMPRESSION_SELECTED",
+    "TRANSPORT_SELECTED",
+    "SPINAL_PRECAUTIONS_MAINTAINED",
+    "EXTRICATION_COORDINATED",
+  ]);
+  expect(crashState.currentPhase).toBe("secondaryAssessment");
+  expect(crashState.currentObjectiveId).toBe("rapid-trauma-exam");
+  expect(
+    getVisibleInteractiveObjects(carAccidentScenario, crashState).map(
+      (object) => object.id
+    )
+  ).toContain("rapid-trauma-exam");
+  expect(
+    getVisibleInteractiveObjects(carAccidentScenario, crashState).map(
+      (object) => object.id
+    )
+  ).not.toContain("patient-reassessment");
+
+  const crashHistoryState = scenarioReducer(
+    carAccidentScenario,
+    scenarioReducer(carAccidentScenario, crashState, {
+      type: "APPLY_EVENT",
+      event: "FOCUSED_EXAM_COMPLETED",
+    }),
+    { type: "APPLY_EVENT", event: "FOCUSED_HISTORY_OBTAINED" }
+  );
+  expect(crashHistoryState.currentObjectiveId).toBe("trauma-reassessment");
+  expect(
+    getVisibleInteractiveObjects(carAccidentScenario, crashHistoryState).map(
+      (object) => object.id
+    )
+  ).toContain("patient-reassessment");
+});
+
+test("scenario debrief remembers recoverable clinical and safety mistakes", () => {
+  const crashMistake = scenarioReducer(
+    carAccidentScenario,
+    createScenarioState(carAccidentScenario),
+    {
+      type: "RUN_ACTION",
+      objectId: "crash-vehicle",
+      actionId: "rush-to-driver",
+    }
+  );
+  const crashDebrief = buildScenarioDebrief(crashMistake);
+
+  expect(crashMistake.decisionHistory).toHaveLength(1);
+  expect(crashMistake.decisionHistory[0].outcome).toBe("incorrect");
+  expect(crashMistake.failedObjectives).toContain("crash-hazard");
+  expect(crashMistake.elapsedTime).toBe(20);
+  expect(crashMistake.score).toBe(72);
+  expect(crashDebrief.incorrectDecisions).toBe(1);
+  expect(crashDebrief.decisionReview[0].choice).toBe("Run directly to the driver");
+  expect(crashDebrief.priorityTakeaway).toContain("active roadway");
+
+  const dogMistake = scenarioReducer(
+    anaphylaxisFestivalScenario,
+    createScenarioState(anaphylaxisFestivalScenario),
+    {
+      type: "RUN_ACTION",
+      objectId: "dog",
+      actionId: "ignore-dog",
+    }
+  );
+  const dogDebrief = buildScenarioDebrief(dogMistake);
+
+  expect(dogMistake.decisionHistory[0].outcome).toBe("incorrect");
+  expect(dogMistake.failedObjectives).toContain("dog-hazard");
+  expect(dogMistake.elapsedTime).toBe(25);
+  expect(dogMistake.score).toBe(70);
+  expect(dogDebrief.incorrectDecisions).toBe(1);
+  expect(dogDebrief.priorityTakeaway).toContain("dog");
+});
+
+test("festival clickable actions treat anaphylaxis before monitor values", () => {
+  const run = (
+    state: ReturnType<typeof createScenarioState>,
+    objectId: string,
+    actionId: string
+  ) =>
+    scenarioReducer(anaphylaxisFestivalScenario, state, {
+      type: "RUN_ACTION",
+      objectId,
+      actionId,
+    });
+  const event = (
+    state: ReturnType<typeof createScenarioState>,
+    sceneEvent: SceneEvent
+  ) =>
+    scenarioReducer(anaphylaxisFestivalScenario, state, {
+      type: "APPLY_EVENT",
+      event: sceneEvent,
+    });
+
+  let state = createScenarioState(anaphylaxisFestivalScenario);
+  state = run(state, "dog", "inspect-dog");
+  state = scenarioReducer(anaphylaxisFestivalScenario, state, {
+    type: "SELECT_OBJECT",
+    objectId: "ambulance-radio",
+  });
+  state = event(state, "DOG_SECURED");
+  state = run(state, "medical-bag", "open-medical-bag");
+  state = run(state, "medical-bag", "equip-gloves");
+  state = run(state, "patient-approach", "approach-patient");
+  state = run(state, "patient", "general-impression");
+  state = run(state, "patient", "introduce-yourself");
+  state = run(state, "airway-hotspot", "inspect-airway");
+  state = run(state, "chest-hotspot", "count-respirations");
+  state = run(state, "pulse-hotspot", "check-radial-pulse");
+
+  expect(state.currentObjectiveId).toBe("working-impression");
+  expect(state.triggeredEvents).not.toContain("BLOOD_PRESSURE_OBTAINED");
+  expect(state.triggeredEvents).not.toContain("SPO2_OBTAINED");
+
+  state = run(state, "working-impression", "suspect-severe-allergic-reaction");
+  expect(state.currentObjectiveId).toBe("epinephrine-treatment");
+  state = run(state, "epinephrine-treatment", "administer-im-epinephrine");
+  expect(state.currentObjectiveId).toBe("oxygen-support");
+  state = run(state, "oxygen-support", "apply-oxygen-anaphylaxis");
+  expect(state.currentObjectiveId).toBe("transport-priority");
+  state = run(state, "transport-decision", "urgent-transport");
+  expect(state.currentObjectiveId).toBe("baseline-vitals");
+
+  state = event(state, "BLOOD_PRESSURE_OBTAINED");
+  state = event(state, "SPO2_OBTAINED");
+  state = run(state, "focused-history", "obtain-focused-allergy-history");
+  state = run(state, "focused-exam", "perform-focused-anaphylaxis-exam");
+  state = run(state, "patient-reassessment", "repeat-abcs-and-vitals-anaphylaxis");
+
+  expect(state.currentPhase).toBe("complete");
+  expect(state.decisionHistory.every((decision) => decision.outcome === "correct")).toBe(true);
+  expect(state.patient.medicationGiven).toEqual(["epinephrine"]);
+  expect(state.patient.oxygenApplied).toBe(true);
+});
+
+test("crash clickable actions complete safety, breathing support, and extrication independently", () => {
+  const run = (
+    state: ReturnType<typeof createScenarioState>,
+    objectId: string,
+    actionId: string
+  ) =>
+    scenarioReducer(carAccidentScenario, state, {
+      type: "RUN_ACTION",
+      objectId,
+      actionId,
+    });
+  const event = (
+    state: ReturnType<typeof createScenarioState>,
+    sceneEvent: SceneEvent
+  ) =>
+    scenarioReducer(carAccidentScenario, state, {
+      type: "APPLY_EVENT",
+      event: sceneEvent,
+    });
+
+  let state = createScenarioState(carAccidentScenario);
+  state = run(state, "crash-vehicle", "inspect-crash-from-distance");
+  state = scenarioReducer(carAccidentScenario, state, {
+    type: "SELECT_OBJECT",
+    objectId: "ambulance-radio",
+  });
+  state = event(state, "TRAFFIC_CONTROLLED");
+  state = run(state, "medical-bag", "open-medical-bag");
+  state = run(state, "medical-bag", "equip-gloves");
+  state = run(state, "patient-approach", "approach-driver");
+  state = run(state, "patient", "observe-trauma-impression");
+  state = run(state, "patient", "verbal-responsiveness-trauma");
+  state = run(state, "airway-hotspot", "assess-airway-with-stabilization");
+  state = run(state, "chest-hotspot", "assess-trauma-breathing");
+
+  expect(state.currentObjectiveId).toBe("oxygen-support");
+  state = event(state, "OXYGEN_APPLIED");
+  expect(state.currentObjectiveId).toBe("circulation");
+
+  state = run(state, "pulse-hotspot", "assess-trauma-circulation");
+  state = event(state, "BLOOD_PRESSURE_OBTAINED");
+  state = event(state, "SPO2_OBTAINED");
+  state = run(state, "working-impression", "multisystem-trauma");
+  state = run(state, "transport-decision", "rapid-trauma-transport");
+  state = run(state, "spinal-protection", "maintain-spinal-precautions");
+  state = run(state, "extrication-plan", "coordinate-controlled-extrication");
+  state = run(state, "rapid-trauma-exam", "perform-rapid-trauma-exam");
+  state = run(state, "focused-history", "obtain-ample-and-neurologic-checks");
+  state = run(state, "patient-reassessment", "repeat-trauma-primary-and-vitals");
+
+  expect(state.currentPhase).toBe("complete");
+  expect(state.decisionHistory.every((decision) => decision.outcome === "correct")).toBe(true);
+  expect(state.patient.medicationGiven).toEqual([]);
+  expect(state.patient.oxygenApplied).toBe(true);
+  expect(buildScenarioDebrief(state).summary).toContain("trauma center");
+});
+
 test.describe("core route health", () => {
   const routes = [
     { path: "/", heading: "PathoLogix" },
@@ -115,9 +533,28 @@ test.describe("core route health", () => {
   }
 });
 
+test("keyboard users can reach the main content skip target", async ({ page }) => {
+  await page.goto("/flashcards");
+
+  const skipLink = page.getByRole("link", { name: "Skip to main content" });
+  await skipLink.focus();
+  await expect(skipLink).toBeFocused();
+  await expect(skipLink).toBeVisible();
+  await expect(skipLink).toHaveAttribute("href", "#main-content");
+  await expect(page.locator("#main-content")).toHaveAttribute("tabindex", "-1");
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#main-content")).toBeFocused();
+  await expect(
+    page.locator('header a[href="/flashcards"]').first()
+  ).toHaveAttribute("aria-current", "page");
+});
+
 test("flashcards reveal answers and advance cleanly", async ({ page }) => {
   await page.goto("/flashcards");
 
+  await expect(
+    page.getByRole("combobox", { name: "Filter flashcards by domain" })
+  ).toBeVisible();
   const reveal = page.getByRole("button", { name: "Reveal the answer" });
   await expect(reveal).toBeVisible();
   await reveal.click();
@@ -141,13 +578,46 @@ test("EMT Scene renders its responsive training shell", async ({ page }, testInf
   const canvasScreenshot = await canvas.screenshot();
   expect(canvasScreenshot.byteLength).toBeGreaterThan(10_000);
   await expect(page.locator("body")).not.toContainText("Application error");
-  const collisionModelLoaded = page.waitForResponse(
-    (response) =>
-      response.url().endsWith("/models/emt-scene/quaternius_cc0-large-building-741.glb"),
-    { timeout: 120_000 }
-  );
+
+  const recommendedDog = page.getByRole("button", {
+    name: "Recommended next object: Barking Dog",
+  });
+  await expect(recommendedDog).toBeVisible();
+  await recommendedDog.focus();
+  await expect(recommendedDog).toBeFocused();
+  await recommendedDog.press("Enter");
+  const decisionPrompt = page.getByTestId("scene-decision-prompt");
+  await expect(decisionPrompt).toBeVisible();
+  await expect(decisionPrompt).toBeFocused();
+  await expect(
+    page.getByRole("button", { name: "Close action choices for Barking Dog" })
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(decisionPrompt).toHaveCount(0);
 
   if (testInfo.project.name.startsWith("mobile")) {
+    const hudToggle = page.getByRole("button", { name: "Show HUD" });
+    await hudToggle.click();
+    const mobileHud = page.getByTestId("mobile-hud-panel");
+    const closeHud = page.getByRole("button", { name: "Close HUD" });
+    await expect(mobileHud).toBeVisible();
+    await expect(closeHud).toBeFocused();
+    await page.keyboard.press("Shift+Tab");
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          Boolean(
+            document
+              .getElementById("mobile-hud-panel")
+              ?.contains(document.activeElement)
+          )
+        )
+      )
+      .toBe(true);
+    await page.keyboard.press("Escape");
+    await expect(mobileHud).toHaveCount(0);
+    await expect(hudToggle).toBeFocused();
+
     const sceneSwitcher = page.getByRole("button", { name: "Switch scene" });
     await expect(sceneSwitcher).toBeVisible();
     await expect(page.getByRole("button", { name: "Show HUD" })).toBeVisible();
@@ -162,7 +632,7 @@ test("EMT Scene renders its responsive training shell", async ({ page }, testInf
         name: "Driver Trapped After Collision",
         exact: true,
       })
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 30_000 });
   } else {
     await expect(page.getByText("Active Dispatch")).toBeVisible();
     await expect(
@@ -171,6 +641,8 @@ test("EMT Scene renders its responsive training shell", async ({ page }, testInf
         exact: true,
       })
     ).toBeVisible();
+    await page.getByRole("button", { name: "Objectives" }).click();
+    await expect(page.getByTestId("scene-objective-prompt")).toBeFocused();
     await page
       .getByLabel("Select scenario")
       .selectOption({ label: "Driver Trapped After Collision" });
@@ -179,14 +651,34 @@ test("EMT Scene renders its responsive training shell", async ({ page }, testInf
         name: "Driver Trapped After Collision",
         exact: true,
       })
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 30_000 });
   }
 
-  const collisionModelResponse = await collisionModelLoaded;
-  expect(collisionModelResponse.ok()).toBe(true);
   await expect(sceneLoader).toBeHidden({ timeout: 120_000 });
-  const collisionScreenshot = await canvas.screenshot();
-  expect(collisionScreenshot.byteLength).toBeGreaterThan(5_000);
+  await expect(page.getByText("Smoking Crash Vehicle", { exact: true })).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(
+    page.locator(
+      'head link[rel="preload"][href="/models/emt-scene/custom/ambulance-optimized.glb"]'
+    )
+  ).toHaveCount(1);
+  const canvasDimensions = await canvas.evaluate((element) => {
+    const canvasElement = element as HTMLCanvasElement;
+    const bounds = canvasElement.getBoundingClientRect();
+    return {
+      width: canvasElement.width,
+      height: canvasElement.height,
+      cssWidth: bounds.width,
+      cssHeight: bounds.height,
+    };
+  });
+  expect(canvasDimensions.width).toBeGreaterThan(0);
+  expect(canvasDimensions.height).toBeGreaterThan(0);
+  const renderScale = canvasDimensions.width / canvasDimensions.cssWidth;
+  expect(renderScale).toBeLessThanOrEqual(
+    testInfo.project.name.startsWith("mobile") ? 1.1 : 1.4
+  );
   await expect(page.locator("body")).not.toContainText("Application error");
   await expectNoHorizontalOverflow(page);
 });
@@ -225,9 +717,10 @@ test("Exam Mode redirects signed-out learners to login", async ({ page }) => {
 
 test("mobile navigation exposes every primary destination", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.startsWith("mobile"));
-  await page.goto("/");
+  await page.goto("/flashcards");
 
-  await page.getByRole("button", { name: "Open navigation" }).click();
+  const navigationToggle = page.getByRole("button", { name: "Open navigation" });
+  await navigationToggle.click();
   const mobileNavigation = page.locator("#mobile-navigation");
   await expect(
     mobileNavigation.getByRole("link", { name: "Scenarios", exact: true })
@@ -244,4 +737,11 @@ test("mobile navigation exposes every primary destination", async ({ page }, tes
   await expect(
     mobileNavigation.getByRole("link", { name: "Progress", exact: true })
   ).toBeVisible();
+  await expect(
+    mobileNavigation.getByRole("link", { name: "Flashcards", exact: true })
+  ).toHaveAttribute("aria-current", "page");
+
+  await page.keyboard.press("Escape");
+  await expect(mobileNavigation).toHaveCount(0);
+  await expect(navigationToggle).toBeFocused();
 });

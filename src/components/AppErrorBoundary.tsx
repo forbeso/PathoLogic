@@ -1,6 +1,7 @@
 import Link from "next/link";
 import React, { Component, type ErrorInfo, type ReactNode } from "react";
 import { Ambulance, Home, RefreshCw, TriangleAlert } from "lucide-react";
+import { reportClientIssue } from "@/lib/telemetry";
 
 type AppErrorBoundaryProps = {
   children: ReactNode;
@@ -8,27 +9,37 @@ type AppErrorBoundaryProps = {
 
 type AppErrorBoundaryState = {
   hasError: boolean;
+  issueId: string | null;
 };
 
 export default class AppErrorBoundary extends Component<
   AppErrorBoundaryProps,
   AppErrorBoundaryState
 > {
-  state: AppErrorBoundaryState = { hasError: false };
+  state: AppErrorBoundaryState = { hasError: false, issueId: null };
 
   static getDerivedStateFromError(): AppErrorBoundaryState {
-    return { hasError: true };
+    return { hasError: true, issueId: null };
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("PathoLogix page error", error, errorInfo);
+    const issueId = reportClientIssue(error, {
+      context: "app_render",
+      recoverable: false,
+    });
+    this.setState({ issueId });
   }
 
   render() {
     if (!this.state.hasError) return this.props.children;
 
     return (
-      <main className="grid min-h-screen place-items-center bg-[#eef7f4] px-4 py-10 text-slate-950">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="grid min-h-screen place-items-center bg-[#eef7f4] px-4 py-10 text-slate-950 outline-none"
+      >
         <section className="w-full max-w-lg rounded-lg border border-[#bfd6cf] bg-white p-6 text-center shadow-[0_18px_50px_rgba(15,23,42,0.12)] sm:p-8">
           <Link
             href="/"
@@ -53,10 +64,10 @@ export default class AppErrorBoundary extends Component<
             <button
               type="button"
               onClick={() => window.location.reload()}
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-teal-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-300"
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-teal-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-300"
             >
               <RefreshCw size={17} />
-              Refresh page
+              Try this page again
             </button>
             <Link
               href="/"
@@ -66,6 +77,14 @@ export default class AppErrorBoundary extends Component<
               Return home
             </Link>
           </div>
+          {this.state.issueId ? (
+            <p className="mt-5 text-xs text-slate-500">
+              Error reference:{" "}
+              <span className="font-mono">
+                {this.state.issueId.slice(0, 8)}
+              </span>
+            </p>
+          ) : null}
         </section>
       </main>
     );

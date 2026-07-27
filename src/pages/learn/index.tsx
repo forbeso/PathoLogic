@@ -34,7 +34,7 @@ export default function LearnIndexPage() {
       />
       <Header />
 
-      <main>
+      <main id="main-content" tabIndex={-1}>
         <section className="border-b border-slate-800 bg-slate-950 text-white">
           <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 sm:px-6 sm:py-16 lg:grid-cols-[1fr_320px] lg:items-end lg:px-8">
             <div className="max-w-3xl">

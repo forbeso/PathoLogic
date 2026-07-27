@@ -27,7 +27,7 @@ export function InfoPage({
       <Seo title={title} description={description} path={path} />
       <Header />
 
-      <main>
+      <main id="main-content" tabIndex={-1}>
         <section className="border-b border-slate-800 bg-slate-950 text-white">
           <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
             <p className="text-sm font-bold text-teal-300">{eyebrow}</p>

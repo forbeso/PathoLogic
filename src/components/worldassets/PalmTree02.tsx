@@ -30,5 +30,3 @@ export function Model(props: React.JSX.IntrinsicElements['group']) {
     </group>
   )
 }
-
-useGLTF.preload('/PalmTree02-transformed.glb')

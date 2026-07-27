@@ -12,7 +12,7 @@ export default function PrivacyPage() {
       title="Privacy Policy"
       description="How PathoLogix collects, uses, and protects information while you use our EMT learning tools."
       path="/privacy"
-      updated="July 23, 2026"
+      updated="July 27, 2026"
     >
       <InfoSection title="Information we collect">
         <p>We collect information needed to operate and improve PathoLogix, including:</p>
@@ -36,6 +36,16 @@ export default function PrivacyPage() {
           We use this information to provide accounts, save progress, personalize practice,
           generate learning content, maintain security, troubleshoot problems, and understand how
           the product is used.
+        </p>
+      </InfoSection>
+
+      <InfoSection title="Product analytics and diagnostics">
+        <p>
+          We collect limited, privacy-conscious product events and technical diagnostics to
+          understand whether key learning flows work and to investigate failures. Diagnostic
+          reports may include the page path, device performance measurements, an error category,
+          and an anonymous reference number. They do not include passwords, authentication
+          tokens, email addresses, answer text, patient narratives, or error stack traces.
         </p>
       </InfoSection>
 

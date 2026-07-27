@@ -27,5 +27,3 @@ export function Model(props: React.JSX.IntrinsicElements['group']) {
     </group>
   )
 }
-
-useGLTF.preload('/SmallGrass01-transformed.glb')

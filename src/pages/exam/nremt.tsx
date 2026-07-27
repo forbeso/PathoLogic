@@ -7,6 +7,7 @@ import Header from "@/components/Header";
 import Seo from "@/components/Seo";
 import { supabase } from "@/lib/supabase";
 import { authenticatedFetch } from "@/lib/authenticatedFetch";
+import { reportClientIssue, trackProductEvent } from "@/lib/telemetry";
 import {
   abandonExam,
   completeExam,
@@ -161,7 +162,15 @@ export default function NremtExamPage() {
 
       setSessionId(data.sessionId);
       setItems(seededItems);
+      trackProductEvent("exam_started", {
+        questionCount: seededItems.length,
+      });
     } catch (err: any) {
+      reportClientIssue(err, {
+        context: "exam_start",
+        code: "EXAM_START_FAILED",
+        recoverable: true,
+      });
       setError(err.message ?? "Something went wrong");
     } finally {
       setStarting(false);
@@ -217,9 +226,22 @@ export default function NremtExamPage() {
     }
 
     if (sessionId) {
-      const summary = await completeExam(sessionId);
-      setCorrectCount(summary.correctCount);
-      setDomainStats(summary.domainStats);
+      try {
+        const summary = await completeExam(sessionId);
+        setCorrectCount(summary.correctCount);
+        setDomainStats(summary.domainStats);
+        trackProductEvent("exam_completed", {
+          questionCount: summary.totalQuestions,
+          scorePercent: summary.scorePercent,
+        });
+      } catch (error) {
+        reportClientIssue(error, {
+          context: "exam_complete",
+          code: "EXAM_COMPLETE_FAILED",
+          recoverable: true,
+        });
+        throw error;
+      }
     }
 
     setCompleted(true);
@@ -229,9 +251,20 @@ export default function NremtExamPage() {
   };
 
   const exitExamNow = () => {
+    if (items.length > 0) {
+      trackProductEvent("exam_abandoned", {
+        answeredCount: Math.min(currentIndex + 1, items.length),
+        questionCount: items.length,
+      });
+    }
     if (sessionId) {
       void abandonExam(sessionId).catch((err) => {
         console.error("Unable to mark exam as abandoned:", err);
+        reportClientIssue(err, {
+          context: "exam_abandon",
+          code: "EXAM_ABANDON_FAILED",
+          recoverable: true,
+        });
       });
     }
 

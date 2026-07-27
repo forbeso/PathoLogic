@@ -235,15 +235,15 @@ export default function LoginPage() {
             <div className="mt-5 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm">
               {view === "sign-in" ? (
                 <>
-                  <button type="button" onClick={() => setView("sign-up")} className="font-semibold text-teal-700 hover:text-teal-600">
+                  <button type="button" onClick={() => setView("sign-up")} className="min-h-11 px-2 font-semibold text-teal-700 hover:text-teal-600">
                     Create an account
                   </button>
-                  <button type="button" onClick={() => setView("forgot-password")} className="text-slate-600 hover:text-slate-900">
+                  <button type="button" onClick={() => setView("forgot-password")} className="min-h-11 px-2 text-slate-600 hover:text-slate-900">
                     Forgot password?
                   </button>
                 </>
               ) : (
-                <button type="button" onClick={() => setView("sign-in")} className="font-semibold text-teal-700 hover:text-teal-600">
+                <button type="button" onClick={() => setView("sign-in")} className="min-h-11 px-2 font-semibold text-teal-700 hover:text-teal-600">
                   Back to sign in
                 </button>
               )}
