@@ -86,13 +86,6 @@ export async function recordResult(opts: PracticeResultInput) {
   });
   const data = await response.json().catch(() => null);
 
-  if (!response.ok && response.status === 503) {
-    // Keep the aggregate functional until the practice-attempt migration is
-    // deployed. Network errors are not retried here to avoid double-counting.
-    await upsertPerformance(opts.topic, opts.correct);
-    return { correct: opts.correct, recorded: true, fallback: true };
-  }
-
   if (!response.ok) {
     throw new Error(data?.error ?? "Unable to save this practice answer.");
   }

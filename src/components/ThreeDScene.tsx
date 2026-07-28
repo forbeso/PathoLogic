@@ -84,7 +84,13 @@ type ThreeDSceneProps = {
 };
 
 type Vec3 = [number, number, number];
-type SceneVariant = "anaphylaxis" | "spine" | "chest-pain" | "car-accident";
+type SceneVariant =
+  | "anaphylaxis"
+  | "spine"
+  | "chest-pain"
+  | "car-accident"
+  | "hypoglycemia"
+  | "opioid-overdose";
 type InterventionState = "none" | "oxygen" | "positioning" | "medication";
 type PatientState = "stable" | "distressed" | "improving" | "critical";
 type SceneInteractiveObject = InteractiveObjectConfig & {
@@ -129,6 +135,8 @@ const MOBILE_GUIDE_CAMERA_POSITION: Vec3 = [0.35, 1.54, 2.92];
 const MOBILE_GUIDE_CAMERA_TARGET: Vec3 = [0.35, 1.32, 0.95];
 const MOBILE_NORMAL_CAMERA_POSITION: Vec3 = [-1.95, 1.48, -0.72];
 const MOBILE_NORMAL_CAMERA_TARGET: Vec3 = [5.0, 0.42, 1.25];
+const MOBILE_MEDICAL_CAMERA_POSITION: Vec3 = [0.35, 2.35, 6.15];
+const MOBILE_MEDICAL_CAMERA_TARGET: Vec3 = [2.2, 0.52, 1.45];
 const CRASH_CAMERA_POSITION: Vec3 = [-2.7, 3.4, 10.6];
 const CRASH_CAMERA_TARGET: Vec3 = [0.35, 0.52, 1.15];
 const MOBILE_CRASH_CAMERA_POSITION: Vec3 = [-0.65, 2.35, 7.7];
@@ -150,7 +158,13 @@ function formatGuideDisplayName(value: string) {
 }
 
 function normalizeSceneVariant(scenarioId?: string): SceneVariant {
-  if (scenarioId === "spine" || scenarioId === "chest-pain" || scenarioId === "car-accident") {
+  if (
+    scenarioId === "spine" ||
+    scenarioId === "chest-pain" ||
+    scenarioId === "car-accident" ||
+    scenarioId === "hypoglycemia" ||
+    scenarioId === "opioid-overdose"
+  ) {
     return scenarioId;
   }
   return "anaphylaxis";
@@ -2194,14 +2208,89 @@ function AnimalControlResponse({ active }: { active?: boolean }) {
   );
 }
 
+function MedicalScenarioSceneProps({ scenarioId }: { scenarioId: SceneVariant }) {
+  if (scenarioId === "hypoglycemia") {
+    return (
+      <group position={[1.05, 0.1, 2.05]} rotation={[0, -0.3, 0]}>
+        <mesh castShadow>
+          <boxGeometry args={[0.48, 0.12, 0.2]} />
+          <meshStandardMaterial color="#f59e0b" roughness={0.58} />
+        </mesh>
+        <mesh position={[0, 0.065, 0]}>
+          <boxGeometry args={[0.27, 0.018, 0.12]} />
+          <meshStandardMaterial color="#fff7ed" roughness={0.65} />
+        </mesh>
+        <mesh position={[0.36, 0.05, 0.04]} rotation={[0, 0, Math.PI / 2]} castShadow>
+          <cylinderGeometry args={[0.065, 0.065, 0.42, 12]} />
+          <meshStandardMaterial color="#fb923c" roughness={0.5} />
+        </mesh>
+      </group>
+    );
+  }
+
+  if (scenarioId === "opioid-overdose") {
+    return (
+      <group>
+        <group position={[4.05, 0.15, 1.02]} rotation={[0, -0.25, 0]}>
+          <mesh scale={[1.55, 0.62, 1]} castShadow>
+            <sphereGeometry args={[0.18, 16, 12]} />
+            <meshStandardMaterial color="#3b82f6" roughness={0.56} />
+          </mesh>
+          <mesh position={[0.31, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+            <cylinderGeometry args={[0.11, 0.15, 0.18, 16]} />
+            <meshStandardMaterial color="#dbeafe" transparent opacity={0.8} roughness={0.35} />
+          </mesh>
+        </group>
+        <mesh position={[3.4, 0.11, 1.05]} castShadow>
+          <cylinderGeometry args={[0.065, 0.065, 0.22, 12]} />
+          <meshStandardMaterial color="#f8fafc" roughness={0.5} />
+        </mesh>
+        <mesh position={[3.4, 0.245, 1.05]} castShadow>
+          <cylinderGeometry args={[0.045, 0.045, 0.05, 12]} />
+          <meshStandardMaterial color="#38bdf8" roughness={0.4} />
+        </mesh>
+      </group>
+    );
+  }
+
+  if (scenarioId === "chest-pain") {
+    return (
+      <group>
+        <mesh position={[4.02, 0.25, 0.98]} castShadow>
+          <cylinderGeometry args={[0.08, 0.085, 0.42, 16]} />
+          <meshStandardMaterial color="#16a34a" metalness={0.12} roughness={0.48} />
+        </mesh>
+        <mesh position={[4.02, 0.49, 0.98]} castShadow>
+          <cylinderGeometry args={[0.045, 0.065, 0.06, 16]} />
+          <meshStandardMaterial color="#475569" roughness={0.5} />
+        </mesh>
+        <group position={[3.45, 0.09, 1.02]} rotation={[0, 0.2, 0]}>
+          <mesh castShadow>
+            <cylinderGeometry args={[0.085, 0.085, 0.15, 16]} />
+            <meshStandardMaterial color="#f8fafc" roughness={0.52} />
+          </mesh>
+          <mesh position={[0, 0.095, 0]} castShadow>
+            <cylinderGeometry args={[0.075, 0.075, 0.05, 16]} />
+            <meshStandardMaterial color="#f97316" roughness={0.46} />
+          </mesh>
+        </group>
+      </group>
+    );
+  }
+
+  return null;
+}
+
 function RoadsideFestivalEmergencyScene({
   environment,
   animalControlResponseActive,
   locationId = "ambulance",
+  scenarioId,
 }: {
   environment?: ScenarioState["environment"];
   animalControlResponseActive?: boolean;
   locationId?: ScenarioState["locationId"];
+  scenarioId: SceneVariant;
 }) {
   const medicalBagPosition =
     locationId === "patientSide"
@@ -2240,6 +2329,7 @@ function RoadsideFestivalEmergencyScene({
         rotation={[0, 0, 0]}
       />
       <CustomPatientModel position={[2.28, 0.2, 1.18]} scale={2.0} rotation={[0, -0.16, 0]} />
+      <MedicalScenarioSceneProps scenarioId={scenarioId} />
       <mesh position={[2.28, 0.025, 1.28]} rotation={[-Math.PI / 2, 0, -0.16]} receiveShadow>
         <circleGeometry args={[1.55, 40]} />
         <meshStandardMaterial color="#7e684f" transparent opacity={0.22} roughness={1} />
@@ -4441,8 +4531,12 @@ export default function ThreeDScene({
   onObjectSelect,
 }: ThreeDSceneProps) {
   const activeScenarioId = normalizeSceneVariant(scenarioId);
-  const useRoadsideFestivalScene = activeScenarioId === "anaphylaxis";
+  const useRoadsideFestivalScene = activeScenarioId !== "car-accident";
   const useCarAccidentScene = activeScenarioId === "car-accident";
+  const useAdditionalMedicalScene =
+    activeScenarioId === "hypoglycemia" ||
+    activeScenarioId === "opioid-overdose" ||
+    activeScenarioId === "chest-pain";
   const activeCameraFocusObjectId =
     cameraFocusObjectId === null ? undefined : cameraFocusObjectId ?? focusedObjectId;
   const focusObject =
@@ -4567,6 +4661,7 @@ export default function ThreeDScene({
             environment={environment}
             animalControlResponseActive={animalControlResponseActive}
             locationId={locationId}
+            scenarioId={activeScenarioId}
           />
         ) : useCarAccidentScene ? (
           <CarAccidentEmergencyScene environment={environment} locationId={locationId} />
@@ -4614,8 +4709,20 @@ export default function ThreeDScene({
           onNormalSettled={() => setCameraMode("free")}
           normalDesktopPosition={normalCameraPosition}
           normalDesktopTarget={normalCameraTarget}
-          normalMobilePosition={useCarAccidentScene ? MOBILE_CRASH_CAMERA_POSITION : MOBILE_NORMAL_CAMERA_POSITION}
-          normalMobileTarget={useCarAccidentScene ? MOBILE_CRASH_CAMERA_TARGET : MOBILE_NORMAL_CAMERA_TARGET}
+          normalMobilePosition={
+            useCarAccidentScene
+              ? MOBILE_CRASH_CAMERA_POSITION
+              : useAdditionalMedicalScene
+                ? MOBILE_MEDICAL_CAMERA_POSITION
+                : MOBILE_NORMAL_CAMERA_POSITION
+          }
+          normalMobileTarget={
+            useCarAccidentScene
+              ? MOBILE_CRASH_CAMERA_TARGET
+              : useAdditionalMedicalScene
+                ? MOBILE_MEDICAL_CAMERA_TARGET
+                : MOBILE_NORMAL_CAMERA_TARGET
+          }
         />
         <FindingBubble text={sceneFinding} speaker={sceneSpeaker} />
         <InteractiveLayer

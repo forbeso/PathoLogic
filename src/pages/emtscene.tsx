@@ -57,6 +57,7 @@ import {
   anaphylaxisFestivalScenario,
   buildScenarioDebrief,
   carAccidentScenario,
+  chestPainScenario,
   createScenarioState,
   getActionSuccessEvents,
   getCurrentObjective,
@@ -64,6 +65,8 @@ import {
   getVisibleInteractiveObjects,
   hasEvents,
   isInteractiveObjectComplete,
+  hypoglycemiaScenario,
+  opioidOverdoseScenario,
   scenarioReducer,
   type InteractiveObjectConfig,
   type PatientVitalKey,
@@ -329,11 +332,83 @@ const SCENARIOS: Scenario[] = [
     cues: ["Significant mechanism", "Confusion", "Neck pain", "Chest guarding", "Poor perfusion"],
     fieldImpression: "Multisystem trauma with possible cervical spine, chest, and internal injuries.",
   },
+  {
+    id: "hypoglycemia",
+    title: "Diabetic With Altered Mental Status",
+    domain: "Medical / Endocrine",
+    location: "Riverside festival information area",
+    dispatch: "Adult with confusion and weakness near the festival information booth.",
+    scene:
+      "The patient is on the grass beside a bench. A friend reports diabetes and a missed meal.",
+    patient:
+      "Adult responding to voice, confused, pale, cool, and diaphoretic without signs of trauma.",
+    priority: "Potentially unstable",
+    vitals: {
+      loc: "Responds to voice, confused",
+      airway: "Patent, can swallow",
+      breathing: "Adequate, RR 18",
+      pulse: "Rapid radial 108",
+      bp: "110/70",
+      spo2: "97%",
+      skin: "Pale, cool, diaphoretic",
+    },
+    cues: ["Diabetes", "Missed meal", "Confusion", "Diaphoresis", "Weakness"],
+    fieldImpression: "Symptomatic hypoglycemia with altered mental status.",
+  },
+  {
+    id: "opioid-overdose",
+    title: "Unresponsive Patient Near the Park",
+    domain: "Medical / Toxicology",
+    location: "Riverside festival park edge",
+    dispatch: "Unresponsive adult with slow breathing near a festival bench.",
+    scene:
+      "The patient is supine on the grass. A bystander reports possible opioid use and no trauma.",
+    patient:
+      "Adult unresponsive to voice with snoring, slow shallow respirations, cyanosis, and pinpoint pupils.",
+    priority: "Unstable",
+    vitals: {
+      loc: "Withdraws to pain",
+      airway: "Snoring, partially obstructed",
+      breathing: "Inadequate, RR 6",
+      pulse: "Slow radial 56",
+      bp: "96/58",
+      spo2: "82%",
+      skin: "Cool, mildly cyanotic",
+    },
+    cues: ["Slow breathing", "Pinpoint pupils", "Cyanosis", "Possible opioid use", "Altered LOC"],
+    fieldImpression: "Opioid overdose with respiratory failure.",
+  },
+  {
+    id: "chest-pain",
+    title: "Chest Pressure at the Festival",
+    domain: "Medical / Cardiology",
+    location: "Riverside festival food court",
+    dispatch: "Adult with sudden chest pressure and sweating near the food booths.",
+    scene:
+      "The area is calm. The patient is pale, clutching the chest, and reclined on the grass.",
+    patient:
+      "Alert adult with central chest pressure radiating to the left arm, nausea, and diaphoresis.",
+    priority: "Potentially unstable",
+    vitals: {
+      loc: "Alert, anxious",
+      airway: "Patent, speaking clearly",
+      breathing: "Mildly labored, RR 22",
+      pulse: "Rapid regular radial 104",
+      bp: "148/88",
+      spo2: "93%",
+      skin: "Pale, cool, diaphoretic",
+    },
+    cues: ["Chest pressure", "Left arm radiation", "Nausea", "Diaphoresis", "Cardiac history"],
+    fieldImpression: "Suspected acute coronary syndrome.",
+  },
 ];
 
 const SCENE_SCENARIOS = {
   anaphylaxis: anaphylaxisFestivalScenario,
   "car-accident": carAccidentScenario,
+  hypoglycemia: hypoglycemiaScenario,
+  "opioid-overdose": opioidOverdoseScenario,
+  "chest-pain": chestPainScenario,
 } as const;
 
 const QUICK_ACTIONS: QuickAction[] = [
@@ -733,14 +808,25 @@ export default function EMTScene() {
   }, [gameState.patient]);
 
   const isCrashScenario = scenario.id === "car-accident";
+  const isDogScenario = scenario.id === "anaphylaxis";
+  const isAdditionalMedicalScenario = [
+    "hypoglycemia",
+    "opioid-overdose",
+    "chest-pain",
+  ].includes(scenario.id);
+  const isOpioidScenario = scenario.id === "opioid-overdose";
   const animalControlResponseRequested = hasEvents(gameState, ["ANIMAL_CONTROL_CALLED"]);
   const animalControlResponseFinished = hasEvents(gameState, ["DOG_SECURED"]);
   const crashResponseRequested = hasEvents(gameState, ["FIRE_RESCUE_CALLED"]);
   const crashResponseFinished = hasEvents(gameState, ["TRAFFIC_CONTROLLED"]);
-  const sceneSecured = isCrashScenario ? crashResponseFinished : animalControlResponseFinished;
+  const sceneSecured = isCrashScenario
+    ? crashResponseFinished
+    : isDogScenario
+      ? animalControlResponseFinished
+      : hasEvents(gameState, ["CRASH_SCENE_INSPECTED"]);
 
   useEffect(() => {
-    if (isCrashScenario || !animalControlResponseRequested || animalControlResponseFinished) {
+    if (!isDogScenario || !animalControlResponseRequested || animalControlResponseFinished) {
       setAnimalControlResponseActive(false);
       return;
     }
@@ -751,7 +837,7 @@ export default function EMTScene() {
     }, 3300);
 
     return () => window.clearTimeout(secureDogTimer);
-  }, [animalControlResponseFinished, animalControlResponseRequested, isCrashScenario]);
+  }, [animalControlResponseFinished, animalControlResponseRequested, isDogScenario]);
 
   useEffect(() => {
     if (!isCrashScenario || !crashResponseRequested || crashResponseFinished) return;
@@ -957,9 +1043,11 @@ export default function EMTScene() {
     });
   const selectedObject = sceneObjects.find((object) => object.id === gameState.selectedObjectId);
   const selectedObjectId = selectedObject?.id;
-  const requestedResources = hasEvents(gameState, [
-    isCrashScenario ? "FIRE_RESCUE_CALLED" : "ANIMAL_CONTROL_CALLED",
-  ]);
+  const requestedResources = isCrashScenario
+    ? hasEvents(gameState, ["FIRE_RESCUE_CALLED"])
+    : isDogScenario
+      ? hasEvents(gameState, ["ANIMAL_CONTROL_CALLED"])
+      : false;
   const actionableSceneObjects = sceneObjects.filter(
     (object) =>
       object.id === gameState.selectedObjectId ||
@@ -1089,7 +1177,7 @@ export default function EMTScene() {
           ];
         }
 
-        return [
+        if (isDogScenario) return [
           {
             label: "Control hazards",
             completed: [
@@ -1107,6 +1195,14 @@ export default function EMTScene() {
           {
             label: "Request additional resources",
             completed: hasEvents(gameState, ["ANIMAL_CONTROL_CALLED"]) ? 1 : 0,
+            total: 1,
+          },
+        ];
+
+        return [
+          {
+            label: "Inspect patient area",
+            completed: hasEvents(gameState, ["CRASH_SCENE_INSPECTED"]) ? 1 : 0,
             total: 1,
           },
         ];
@@ -1143,7 +1239,7 @@ export default function EMTScene() {
         },
       ];
     },
-    [gameState, isCrashScenario, sceneScenario.objectives, sceneSecured]
+    [gameState, isCrashScenario, isDogScenario, sceneScenario.objectives, sceneSecured]
   );
   const objectiveTaskLabel =
     gameState.currentPhase === "interventions"
@@ -1157,9 +1253,23 @@ export default function EMTScene() {
           : gameState.currentPhase === "sceneSafety"
             ? "Scene safety tasks"
             : "Primary tasks";
-  const treatmentComplete = isCrashScenario
-    ? hasEvents(gameState, ["SPINAL_PRECAUTIONS_MAINTAINED", "EXTRICATION_COORDINATED"])
-    : hasEvents(gameState, ["EPINEPHRINE_ADMINISTERED", "OXYGEN_APPLIED"]);
+  const treatmentEvents = sceneScenario.objectives
+    .filter((objective) => objective.phase === "interventions")
+    .flatMap((objective) => objective.requiredEvents);
+  const treatmentComplete =
+    treatmentEvents.length > 0 && hasEvents(gameState, treatmentEvents);
+  const monitoringEquipmentAvailable =
+    hasEvents(gameState, ["PULSE_CHECKED"]) &&
+    (isAdditionalMedicalScenario ||
+      (isCrashScenario && hasEvents(gameState, ["OXYGEN_APPLIED"])) ||
+      (isDogScenario && hasEvents(gameState, ["TRANSPORT_SELECTED"])));
+  const oxygenEquipmentAvailable =
+    (isCrashScenario && hasEvents(gameState, ["RESPIRATIONS_COUNTED"])) ||
+    (isDogScenario && hasEvents(gameState, ["EPINEPHRINE_ADMINISTERED"])) ||
+    ((scenario.id === "chest-pain" || isOpioidScenario) &&
+      hasEvents(gameState, ["RESPIRATIONS_COUNTED"]));
+  const bvmEquipmentAvailable =
+    isOpioidScenario && hasEvents(gameState, ["RESPIRATIONS_COUNTED"]);
   const phaseProgressItems = [
     { label: "Scene Safety", shortLabel: "Safety", complete: sceneSecured },
     { label: "Primary Survey", shortLabel: "Primary", complete: hasEvents(gameState, ["TRANSPORT_SELECTED"]) },
@@ -1233,7 +1343,7 @@ export default function EMTScene() {
         return;
       }
 
-      if (!isCrashScenario && !hasEvents(gameState, ["TRANSPORT_SELECTED"])) {
+      if (isDogScenario && !hasEvents(gameState, ["TRANSPORT_SELECTED"])) {
         const message =
           "Do not delay immediate anaphylaxis care for monitor values. Recognize the life threat, give epinephrine, support oxygenation, and choose urgent transport first.";
         setSceneFinding(message);
@@ -1292,6 +1402,48 @@ export default function EMTScene() {
         return;
       }
 
+      if (isAdditionalMedicalScenario) {
+        if (scenario.id === "hypoglycemia") {
+          const message =
+            "Oxygen is not routinely indicated here: breathing is adequate and SpO2 is 97%. Continue the assessment and treat the suspected hypoglycemia.";
+          setSceneFinding(message);
+          setLog((prev) => [...prev, { who: "coach", text: message }]);
+          return;
+        }
+
+        if (!hasEvents(gameState, ["RESPIRATIONS_COUNTED"])) {
+          const message = "Assess airway and breathing before choosing respiratory support.";
+          setSceneFinding(message);
+          setLog((prev) => [...prev, { who: "coach", text: message }]);
+          return;
+        }
+
+        if (gameState.patient.oxygenApplied) {
+          const message = isOpioidScenario
+            ? "BVM ventilations with oxygen are already underway. Continue to monitor chest rise and ventilation."
+            : "Oxygen is already in use. Continue monitoring breathing and oxygen saturation.";
+          setSceneFinding(message);
+          setLog((prev) => [...prev, { who: "coach", text: message }]);
+          return;
+        }
+
+        const message = isOpioidScenario
+          ? "BVM ventilations started with oxygen. Confirm visible chest rise and do not delay ventilation while preparing naloxone."
+          : "Oxygen applied and titrated for the patient's hypoxemia and respiratory distress.";
+        setSceneFinding(message);
+        setLog((prev) => [
+          ...prev,
+          {
+            who: "student",
+            text: isOpioidScenario
+              ? "Assist ventilations with BVM and oxygen"
+              : "Apply titrated oxygen",
+          },
+        ]);
+        dispatchGame({ type: "APPLY_EVENT", event: "OXYGEN_APPLIED" });
+        return;
+      }
+
       if (!hasEvents(gameState, ["EPINEPHRINE_ADMINISTERED"])) {
         const message =
           "This patient needs first-line epinephrine now. Add oxygenation support immediately after the medication decision.";
@@ -1318,6 +1470,18 @@ export default function EMTScene() {
         "Oxygen applied. Continue monitoring respiratory effort and prepare to assist ventilation if the patient tires."
       );
       dispatchGame({ type: "APPLY_EVENT", event: "OXYGEN_APPLIED" });
+      return;
+    }
+
+    if (itemId === "bvm") {
+      if (!isOpioidScenario) {
+        const message =
+          "The BVM is reserved for inadequate ventilation. Choose equipment that matches the patient's current breathing.";
+        setSceneFinding(message);
+        setLog((prev) => [...prev, { who: "coach", text: message }]);
+        return;
+      }
+      runEquipmentDockAction("oxygen");
       return;
     }
 
@@ -2190,14 +2354,10 @@ export default function EMTScene() {
                       const available =
                         (item.id === "gloves" && sceneSecured) ||
                         ((item.id === "bp" || item.id === "pulseox") &&
-                          hasEvents(gameState, ["PULSE_CHECKED"]) &&
-                          hasEvents(gameState, [
-                            isCrashScenario ? "OXYGEN_APPLIED" : "TRANSPORT_SELECTED",
-                          ])) ||
+                          monitoringEquipmentAvailable) ||
                         ((item.id === "oxygen" || item.id === "mask") &&
-                          hasEvents(gameState, [
-                            isCrashScenario ? "RESPIRATIONS_COUNTED" : "EPINEPHRINE_ADMINISTERED",
-                          ]));
+                          oxygenEquipmentAvailable) ||
+                        (item.id === "bvm" && bvmEquipmentAvailable);
 
                       return (
                         <button
@@ -2695,14 +2855,10 @@ export default function EMTScene() {
                 const available =
                   (item.id === "gloves" && sceneSecured) ||
                   ((item.id === "bp" || item.id === "pulseox") &&
-                    hasEvents(gameState, ["PULSE_CHECKED"]) &&
-                    hasEvents(gameState, [
-                      isCrashScenario ? "OXYGEN_APPLIED" : "TRANSPORT_SELECTED",
-                    ])) ||
+                    monitoringEquipmentAvailable) ||
                   ((item.id === "oxygen" || item.id === "mask") &&
-                    hasEvents(gameState, [
-                      isCrashScenario ? "RESPIRATIONS_COUNTED" : "EPINEPHRINE_ADMINISTERED",
-                    ]));
+                    oxygenEquipmentAvailable) ||
+                  (item.id === "bvm" && bvmEquipmentAvailable);
 
                 return (
                   <button

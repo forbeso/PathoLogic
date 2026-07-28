@@ -3,8 +3,11 @@ import {
   anaphylaxisFestivalScenario,
   buildScenarioDebrief,
   carAccidentScenario,
+  chestPainScenario,
   createScenarioState,
   getVisibleInteractiveObjects,
+  hypoglycemiaScenario,
+  opioidOverdoseScenario,
   scenarioReducer,
   type SceneEvent,
   type SceneScenarioConfig,
@@ -187,6 +190,11 @@ function completeScenario(
   sceneEvents: SceneEvent[]
 ) {
   const isCrash = scenario.id === carAccidentScenario.id;
+  const isAdditionalMedical = [
+    hypoglycemiaScenario.id,
+    opioidOverdoseScenario.id,
+    chestPainScenario.id,
+  ].includes(scenario.id);
   const secondaryAssessmentEvents: SceneEvent[] =
     isCrash
       ? ["FOCUSED_EXAM_COMPLETED", "FOCUSED_HISTORY_OBTAINED"]
@@ -199,15 +207,26 @@ function completeScenario(
     "RESPONSIVENESS_CHECKED",
     "AIRWAY_OPENED",
     "RESPIRATIONS_COUNTED",
-    ...(isCrash ? (["OXYGEN_APPLIED"] as SceneEvent[]) : []),
+    ...(isCrash || scenario.id === opioidOverdoseScenario.id
+      ? (["OXYGEN_APPLIED"] as SceneEvent[])
+      : []),
     "PULSE_CHECKED",
+    ...(isAdditionalMedical
+      ? (["BLOOD_PRESSURE_OBTAINED", "SPO2_OBTAINED"] as SceneEvent[])
+      : []),
     "WORKING_IMPRESSION_SELECTED",
-    ...(!isCrash
+    ...(scenario.id === chestPainScenario.id
+      ? (["OXYGEN_APPLIED"] as SceneEvent[])
+      : []),
+    ...(isAdditionalMedical
+      ? (["SCENARIO_MEDICATION_ADMINISTERED"] as SceneEvent[])
+      : !isCrash
       ? (["EPINEPHRINE_ADMINISTERED", "OXYGEN_APPLIED"] as SceneEvent[])
       : []),
     "TRANSPORT_SELECTED",
-    "BLOOD_PRESSURE_OBTAINED",
-    "SPO2_OBTAINED",
+    ...(!isAdditionalMedical
+      ? (["BLOOD_PRESSURE_OBTAINED", "SPO2_OBTAINED"] as SceneEvent[])
+      : []),
     ...(isCrash
       ? (["SPINAL_PRECAUTIONS_MAINTAINED", "EXTRICATION_COORDINATED"] as SceneEvent[])
       : []),
@@ -279,6 +298,28 @@ test("scene debriefs score the full playable clinical flow without scenario leak
     diastolicBP: 64,
     spo2: 93,
   });
+
+  for (const scenario of [
+    hypoglycemiaScenario,
+    opioidOverdoseScenario,
+    chestPainScenario,
+  ]) {
+    const state = completeScenario(scenario, ["CRASH_SCENE_INSPECTED"]);
+    const debrief = buildScenarioDebrief(state);
+
+    expect(state.currentPhase).toBe("complete");
+    expect(state.patient.medicationGiven).toHaveLength(1);
+    expect(state.patient.workingImpression).toBeTruthy();
+    expect(debrief.score.safety).toBe(100);
+    expect(debrief.score.assessment).toBe(100);
+    expect(debrief.score.treatment).toBe(100);
+    expect(debrief.score.reassessment).toBe(100);
+    expect(debrief.summary).toContain("Scenario complete");
+    expect(state.patient.oxygenApplied).toBe(
+      scenario.id === opioidOverdoseScenario.id ||
+        scenario.id === chestPainScenario.id
+    );
+  }
 });
 
 test("secondary assessment unlocks in scenario-specific order before reassessment", () => {

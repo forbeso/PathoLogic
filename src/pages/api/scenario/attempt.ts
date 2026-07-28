@@ -5,7 +5,13 @@ import {
 } from "@/lib/server/apiSecurity";
 import { getSupabaseAdmin } from "@/lib/server/supabaseAdmin";
 
-const SCENARIO_IDS = new Set(["anaphylaxis", "car-accident"]);
+const SCENARIO_IDS = new Set([
+  "anaphylaxis",
+  "car-accident",
+  "hypoglycemia",
+  "opioid-overdose",
+  "chest-pain",
+]);
 const SIMULATION_MODES = new Set(["guided", "scenario", "exam"]);
 const RUN_ID_PATTERN = /^emt-scene:\d{10,}:[a-z0-9]{5,20}$/;
 const SCORE_KEYS = new Set([

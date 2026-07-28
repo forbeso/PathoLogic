@@ -49,7 +49,12 @@ type ExamSessionRow = {
 
 type ScenarioAttemptRow = {
   id: string;
-  scenario_id: "anaphylaxis" | "car-accident";
+  scenario_id:
+    | "anaphylaxis"
+    | "car-accident"
+    | "hypoglycemia"
+    | "opioid-overdose"
+    | "chest-pain";
   simulation_mode: "guided" | "scenario" | "exam";
   score_percent: number | string;
   score_breakdown: Partial<Record<ScenarioScoreKey, number>>;
@@ -80,6 +85,9 @@ type ScenarioScoreKey =
 const SCENARIO_TITLES: Record<ScenarioAttemptRow["scenario_id"], string> = {
   anaphylaxis: "Teen With Shortness of Breath",
   "car-accident": "Driver Trapped After Collision",
+  hypoglycemia: "Diabetic With Altered Mental Status",
+  "opioid-overdose": "Unresponsive Patient Near the Park",
+  "chest-pain": "Chest Pressure at the Festival",
 };
 
 const SCENARIO_REVIEW_LINKS: Record<
@@ -93,6 +101,18 @@ const SCENARIO_REVIEW_LINKS: Record<
   "car-accident": {
     href: "/learn/emt-shock-vital-sign-patterns",
     label: "Review shock patterns",
+  },
+  hypoglycemia: {
+    href: "/learn/emt-primary-assessment-sequence",
+    label: "Review primary assessment",
+  },
+  "opioid-overdose": {
+    href: "/learn/emt-primary-assessment-sequence",
+    label: "Review airway and breathing",
+  },
+  "chest-pain": {
+    href: "/learn/emt-primary-assessment-sequence",
+    label: "Review primary assessment",
   },
 };
 
