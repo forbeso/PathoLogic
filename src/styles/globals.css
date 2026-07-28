@@ -4,6 +4,7 @@
 
 html {
   background: #eef7f4;
+  color-scheme: light;
 }
 
 body {
@@ -27,6 +28,190 @@ body {
     radial-gradient(circle at 10% 8%, rgba(20, 184, 166, 0.16), transparent 28rem),
     radial-gradient(circle at 88% 2%, rgba(125, 211, 252, 0.2), transparent 30rem),
     linear-gradient(135deg, #eef8f5 0%, #e7f4f0 42%, #eaf5ff 100%);
+}
+
+html.dark {
+  background: #08191f;
+  color-scheme: dark;
+}
+
+html.dark body {
+  color: #e8f0f2;
+  background: #08191f;
+}
+
+html.dark .app-background {
+  background:
+    radial-gradient(circle at 12% 4%, rgba(20, 184, 166, 0.1), transparent 26rem),
+    radial-gradient(circle at 88% 0%, rgba(56, 189, 248, 0.08), transparent 30rem),
+    linear-gradient(135deg, #08191f 0%, #0b2025 48%, #0b1b25 100%);
+}
+
+html.dark
+  .app-theme-surface:not(.theme-locked-dark)
+  :is(
+    [class~="bg-white"],
+    [class~="bg-white/95"],
+    [class~="bg-white/90"],
+    [class~="bg-white/88"],
+    [class~="bg-white/86"],
+    [class~="bg-white/80"],
+    [class~="bg-white/78"],
+    [class~="bg-white/70"],
+    [class~="bg-white/65"],
+    [class~="bg-white/62"],
+    [class~="bg-white/58"],
+    [class~="bg-white/55"]
+  ) {
+  background-color: rgba(16, 35, 41, 0.94);
+}
+
+html.dark
+  .app-theme-surface:not(.theme-locked-dark)
+  :is(
+    [class~="bg-slate-50"],
+    [class~="bg-slate-100"],
+    [class~="bg-[#eef7f4]"],
+    [class~="bg-[#edf8f4]"],
+    [class~="bg-[#eaf6f2]"],
+    [class~="bg-[#fbfdfc]"]
+  ) {
+  background-color: #0c1d23;
+}
+
+html.dark
+  .app-theme-surface:not(.theme-locked-dark)
+  :is(
+    [class~="text-slate-950"],
+    [class~="text-slate-900"]
+  ):not([class~="bg-teal-300"]):not([class~="bg-teal-400"]) {
+  color: #f1f5f9;
+}
+
+html.dark
+  .app-theme-surface:not(.theme-locked-dark)
+  :is([class~="text-slate-800"], [class~="text-slate-700"]) {
+  color: #d6e0e3;
+}
+
+html.dark
+  .app-theme-surface:not(.theme-locked-dark)
+  [class~="text-slate-600"] {
+  color: #aebdc2;
+}
+
+html.dark
+  .app-theme-surface:not(.theme-locked-dark)
+  [class~="text-slate-500"] {
+  color: #8fa2a9;
+}
+
+html.dark
+  .app-theme-surface:not(.theme-locked-dark)
+  :is(
+    [class~="border-[#c8dcd6]"],
+    [class~="border-[#b7ccc5]"],
+    [class~="border-[#b7d7d0]"],
+    [class~="border-[#d4e5df]"],
+    [class~="border-[#d5e6e1]"],
+    [class~="border-[#d8e7e2]"],
+    [class~="border-slate-200"],
+    [class~="border-slate-300"]
+  ) {
+  border-color: #314b53;
+}
+
+html.dark
+  .app-theme-surface:not(.theme-locked-dark)
+  :is([class~="divide-[#d5e6e1]"], [class~="divide-slate-200"]) > :not([hidden]) ~ :not([hidden]) {
+  border-color: #314b53;
+}
+
+html.dark
+  .app-theme-surface:not(.theme-locked-dark)
+  :is(
+    [class~="bg-teal-50"],
+    [class~="bg-teal-100/50"],
+    [class~="bg-emerald-50"]
+  ) {
+  background-color: rgba(20, 184, 166, 0.12);
+}
+
+html.dark
+  .app-theme-surface:not(.theme-locked-dark)
+  :is(
+    [class~="text-teal-900"],
+    [class~="text-teal-800"],
+    [class~="text-teal-700"],
+    [class~="text-teal-600"]
+  ) {
+  color: #7dd3c7;
+}
+
+html.dark
+  .app-theme-surface:not(.theme-locked-dark)
+  :is([class~="text-emerald-800"], [class~="text-emerald-700"]) {
+  color: #86efac;
+}
+
+html.dark
+  .app-theme-surface:not(.theme-locked-dark)
+  :is([class~="text-amber-800"], [class~="text-amber-700"]) {
+  color: #fde68a;
+}
+
+html.dark
+  .app-theme-surface:not(.theme-locked-dark)
+  :is(
+    [class~="text-rose-800"],
+    [class~="text-rose-700"],
+    [class~="text-rose-600"]
+  ) {
+  color: #fda4af;
+}
+
+html.dark
+  .app-theme-surface:not(.theme-locked-dark)
+  :is(
+    [class~="border-teal-200"],
+    [class~="border-teal-300"],
+    [class~="border-emerald-200"]
+  ) {
+  border-color: rgba(45, 212, 191, 0.38);
+}
+
+html.dark
+  .app-theme-surface:not(.theme-locked-dark)
+  :is([class~="border-amber-200"], [class~="border-rose-200"]) {
+  border-color: rgba(251, 191, 36, 0.32);
+}
+
+html.dark
+  .app-theme-surface:not(.theme-locked-dark)
+  :is([class~="bg-amber-50"], [class~="bg-amber-100"]) {
+  background-color: rgba(245, 158, 11, 0.13);
+}
+
+html.dark
+  .app-theme-surface:not(.theme-locked-dark)
+  :is([class~="bg-rose-50"], [class~="bg-rose-100"]) {
+  background-color: rgba(244, 63, 94, 0.13);
+}
+
+html.dark
+  .app-theme-surface:not(.theme-locked-dark)
+  :is([class~="hover:bg-teal-50"], [class~="hover:bg-teal-50/70"]):hover {
+  background-color: rgba(20, 184, 166, 0.13);
+}
+
+html.dark
+  .app-theme-surface:not(.theme-locked-dark)
+  :is(
+    [class~="hover:bg-white"],
+    [class~="hover:bg-slate-50"],
+    [class~="hover:bg-slate-100"]
+  ):hover {
+  background-color: #16333a;
 }
 
 @keyframes route-progress {

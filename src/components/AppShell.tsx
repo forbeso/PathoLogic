@@ -3,16 +3,16 @@ import Link from "next/link";
 import { ArrowRight, type LucideIcon } from "lucide-react";
 
 export const pageBg =
-  "relative min-h-screen w-full overflow-x-hidden app-background text-slate-950";
+  "app-theme-surface relative min-h-screen w-full overflow-x-hidden app-background text-slate-950 dark:text-slate-50";
 
 export const cardClass =
-  "rounded-lg border border-[#c8dcd6] bg-white/90 shadow-[0_10px_28px_rgba(15,23,42,0.07)] backdrop-blur";
+  "rounded-lg border border-[#c8dcd6] bg-white/90 shadow-[0_10px_28px_rgba(15,23,42,0.07)] backdrop-blur dark:border-slate-700 dark:bg-[#102329] dark:shadow-black/25";
 
 export const mutedCardClass =
-  "rounded-lg border border-[#c8dcd6] bg-[#eef7f4]/90 shadow-sm backdrop-blur";
+  "rounded-lg border border-[#c8dcd6] bg-[#eef7f4]/90 shadow-sm backdrop-blur dark:border-slate-700 dark:bg-[#0c1d23]";
 
 export const inputClass =
-  "min-h-11 rounded-md border border-[#b7ccc5] bg-white/95 px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-500 focus:border-teal-700 focus:ring-2 focus:ring-teal-200 disabled:bg-[#edf3f0] disabled:text-slate-500";
+  "min-h-11 rounded-md border border-[#b7ccc5] bg-white/95 px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-500 focus:border-teal-700 focus:ring-2 focus:ring-teal-200 disabled:bg-[#edf3f0] disabled:text-slate-500 dark:border-slate-600 dark:bg-[#0b1a20]/95 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-teal-400 dark:focus:ring-teal-900 dark:disabled:bg-slate-800";
 
 export const primaryButtonClass =
   "inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-teal-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-300 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60";
@@ -21,10 +21,10 @@ export const darkButtonClass =
   "inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-slate-800 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-300 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60";
 
 export const secondaryButtonClass =
-  "inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-[#b7ccc5] bg-white/95 px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-teal-700 hover:bg-white focus:outline-none focus:ring-2 focus:ring-teal-200 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60";
+  "inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-[#b7ccc5] bg-white/95 px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-teal-700 hover:bg-white focus:outline-none focus:ring-2 focus:ring-teal-200 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-600 dark:bg-[#102329] dark:text-slate-200 dark:hover:border-teal-500 dark:hover:bg-[#16333a] dark:focus:ring-teal-800 dark:focus:ring-offset-[#08191f]";
 
 export const iconButtonClass =
-  "grid h-11 w-11 place-items-center rounded-md border border-[#b7ccc5] bg-white/95 text-slate-700 shadow-sm transition hover:border-teal-600 hover:bg-white focus:outline-none focus:ring-2 focus:ring-teal-200";
+  "grid h-11 w-11 place-items-center rounded-md border border-[#b7ccc5] bg-white/95 text-slate-700 shadow-sm transition hover:border-teal-600 hover:bg-white focus:outline-none focus:ring-2 focus:ring-teal-200 dark:border-slate-600 dark:bg-[#102329] dark:text-slate-200 dark:hover:border-teal-500 dark:hover:bg-[#16333a]";
 
 export function AppShell({
   children,
@@ -76,7 +76,7 @@ export function PageIntro({
   actions?: React.ReactNode;
 }) {
   return (
-    <section className="relative overflow-hidden rounded-lg border border-[#b7d7d0] bg-white/86 p-6 text-slate-950 shadow-[0_18px_38px_rgba(45,86,89,0.12)] backdrop-blur md:flex md:items-end md:justify-between md:gap-5">
+    <section className="relative overflow-hidden rounded-lg border border-[#b7d7d0] bg-white/86 p-6 text-slate-950 shadow-[0_18px_38px_rgba(45,86,89,0.12)] backdrop-blur dark:border-slate-700 dark:bg-[#102329] dark:text-slate-50 dark:shadow-black/25 md:flex md:items-end md:justify-between md:gap-5">
       <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-teal-500 via-sky-400 to-emerald-300" />
       <div className="absolute -right-16 -top-20 h-48 w-48 rounded-full bg-teal-100/50 blur-3xl" />
       <div className="relative max-w-2xl">

@@ -12,6 +12,7 @@ import {
   useState,
 } from "react";
 import { AppShell, StatusPill } from "@/components/AppShell";
+import ThemeToggle from "@/components/ThemeToggle";
 import { useLearnerProgress } from "@/hooks/useLearnerProgress";
 import { awardProgress, createProgressionRunId } from "@/lib/progression";
 import { trackProductEvent } from "@/lib/telemetry";
@@ -537,6 +538,7 @@ function SceneTopBar({
       </div>
 
       <div className="flex items-center gap-2">
+        <ThemeToggle surface="dark" />
         <button
           type="button"
           onClick={onObjectivesClick}
@@ -1685,7 +1687,7 @@ export default function EMTScene() {
   );
 
   return (
-    <AppShell>
+    <AppShell className="theme-locked-dark">
       <Seo
         title="Interactive EMT Scene Lab"
         description="Practice scene safety, primary assessment, patient interaction, and clinical decision-making in an interactive 3D EMT simulation."

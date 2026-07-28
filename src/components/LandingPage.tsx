@@ -267,7 +267,7 @@ export default function LandingPage() {
 
       <section
         id="practice"
-        className="bg-[linear-gradient(180deg,rgba(238,248,245,0.96),rgba(234,245,255,0.82))] py-16 sm:py-20"
+        className="bg-[linear-gradient(180deg,rgba(238,248,245,0.96),rgba(234,245,255,0.82))] py-16 dark:bg-[linear-gradient(180deg,rgba(9,29,34,0.98),rgba(10,28,38,0.94))] sm:py-20"
       >
         <Container>
           <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">

@@ -148,6 +148,40 @@ test("offline state explains what remains available and confirms recovery", asyn
   ).toBeVisible();
 });
 
+test("dark mode toggles without a flash and persists across navigation", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.evaluate(() => {
+    localStorage.setItem("pathologix:theme", "light");
+  });
+  await page.reload();
+
+  const darkToggle = page.getByRole("button", {
+    name: "Switch to dark mode",
+  });
+  await darkToggle.click();
+  await expect(page.locator("html")).toHaveClass(/dark/);
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute(
+    "content",
+    "#08191f"
+  );
+
+  await page.goto("/learn");
+  await expect(page.locator("html")).toHaveClass(/dark/);
+  await expect(
+    page.getByRole("button", { name: "Switch to light mode" })
+  ).toBeVisible();
+  await page.reload();
+  await expect(page.locator("html")).toHaveClass(/dark/);
+
+  await page
+    .getByRole("button", { name: "Switch to light mode" })
+    .click();
+  await expect(page.locator("html")).not.toHaveClass(/dark/);
+  await expectNoHorizontalOverflow(page);
+});
+
 function completeScenario(
   scenario: SceneScenarioConfig,
   sceneEvents: SceneEvent[]
