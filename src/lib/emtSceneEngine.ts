@@ -3762,8 +3762,8 @@ export function scenarioReducer(
         }
       );
       const shouldKeepSelection =
-        (object.id === "dog" && next.environment.dogAgitated && !next.environment.dogSecured) ||
-        ((object.id === "medical-bag" || object.id === "patient") && hasRemainingObjectActions);
+        (object.id === "medical-bag" || object.id === "patient") &&
+        hasRemainingObjectActions;
       const hasSafetyFailure =
         next.failedObjectives.includes("dog-hazard") ||
         next.failedObjectives.includes("crash-hazard");

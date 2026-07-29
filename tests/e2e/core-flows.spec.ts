@@ -5,7 +5,11 @@ import {
   carAccidentScenario,
   chestPainScenario,
   createScenarioState,
+  getActionSuccessEvents,
+  getCurrentObjective,
+  getObjectAvailability,
   getVisibleInteractiveObjects,
+  hasEvents,
   hypoglycemiaScenario,
   opioidOverdoseScenario,
   scenarioReducer,
@@ -240,6 +244,115 @@ function completeScenario(
   );
 }
 
+test("every EMT scene has a reachable action path through debrief", () => {
+  const scenarios = [
+    anaphylaxisFestivalScenario,
+    carAccidentScenario,
+    hypoglycemiaScenario,
+    opioidOverdoseScenario,
+    chestPainScenario,
+  ];
+  const equipmentEvents = new Set<SceneEvent>([
+    "BLOOD_PRESSURE_OBTAINED",
+    "SPO2_OBTAINED",
+    "OXYGEN_APPLIED",
+  ]);
+
+  for (const scenario of scenarios) {
+    let state = createScenarioState(scenario);
+    let steps = 0;
+
+    while (state.currentPhase !== "complete" && steps < 100) {
+      steps += 1;
+
+      if (
+        hasEvents(state, ["ANIMAL_CONTROL_CALLED"]) &&
+        !hasEvents(state, ["DOG_SECURED"])
+      ) {
+        state = scenarioReducer(scenario, state, {
+          type: "APPLY_EVENT",
+          event: "DOG_SECURED",
+        });
+        continue;
+      }
+      if (
+        hasEvents(state, ["FIRE_RESCUE_CALLED"]) &&
+        !hasEvents(state, ["TRAFFIC_CONTROLLED"])
+      ) {
+        state = scenarioReducer(scenario, state, {
+          type: "APPLY_EVENT",
+          event: "TRAFFIC_CONTROLLED",
+        });
+        continue;
+      }
+
+      const objective = getCurrentObjective(scenario, state);
+      const equipmentEvent = objective.requiredEvents.find(
+        (event) => equipmentEvents.has(event) && !hasEvents(state, [event])
+      );
+      if (equipmentEvent) {
+        state = scenarioReducer(scenario, state, {
+          type: "APPLY_EVENT",
+          event: equipmentEvent,
+        });
+        continue;
+      }
+
+      const visibleObjects = getVisibleInteractiveObjects(scenario, state);
+      let advanced = false;
+
+      for (const object of visibleObjects) {
+        if (!getObjectAvailability(object, state).enabled) continue;
+
+        if (
+          object.id === "ambulance-radio" &&
+          !hasEvents(
+            state,
+            scenario.id === "car-accident"
+              ? ["FIRE_RESCUE_CALLED"]
+              : ["ANIMAL_CONTROL_CALLED"]
+          )
+        ) {
+          state = scenarioReducer(scenario, state, {
+            type: "SELECT_OBJECT",
+            objectId: object.id,
+          });
+          advanced = true;
+          break;
+        }
+
+        const action = object.actions.find((candidate) => {
+          const successEvents = getActionSuccessEvents(candidate);
+          return (
+            candidate.outcome !== "incorrect" &&
+            hasEvents(state, candidate.requires) &&
+            successEvents.some((event) => !hasEvents(state, [event]))
+          );
+        });
+        if (!action) continue;
+
+        state = scenarioReducer(scenario, state, {
+          type: "RUN_ACTION",
+          objectId: object.id,
+          actionId: action.id,
+        });
+        advanced = true;
+        break;
+      }
+
+      expect(
+        advanced,
+        `${scenario.id} became stuck on ${state.currentObjectiveId}`
+      ).toBe(true);
+    }
+
+    expect(state.currentPhase, `${scenario.id} did not reach debrief`).toBe(
+      "complete"
+    );
+    expect(state.completedObjectives).toHaveLength(scenario.objectives.length);
+  }
+});
+
 test("scene debriefs score the full playable clinical flow without scenario leakage", () => {
   const festivalState = completeScenario(anaphylaxisFestivalScenario, [
     "DOG_INSPECTED",
@@ -466,6 +579,19 @@ test("scenario debrief remembers recoverable clinical and safety mistakes", () =
   expect(dogMistake.score).toBe(70);
   expect(dogDebrief.incorrectDecisions).toBe(1);
   expect(dogDebrief.priorityTakeaway).toContain("dog");
+
+  const recoveredDogState = scenarioReducer(
+    anaphylaxisFestivalScenario,
+    dogMistake,
+    {
+      type: "RUN_ACTION",
+      objectId: "dog",
+      actionId: "inspect-dog",
+    }
+  );
+  expect(recoveredDogState.currentObjectiveId).toBe("use-radio");
+  expect(recoveredDogState.selectedObjectId).toBeUndefined();
+  expect(recoveredDogState.environment.dogAgitated).toBe(true);
 });
 
 test("festival clickable actions treat anaphylaxis before monitor values", () => {

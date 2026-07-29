@@ -70,6 +70,7 @@ import {
   scenarioReducer,
   type InteractiveObjectConfig,
   type PatientVitalKey,
+  type ScenarioPhase,
 } from "@/lib/emtSceneEngine";
 
 function SceneModuleLoader() {
@@ -116,6 +117,42 @@ const DEBRIEF_SCORE_LABELS: Record<string, string> = {
 };
 type SimulationMode = "guided" | "scenario" | "exam";
 type MobileHudSection = "objective" | "dispatch" | "vitals" | "equipment" | "progress";
+
+function getScenarioProTip(phase: ScenarioPhase, objectiveId: string) {
+  if (objectiveId === "bsi-ppe") {
+    return "Protect yourself before patient contact. Prepare PPE while keeping the patient in view.";
+  }
+  if (objectiveId === "general-impression" || objectiveId === "responsiveness") {
+    return "Look and speak before reaching for equipment. Early observations shape the rest of the assessment.";
+  }
+  if (objectiveId === "baseline-vitals") {
+    return "Monitor values support the hands-on assessment; they do not replace airway, breathing, and circulation.";
+  }
+  if (objectiveId === "working-impression") {
+    return "Use the full pattern of findings. The best impression should explain the history, exam, and vital signs together.";
+  }
+
+  switch (phase) {
+    case "sceneSafety":
+      return "Scan the whole scene before approaching. Identify hazards, patient count, and needed resources.";
+    case "primaryAssessment":
+      return "Follow the primary survey in order and treat immediate life threats as soon as you find them.";
+    case "impression":
+      return "Connect the assessment findings before choosing a diagnosis or treatment.";
+    case "interventions":
+      return "Match the intervention to the life threat, then measure whether it worked.";
+    case "transport":
+      return "Transport planning happens alongside treatment; do not wait for every detail before choosing urgency.";
+    case "secondaryAssessment":
+      return "Keep the history and exam focused on findings that could change immediate care.";
+    case "reassessment":
+      return "Repeat mental status, airway, breathing, circulation, and relevant vital signs after treatment.";
+    case "complete":
+      return "Review the debrief for decisions that changed safety, treatment, or patient outcome.";
+    default:
+      return "Use the scene, patient response, and objective together before choosing the next action.";
+  }
+}
 
 type VitalSet = {
   loc: string;
@@ -850,6 +887,10 @@ export default function EMTScene() {
   }, [crashResponseFinished, crashResponseRequested, isCrashScenario]);
 
   const currentObjective = getCurrentObjective(sceneScenario, gameState);
+  const proTip = getScenarioProTip(
+    gameState.currentPhase,
+    currentObjective.id
+  );
   const cameraFocusObjectId =
     simulationMode === "guided" || animalControlResponseActive
       ? gameState.focusedObjectId
@@ -2786,7 +2827,7 @@ export default function EMTScene() {
             Pro tip
           </div>
           <p className="mt-3 text-sm font-semibold leading-5 text-slate-200">
-            Scene safety comes first. Address hazards before approaching the patient.
+            {proTip}
           </p>
           {simulationMode === "guided" ? (
             <button
