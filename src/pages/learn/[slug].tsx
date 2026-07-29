@@ -134,14 +134,27 @@ export default function LearnArticlePage({ article }: LearnArticlePageProps) {
 
           <div className="mx-auto grid max-w-5xl gap-10 px-4 py-10 sm:px-6 sm:py-14 lg:grid-cols-[minmax(0,1fr)_240px] lg:px-8">
             <div className="min-w-0">
-              <section aria-labelledby="key-points" className="border-y border-teal-200 bg-teal-50/80 py-6 sm:px-6">
-                <h2 id="key-points" className="text-xl font-black text-slate-950">
+              <section
+                data-testid="article-key-points"
+                aria-labelledby="key-points"
+                className="border-y border-teal-200 bg-teal-50/80 px-4 py-6 dark:border-teal-700/60 dark:bg-[#0d292f] sm:px-6"
+              >
+                <h2
+                  id="key-points"
+                  className="text-xl font-black text-slate-950 dark:text-white"
+                >
                   Key points
                 </h2>
                 <ul className="mt-4 space-y-3">
                   {article.keyPoints.map((point) => (
-                    <li key={point} className="flex gap-3 text-sm leading-6 text-slate-700">
-                      <CheckCircle2 className="mt-1 shrink-0 text-teal-700" size={17} />
+                    <li
+                      key={point}
+                      className="flex gap-3 text-sm leading-6 text-slate-700 dark:text-slate-200"
+                    >
+                      <CheckCircle2
+                        className="mt-1 shrink-0 text-teal-700 dark:text-teal-300"
+                        size={17}
+                      />
                       <span>{point}</span>
                     </li>
                   ))}
@@ -169,7 +182,10 @@ export default function LearnArticlePage({ article }: LearnArticlePageProps) {
                       </ul>
                     ) : null}
                     {section.note ? (
-                      <div className="mt-6 border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold leading-6 text-amber-950">
+                      <div
+                        data-testid="article-note"
+                        className="mt-6 border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold leading-6 text-amber-950 dark:border-amber-500/35 dark:!bg-[#2b2111] dark:text-amber-100"
+                      >
                         {section.note}
                       </div>
                     ) : null}

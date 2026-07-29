@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   anaphylaxisFestivalScenario,
   buildScenarioDebrief,
@@ -16,6 +16,7 @@ import {
   type SceneEvent,
   type SceneScenarioConfig,
 } from "@/lib/emtSceneEngine";
+import { learnArticles } from "@/lib/learnArticles";
 
 const practiceItem = {
   id: 1,
@@ -104,6 +105,37 @@ async function expectNoHorizontalOverflow(page: Page) {
     scrollWidth: document.documentElement.scrollWidth,
   }));
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth + 1);
+}
+
+async function getContrastRatio(locator: Locator) {
+  return locator.evaluate((element) => {
+    const parseRgb = (value: string) => {
+      const channels = value.match(/[\d.]+/g)?.slice(0, 3).map(Number);
+      if (!channels || channels.length !== 3) {
+        throw new Error(`Unable to parse computed color: ${value}`);
+      }
+      return channels;
+    };
+    const luminance = (channels: number[]) =>
+      channels
+        .map((channel) => channel / 255)
+        .map((channel) =>
+          channel <= 0.04045
+            ? channel / 12.92
+            : ((channel + 0.055) / 1.055) ** 2.4
+        )
+        .reduce(
+          (total, channel, index) =>
+            total + channel * [0.2126, 0.7152, 0.0722][index],
+          0
+        );
+    const styles = window.getComputedStyle(element);
+    const foreground = luminance(parseRgb(styles.color));
+    const background = luminance(parseRgb(styles.backgroundColor));
+    const lighter = Math.max(foreground, background);
+    const darker = Math.min(foreground, background);
+    return (lighter + 0.05) / (darker + 0.05);
+  });
 }
 
 test.beforeEach(async ({ page }) => {
@@ -982,6 +1014,32 @@ test("account access exposes sign-in, sign-up, and recovery views", async ({ pag
   await page.getByRole("button", { name: "Forgot password?" }).click();
   await expect(page.getByRole("heading", { name: "Reset your password" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Send reset link" })).toBeVisible();
+});
+
+test("all learn articles remain readable in dark mode", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem("pathologix:theme", "dark");
+  });
+
+  for (const article of learnArticles) {
+    await page.goto(`/learn/${article.slug}`);
+
+    const keyPoints = page.getByTestId("article-key-points");
+    const firstKeyPoint = keyPoints.locator("li").first();
+    const articleNotes = page.getByTestId("article-note");
+
+    await expect(page.getByRole("heading", { name: article.title })).toBeVisible();
+    await expect(keyPoints).toBeVisible();
+    expect(await getContrastRatio(firstKeyPoint)).toBeGreaterThanOrEqual(4.5);
+
+    for (let noteIndex = 0; noteIndex < (await articleNotes.count()); noteIndex += 1) {
+      const articleNote = articleNotes.nth(noteIndex);
+      await expect(articleNote).toBeVisible();
+      expect(await getContrastRatio(articleNote)).toBeGreaterThanOrEqual(4.5);
+    }
+
+    await expectNoHorizontalOverflow(page);
+  }
 });
 
 test("Exam Mode redirects signed-out learners to login", async ({ page }) => {
