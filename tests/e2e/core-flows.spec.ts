@@ -784,6 +784,7 @@ test("EMT Scene renders its responsive training shell", async ({ page }, testInf
     name: "Recommended next object: Barking Dog",
   });
   await expect(recommendedDog).toBeVisible();
+  await expect(page.getByText("Barking dog", { exact: true }).first()).toBeVisible();
   await recommendedDog.focus();
   await expect(recommendedDog).toBeFocused();
   await recommendedDog.press("Enter");
@@ -793,7 +794,12 @@ test("EMT Scene renders its responsive training shell", async ({ page }, testInf
   await expect(
     page.getByRole("button", { name: "Close action choices for Barking Dog" })
   ).toBeVisible();
-  await page.keyboard.press("Escape");
+  await page
+    .getByRole("button", { name: "Ignore dog and approach patient" })
+    .click();
+  await expect(page.getByText("Barking louder", { exact: true }).first()).toBeVisible();
+  await expect(decisionPrompt).toBeVisible();
+  await page.getByRole("button", { name: "Inspect from distance" }).click();
   await expect(decisionPrompt).toHaveCount(0);
 
   if (testInfo.project.name.startsWith("mobile")) {

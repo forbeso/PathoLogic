@@ -2340,7 +2340,7 @@ function RoadsideFestivalEmergencyScene({
           rotationY={3.1}
           secured={false}
           agitated={environment?.dogAgitated ?? true}
-          showLabel={false}
+          showLabel
         />
       )}
       <AnimalControlResponse active={animalControlResponseActive} />
@@ -3237,12 +3237,14 @@ function InteractiveLayer({
 function BarkingDog({
   secured,
   agitated,
+  animated = true,
   position = [1.15, 0, 3.35] as Vec3,
   rotationY = -1.05,
   showLabel = false,
 }: {
   secured?: boolean;
   agitated?: boolean;
+  animated?: boolean;
   position?: Vec3;
   rotationY?: number;
   showLabel?: boolean;
@@ -3259,18 +3261,29 @@ function BarkingDog({
       if (head.current) head.current.rotation.set(-0.08, 0, 0);
       return;
     }
-    const shouldBarkJump = Boolean(agitated && !secured);
-    const barkCycle = (t % 2.4) / 2.4;
-    const jumpPulse = shouldBarkJump && barkCycle < 0.18 ? Math.sin((barkCycle / 0.18) * Math.PI) : 0;
+    const isBarking = Boolean(animated && !secured);
+    const barkCadence = agitated ? 0.78 : 1.28;
+    const barkCycle = (t % barkCadence) / barkCadence;
+    const jumpWindow = agitated ? 0.58 : 0.48;
+    const jumpPulse =
+      isBarking && barkCycle < jumpWindow
+        ? Math.sin((barkCycle / jumpWindow) * Math.PI)
+        : 0;
+    const movementScale = agitated ? 1 : 0.42;
     if (root.current) {
-      root.current.position.x = position[0] + (agitated && !secured ? Math.sin(t * 4.8) * 0.08 : 0);
-      root.current.position.y = position[1] + jumpPulse * 0.18;
-      root.current.position.z = position[2] + (agitated && !secured ? Math.cos(t * 4.4) * 0.05 : 0);
-      root.current.rotation.z = jumpPulse * 0.04;
+      root.current.position.x = position[0] + (isBarking ? Math.sin(t * 4.8) * 0.08 * movementScale : 0);
+      root.current.position.y = position[1] + jumpPulse * (agitated ? 0.24 : 0.14);
+      root.current.position.z = position[2] + (isBarking ? Math.cos(t * 4.4) * 0.05 * movementScale : 0);
+      root.current.rotation.z = jumpPulse * (agitated ? 0.06 : 0.035);
     }
     if (head.current) {
-      head.current.rotation.y = Math.sin(t * (secured ? 0.9 : 3.4)) * (secured ? 0.08 : 0.22);
-      head.current.rotation.x = -0.08 + Math.sin(t * 5.5) * (secured ? 0.02 : 0.08) - jumpPulse * 0.16;
+      head.current.rotation.y = isBarking
+        ? Math.sin(t * (agitated ? 5.4 : 3.6)) * (agitated ? 0.24 : 0.12)
+        : 0;
+      head.current.rotation.x =
+        -0.08 +
+        (isBarking ? Math.sin(t * (agitated ? 8.5 : 6.2)) * (agitated ? 0.09 : 0.05) : 0) -
+        jumpPulse * (agitated ? 0.2 : 0.12);
     }
   });
 
@@ -3282,7 +3295,7 @@ function BarkingDog({
           <cylinderGeometry args={[0.012, 0.012, 0.9, 8]} />
           <meshStandardMaterial color="#334155" roughness={0.7} />
         </mesh>
-        <BarkingDog position={[0, 0, 0]} secured={false} agitated={false} showLabel />
+        <BarkingDog position={[0, 0, 0]} secured={false} agitated={false} animated={false} showLabel />
         <FloatingLabel position={[0.25, 1.45, 0]} text="Dog secured" tone="teal" />
       </group>
     );
