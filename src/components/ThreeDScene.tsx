@@ -2340,7 +2340,6 @@ function RoadsideFestivalEmergencyScene({
           rotationY={3.1}
           secured={false}
           agitated={environment?.dogAgitated ?? true}
-          showLabel
         />
       )}
       <AnimalControlResponse active={animalControlResponseActive} />
@@ -3090,8 +3089,10 @@ function InteractiveHotspot({
   const disabled = object.enabled === false;
   const isSuggested = Boolean(suggested && !disabled && !object.completed);
   const highlightVisible = accessibilityMode || hovered || selected || isSuggested || object.category === "movement";
+  const isUrgentDogStatus = object.id === "dog" && object.name === "Barking Louder";
   const labelVisible =
-    !selected && (accessibilityMode || hovered || isSuggested || object.category === "movement");
+    isUrgentDogStatus ||
+    (!selected && (accessibilityMode || hovered || isSuggested || object.category === "movement"));
   const isClinicalDecisionHotspot = [
     "epinephrine-treatment",
     "oxygen-support",
@@ -3240,14 +3241,12 @@ function BarkingDog({
   animated = true,
   position = [1.15, 0, 3.35] as Vec3,
   rotationY = -1.05,
-  showLabel = false,
 }: {
   secured?: boolean;
   agitated?: boolean;
   animated?: boolean;
   position?: Vec3;
   rotationY?: number;
-  showLabel?: boolean;
 }) {
   const root = useRef<THREE.Group>(null);
   const head = useRef<THREE.Group>(null);
@@ -3295,7 +3294,7 @@ function BarkingDog({
           <cylinderGeometry args={[0.012, 0.012, 0.9, 8]} />
           <meshStandardMaterial color="#334155" roughness={0.7} />
         </mesh>
-        <BarkingDog position={[0, 0, 0]} secured={false} agitated={false} animated={false} showLabel />
+        <BarkingDog position={[0, 0, 0]} secured={false} agitated={false} animated={false} />
         <FloatingLabel position={[0.25, 1.45, 0]} text="Dog secured" tone="teal" />
       </group>
     );
@@ -3337,13 +3336,6 @@ function BarkingDog({
         <coneGeometry args={[0.06, 0.36, 8]} />
         <meshStandardMaterial color="#5b4636" roughness={1} />
       </mesh>
-      {showLabel || agitated ? (
-        <Html position={[0.35, 1.45, 0]} center distanceFactor={5.8} zIndexRange={SCENE_HTML_Z_INDEX_RANGE}>
-          <div className="rounded-lg border border-rose-200/55 bg-rose-950/70 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-rose-50 shadow-xl backdrop-blur">
-            {agitated ? "Barking louder" : "Barking dog"}
-          </div>
-        </Html>
-      ) : null}
     </group>
   );
 }
@@ -4552,6 +4544,15 @@ export default function ThreeDScene({
     activeScenarioId === "chest-pain";
   const activeCameraFocusObjectId =
     cameraFocusObjectId === null ? undefined : cameraFocusObjectId ?? focusedObjectId;
+  const displayedInteractiveObjects = useMemo(
+    () =>
+      interactiveObjects.map((object) =>
+        object.id === "dog" && environment?.dogAgitated
+          ? { ...object, name: "Barking Louder" }
+          : object
+      ),
+    [environment?.dogAgitated, interactiveObjects]
+  );
   const focusObject =
     interactiveObjects.find((object) => object.id === activeCameraFocusObjectId) ??
     STATIC_FOCUS_OBJECTS[activeCameraFocusObjectId ?? ""];
@@ -4739,7 +4740,7 @@ export default function ThreeDScene({
         />
         <FindingBubble text={sceneFinding} speaker={sceneSpeaker} />
         <InteractiveLayer
-          objects={interactiveObjects}
+          objects={displayedInteractiveObjects}
           selectedObjectId={selectedObjectId}
           focusedObjectId={focusedObjectId}
           accessibilityMode={accessibilityMode}
