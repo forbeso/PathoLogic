@@ -910,6 +910,22 @@ export default function EMTScene() {
   const scenarioProgressPercent = Math.round((scenarioCompletedCount / scenarioTasks.length) * 100);
 
   useEffect(() => {
+    if (scenarioComplete) return;
+
+    let lastTickAt = performance.now();
+    const intervalId = window.setInterval(() => {
+      const now = performance.now();
+      const elapsedSeconds = Math.floor((now - lastTickAt) / 1000);
+      if (elapsedSeconds < 1) return;
+
+      lastTickAt += elapsedSeconds * 1000;
+      dispatchGame({ type: "TICK", seconds: elapsedSeconds });
+    }, 250);
+
+    return () => window.clearInterval(intervalId);
+  }, [progressionRunId, scenarioComplete]);
+
+  useEffect(() => {
     if (!router.isReady) return;
     const requestedScenario = Array.isArray(router.query.scenario)
       ? router.query.scenario[0]
@@ -2321,7 +2337,12 @@ export default function EMTScene() {
                       <Timer size={15} />
                       Time elapsed
                     </div>
-                    <div className="text-lg font-black text-white">
+                    <div
+                      data-testid="scenario-timer"
+                      role="timer"
+                      aria-label="Scenario elapsed time"
+                      className="text-lg font-black text-white"
+                    >
                       {Math.floor(gameState.elapsedTime / 60)}:{String(gameState.elapsedTime % 60).padStart(2, "0")}
                     </div>
                   </div>
@@ -2812,7 +2833,12 @@ export default function EMTScene() {
               <Timer size={14} />
               Time elapsed
             </div>
-            <div className="text-lg font-black text-white">
+            <div
+              data-testid="scenario-timer"
+              role="timer"
+              aria-label="Scenario elapsed time"
+              className="text-lg font-black text-white"
+            >
               {Math.floor(gameState.elapsedTime / 60)}:{String(gameState.elapsedTime % 60).padStart(2, "0")}
             </div>
           </div>

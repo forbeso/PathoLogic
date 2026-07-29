@@ -780,6 +780,17 @@ test("EMT Scene renders its responsive training shell", async ({ page }, testInf
   expect(canvasScreenshot.byteLength).toBeGreaterThan(10_000);
   await expect(page.locator("body")).not.toContainText("Application error");
 
+  if (!testInfo.project.name.startsWith("mobile")) {
+    const scenarioTimer = page.locator('[data-testid="scenario-timer"]:visible');
+    const initialTimerValue = await scenarioTimer.textContent();
+    await expect
+      .poll(() => scenarioTimer.textContent(), {
+        message: "scenario timer should advance in real time",
+        timeout: 3_000,
+      })
+      .not.toBe(initialTimerValue);
+  }
+
   const recommendedDog = page.getByRole("button", {
     name: "Recommended next object: Barking Dog",
   });
@@ -809,6 +820,15 @@ test("EMT Scene renders its responsive training shell", async ({ page }, testInf
     const closeHud = page.getByRole("button", { name: "Close HUD" });
     await expect(mobileHud).toBeVisible();
     await expect(closeHud).toBeFocused();
+    await mobileHud.getByRole("button", { name: "Dispatch" }).click();
+    const scenarioTimer = page.locator('[data-testid="scenario-timer"]:visible');
+    const initialTimerValue = await scenarioTimer.textContent();
+    await expect
+      .poll(() => scenarioTimer.textContent(), {
+        message: "mobile scenario timer should advance in real time",
+        timeout: 3_000,
+      })
+      .not.toBe(initialTimerValue);
     await page.keyboard.press("Shift+Tab");
     await expect
       .poll(() =>
