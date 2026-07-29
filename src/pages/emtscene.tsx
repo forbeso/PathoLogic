@@ -752,6 +752,8 @@ export default function EMTScene() {
   const [labOpen, setLabOpen] = useState(true);
   const [mobileHudOpen, setMobileHudOpen] = useState(false);
   const [mobileHudSection, setMobileHudSection] = useState<MobileHudSection>("objective");
+  const [endScenarioConfirmOpen, setEndScenarioConfirmOpen] = useState(false);
+  const [endScenarioReturnFocusId, setEndScenarioReturnFocusId] = useState<string>();
   const [isDesktopLayout, setIsDesktopLayout] = useState(true);
   const [sceneHeight, setSceneHeight] = useState(655);
   const [simulationMode, setSimulationMode] = useState<SimulationMode>("scenario");
@@ -774,6 +776,8 @@ export default function EMTScene() {
   const previousSelectedObjectId = useRef<string | undefined>(undefined);
   const mobileHudRef = useRef<HTMLElement>(null);
   const mobileHudCloseRef = useRef<HTMLButtonElement>(null);
+  const endScenarioDialogRef = useRef<HTMLElement>(null);
+  const continueScenarioRef = useRef<HTMLButtonElement>(null);
 
   useModalFocus({
     active: mobileHudOpen,
@@ -781,6 +785,14 @@ export default function EMTScene() {
     initialFocusRef: mobileHudCloseRef,
     returnFocusId: "mobile-hud-toggle",
     onEscape: () => setMobileHudOpen(false),
+  });
+
+  useModalFocus({
+    active: endScenarioConfirmOpen,
+    containerRef: endScenarioDialogRef,
+    initialFocusRef: continueScenarioRef,
+    returnFocusId: endScenarioReturnFocusId,
+    onEscape: () => setEndScenarioConfirmOpen(false),
   });
 
   useEffect(() => {
@@ -1373,6 +1385,7 @@ export default function EMTScene() {
       );
       setSceneFinding("");
       setAnimalControlResponseActive(false);
+      setEndScenarioConfirmOpen(false);
     },
     [progressionRunId, scenario]
   );
@@ -1740,6 +1753,19 @@ export default function EMTScene() {
     setMobileHudSection("objective");
   };
 
+  const requestEndScenario = (origin: "desktop" | "mobile") => {
+    if (scenarioComplete) {
+      resetScene();
+      return;
+    }
+
+    setEndScenarioReturnFocusId(
+      origin === "mobile" ? "mobile-hud-toggle" : undefined
+    );
+    if (origin === "mobile") setMobileHudOpen(false);
+    setEndScenarioConfirmOpen(true);
+  };
+
   const controls = (
     <>
       <div className="border-b border-white/10 p-4">
@@ -1978,7 +2004,7 @@ export default function EMTScene() {
         </div>
         <div className="absolute inset-0">
           <ThreeDScene
-            key={`${scenario.id}-${simulationMode}`}
+            key={`${scenario.id}-${simulationMode}-${progressionRunId}`}
             height={sceneHeight}
             scenarioId={scenario.id}
             intervention={sceneIntervention}
@@ -2349,14 +2375,11 @@ export default function EMTScene() {
 
                   <button
                     type="button"
-                    onClick={() => {
-                      resetScene();
-                      setMobileHudOpen(false);
-                    }}
+                    onClick={() => requestEndScenario("mobile")}
                     className="mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-rose-300/30 bg-rose-500/10 px-3 py-2 text-xs font-black text-rose-100"
                   >
                     <LogOut size={16} />
-                    End scenario
+                    {scenarioComplete ? "Replay scenario" : "End scenario"}
                   </button>
                 </div>
               ) : null}
@@ -2873,11 +2896,11 @@ export default function EMTScene() {
         >
           <button
             type="button"
-            onClick={() => resetScene()}
+            onClick={() => requestEndScenario("desktop")}
             className="flex h-[76px] w-[124px] shrink-0 items-center justify-center gap-2 rounded-2xl border border-white/15 bg-slate-950/80 px-3 text-xs font-black text-slate-100 shadow-2xl shadow-slate-950/40 backdrop-blur-xl transition hover:border-rose-300/60 hover:bg-rose-500/15 hover:text-white 2xl:h-[86px] 2xl:w-[160px] 2xl:text-sm"
           >
-            <LogOut size={20} />
-            End Scenario
+            {scenarioComplete ? <RefreshCcw size={20} /> : <LogOut size={20} />}
+            {scenarioComplete ? "Replay Scenario" : "End Scenario"}
           </button>
 
           {vitalsPanelVisible ? (
@@ -2960,6 +2983,52 @@ export default function EMTScene() {
             </div>
           ) : null}
         </section>
+
+        {endScenarioConfirmOpen ? (
+          <div className="absolute inset-0 z-[100] grid place-items-center bg-slate-950/72 px-4 backdrop-blur-sm">
+            <section
+              ref={endScenarioDialogRef}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="end-scenario-title"
+              aria-describedby="end-scenario-description"
+              tabIndex={-1}
+              className="w-full max-w-md rounded-2xl border border-white/15 bg-slate-950 p-5 text-white shadow-2xl shadow-black/60 outline-none"
+            >
+              <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-rose-300">
+                <AlertTriangle size={16} />
+                Active attempt
+              </div>
+              <h2 id="end-scenario-title" className="mt-3 text-xl font-black">
+                End this scenario?
+              </h2>
+              <p
+                id="end-scenario-description"
+                className="mt-2 text-sm font-medium leading-6 text-slate-300"
+              >
+                You have completed {scenarioCompletedCount} of {scenarioTasks.length} objectives.
+                Ending now resets this attempt and returns you to Scene Size-Up.
+              </p>
+              <div className="mt-5 grid gap-2 sm:grid-cols-2">
+                <button
+                  ref={continueScenarioRef}
+                  type="button"
+                  onClick={() => setEndScenarioConfirmOpen(false)}
+                  className="min-h-11 rounded-xl border border-teal-200/35 bg-teal-400/15 px-4 text-sm font-black text-teal-50 transition hover:border-teal-200 hover:bg-teal-400/25"
+                >
+                  Continue scenario
+                </button>
+                <button
+                  type="button"
+                  onClick={() => resetScene()}
+                  className="min-h-11 rounded-xl border border-rose-300/35 bg-rose-500/15 px-4 text-sm font-black text-rose-50 transition hover:border-rose-200 hover:bg-rose-500/25"
+                >
+                  End and reset
+                </button>
+              </div>
+            </section>
+          </div>
+        ) : null}
 
         {/*
           EMT Scene Lab HUD temporarily hidden while the scene layout is being refined.

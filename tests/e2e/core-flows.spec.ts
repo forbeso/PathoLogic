@@ -789,6 +789,34 @@ test("EMT Scene renders its responsive training shell", async ({ page }, testInf
         timeout: 3_000,
       })
       .not.toBe(initialTimerValue);
+
+    const endScenarioButton = page.getByRole("button", {
+      name: "End Scenario",
+      exact: true,
+    });
+    await endScenarioButton.click();
+    const endScenarioDialog = page.getByRole("dialog", {
+      name: "End this scenario?",
+    });
+    await expect(endScenarioDialog).toBeVisible();
+    await expect(
+      endScenarioDialog.getByRole("button", { name: "Continue scenario" })
+    ).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(endScenarioDialog).toHaveCount(0);
+    await expect(endScenarioButton).toBeFocused();
+
+    await canvas.evaluate((element) => {
+      element.dataset.cameraResetSentinel = "before-reset";
+    });
+    await endScenarioButton.click();
+    await endScenarioDialog
+      .getByRole("button", { name: "End and reset" })
+      .click();
+    await expect(canvas).not.toHaveAttribute(
+      "data-camera-reset-sentinel",
+      "before-reset"
+    );
   }
 
   const recommendedDog = page.getByRole("button", {
@@ -843,6 +871,26 @@ test("EMT Scene renders its responsive training shell", async ({ page }, testInf
       .toBe(true);
     await page.keyboard.press("Escape");
     await expect(mobileHud).toHaveCount(0);
+    await expect(hudToggle).toBeFocused();
+
+    await hudToggle.click();
+    await page
+      .getByTestId("mobile-hud-panel")
+      .getByRole("button", { name: "Dispatch" })
+      .click();
+    await page
+      .getByTestId("mobile-hud-panel")
+      .getByRole("button", { name: "End scenario" })
+      .click();
+    const endScenarioDialog = page.getByRole("dialog", {
+      name: "End this scenario?",
+    });
+    await expect(endScenarioDialog).toBeVisible();
+    await expect(
+      endScenarioDialog.getByRole("button", { name: "Continue scenario" })
+    ).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(endScenarioDialog).toHaveCount(0);
     await expect(hudToggle).toBeFocused();
 
     const sceneSwitcher = page.getByRole("button", { name: "Switch scene" });
