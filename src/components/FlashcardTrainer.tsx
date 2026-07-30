@@ -260,8 +260,8 @@ export default function FlashcardTrainer() {
               }}
               className={`inline-flex min-h-11 items-center gap-1 rounded-md border px-3 py-2 text-xs font-semibold ${
                 shuffleMode
-                  ? "border-teal-300 bg-teal-50 text-teal-700"
-                  : "border-slate-200 bg-white text-slate-700"
+                  ? "border-teal-300 bg-teal-50 text-teal-700 dark:border-teal-500/60 dark:bg-teal-400/15 dark:text-teal-200"
+                  : "border-slate-200 bg-white text-slate-700 dark:border-slate-600 dark:bg-[#102329] dark:text-slate-200"
               }`}
             >
               <Shuffle size={14} />
@@ -306,8 +306,8 @@ export default function FlashcardTrainer() {
                   aria-label={flipped ? "Show the question" : "Reveal the answer"}
                   className={`col-start-1 row-start-1 min-h-[360px] w-full select-none rounded-lg border p-6 text-left shadow-[0_18px_50px_rgba(15,23,42,0.14)] transition focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-4 sm:min-h-[430px] sm:p-10 ${
                     flipped
-                      ? "border-teal-300 bg-[#edf8f5]"
-                      : "border-slate-200 bg-white"
+                      ? "border-teal-300 bg-[#edf8f5] dark:border-teal-500/60 dark:bg-[#0d292f]"
+                      : "border-slate-200 bg-white dark:border-slate-700 dark:bg-[#102329]"
                   }`}
                 >
                   <div className="flex h-full flex-col">
@@ -320,22 +320,22 @@ export default function FlashcardTrainer() {
                     </div>
 
                     <div className="flex flex-1 flex-col justify-center py-8 sm:px-6">
-                      <div className="text-xs font-bold uppercase text-teal-700">
+                      <div className="text-xs font-bold uppercase text-teal-700 dark:text-teal-300">
                         {flipped ? "Answer" : "Question"}
                       </div>
-                      <p className="mt-4 whitespace-pre-line text-xl font-semibold leading-relaxed text-slate-950 sm:text-2xl">
+                      <p className="mt-4 whitespace-pre-line text-xl font-semibold leading-relaxed text-slate-950 dark:text-slate-50 sm:text-2xl">
                         {flipped ? current.back : current.front}
                       </p>
                     </div>
 
-                    <div className="flex items-center justify-center gap-2 border-t border-slate-200/80 pt-4 text-sm font-semibold text-slate-600">
+                    <div className="flex items-center justify-center gap-2 border-t border-slate-200/80 pt-4 text-sm font-semibold text-slate-600 dark:border-slate-600/80 dark:text-slate-300">
                       <RotateCcw size={16} />
                       {flipped ? "Click to see the question" : "Click to reveal the answer"}
                     </div>
                   </div>
                 </motion.button>
               ) : (
-                <div className="col-start-1 row-start-1 grid min-h-[360px] place-items-center rounded-lg border border-dashed border-slate-300 bg-white text-sm text-slate-500 sm:min-h-[430px]">
+                <div className="col-start-1 row-start-1 grid min-h-[360px] place-items-center rounded-lg border border-dashed border-slate-300 bg-white text-sm text-slate-500 dark:border-slate-700 dark:bg-[#102329] dark:text-slate-400 sm:min-h-[430px]">
                   No cards in this deck yet.
                 </div>
               )}
@@ -354,7 +354,7 @@ export default function FlashcardTrainer() {
               <span className="hidden sm:inline">Previous</span>
             </button>
 
-            <div className="h-2 overflow-hidden rounded-full bg-slate-200" aria-hidden="true">
+            <div className="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700" aria-hidden="true">
               <div
                 className="h-full rounded-full bg-teal-500 transition-[width] duration-300"
                 style={{ width: total ? `${((index + 1) / total) * 100}%` : "0%" }}

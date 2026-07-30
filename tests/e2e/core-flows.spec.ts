@@ -861,9 +861,48 @@ test("flashcards recover after the deck request fails", async ({ page }) => {
   ).toBeVisible();
 
   await page.getByRole("button", { name: "Retry deck" }).click();
-  await expect(
-    page.getByRole("button", { name: "Reveal the answer" })
-  ).toBeVisible();
+  const revealAnswer = page.getByRole("button", { name: "Reveal the answer" });
+  await expect(revealAnswer).toBeVisible();
+  await revealAnswer.click();
+
+  const answer = page.getByText(
+    "Snoring respirations suggest soft-tissue obstruction."
+  );
+  await expect(answer).toBeVisible();
+  await page.waitForTimeout(300);
+  const answerColors = await answer.evaluate((element) => {
+    const card = element.closest("button");
+    const parseRgb = (value: string) =>
+      value.match(/[\d.]+/g)?.slice(0, 3).map(Number) ?? [];
+    const luminance = (channels: number[]) =>
+      channels
+        .map((channel) => channel / 255)
+        .map((channel) =>
+          channel <= 0.04045
+            ? channel / 12.92
+            : ((channel + 0.055) / 1.055) ** 2.4
+        )
+        .reduce(
+          (total, channel, index) =>
+            total + channel * [0.2126, 0.7152, 0.0722][index],
+          0
+        );
+    const foreground = luminance(
+      parseRgb(window.getComputedStyle(element).color)
+    );
+    const background = luminance(
+      parseRgb(card ? window.getComputedStyle(card).backgroundColor : "")
+    );
+
+    return {
+      background: card ? window.getComputedStyle(card).backgroundColor : "",
+      contrast:
+        (Math.max(foreground, background) + 0.05) /
+        (Math.min(foreground, background) + 0.05),
+    };
+  });
+  expect(answerColors.background).toBe("rgb(13, 41, 47)");
+  expect(answerColors.contrast).toBeGreaterThanOrEqual(4.5);
   await expectNoHorizontalOverflow(page);
 });
 
