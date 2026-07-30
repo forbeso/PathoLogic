@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/lib/supabase";
+import { reportClientIssue } from "@/lib/telemetry";
 
 import {
   Brain,
@@ -16,6 +17,9 @@ import {
 import Header from "./Header";
 import {
   AppShell,
+  EmptyState,
+  ErrorState,
+  LoadingState,
   PageContainer,
   PageIntro,
   cardClass,
@@ -63,6 +67,23 @@ function difficultyChip(diff?: Flashcard["difficulty"]) {
   }
 }
 
+function FlashcardPageFrame({ children }: { children: React.ReactNode }) {
+  return (
+    <AppShell>
+      <Header />
+      <PageContainer size="normal" className="space-y-5">
+        <PageIntro
+          eyebrow="Flashcard Lab"
+          title="EMT flashcards"
+          description="Choose a deck, move at your own pace, and flip each card when you are ready to check the answer."
+          icon={Brain}
+        />
+        {children}
+      </PageContainer>
+    </AppShell>
+  );
+}
+
 export default function FlashcardTrainer() {
   const [cards, setCards] = useState<Flashcard[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,44 +95,53 @@ export default function FlashcardTrainer() {
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
 
-  // Load flashcards from Supabase
-  useEffect(() => {
-    const loadCards = async () => {
-      setLoading(true);
-      setError(null);
+  const loadCards = useCallback(async () => {
+    setLoading(true);
+    setError(null);
 
-      const { data, error } = await supabase
+    try {
+      const { data, error: loadError } = await supabase
         .from("flashcards")
         .select("id, domain, topic, front, back, tags, difficulty")
         .order("domain", { ascending: true });
 
-      if (error) {
-        console.error("Failed to load flashcards", error);
-        setError("Failed to load flashcards.");
-        setCards([]);
-      } else {
-        const normalized: Flashcard[] = (data ?? []).map((row: any) => ({
-          id: row.id,
-          domain: row.domain,
-          topic: row.topic,
-          front: row.front,
-          back: row.back,
-          tags: row.tags ?? [],
-          difficulty:
-            row.difficulty === "Easy" ||
-            row.difficulty === "Moderate" ||
-            row.difficulty === "Hard"
-              ? row.difficulty
-              : "Moderate",
-        }));
-        setCards(normalized);
-      }
+      if (loadError) throw loadError;
 
+      const normalized: Flashcard[] = (data ?? []).map((row: any) => ({
+        id: row.id,
+        domain: row.domain,
+        topic: row.topic,
+        front: row.front,
+        back: row.back,
+        tags: row.tags ?? [],
+        difficulty:
+          row.difficulty === "Easy" ||
+          row.difficulty === "Moderate" ||
+          row.difficulty === "Hard"
+            ? row.difficulty
+            : "Moderate",
+      }));
+      setCards(normalized);
+      setIndex(0);
+      setFlipped(false);
+    } catch (loadError) {
+      reportClientIssue(loadError, {
+        context: "route_navigation",
+        code: "FLASHCARDS_LOAD_FAILED",
+        recoverable: true,
+      });
+      setError(
+        "We could not load the flashcard deck. Check your connection and try again."
+      );
+      setCards([]);
+    } finally {
       setLoading(false);
-    };
-
-    loadCards();
+    }
   }, []);
+
+  useEffect(() => {
+    void loadCards();
+  }, [loadCards]);
 
   const domains = useMemo(() => domainsFromCards(cards), [cards]);
 
@@ -147,27 +177,39 @@ export default function FlashcardTrainer() {
   // Loading / empty states
   if (loading) {
     return (
-      <AppShell>
-        <div className="grid min-h-screen place-items-center">
-        <div className={`${cardClass} px-4 py-2 text-sm text-slate-700`}>
-          Loading flashcards...
-        </div>
-      </div>
-      </AppShell>
+      <FlashcardPageFrame>
+        <LoadingState
+          title="Loading flashcards"
+          description="Preparing the deck and your study controls."
+        />
+      </FlashcardPageFrame>
+    );
+  }
+
+  if (error) {
+    return (
+      <FlashcardPageFrame>
+        <ErrorState
+          title="Flashcards did not load"
+          description={error}
+          onRetry={() => void loadCards()}
+          retryLabel="Retry deck"
+        />
+      </FlashcardPageFrame>
     );
   }
 
   if (!cards.length) {
     return (
-      <AppShell>
-        <div className="grid min-h-screen place-items-center px-4">
-        <div className={`${cardClass} px-4 py-3 text-sm text-slate-700`}>
-          {error
-            ? error
-            : "No flashcards found yet. Add some in Supabase or build an admin to create decks."}
-        </div>
-      </div>
-      </AppShell>
+      <FlashcardPageFrame>
+        <EmptyState
+          icon={BookOpen}
+          title="No flashcards available"
+          description="There are no cards in the study deck yet. You can keep learning with the EMT study guides."
+          href="/learn"
+          actionLabel="Open study guides"
+        />
+      </FlashcardPageFrame>
     );
   }
 

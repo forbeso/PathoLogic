@@ -798,6 +798,75 @@ test("flashcards reveal answers and advance cleanly", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Reveal the answer" })).toBeVisible();
 });
 
+test("scenario trainer recovers after its initial question request fails", async ({
+  page,
+}) => {
+  let requestCount = 0;
+  await page.route("**/api/test", async (route) => {
+    requestCount += 1;
+    if (requestCount === 1) {
+      await route.fulfill({
+        status: 503,
+        json: { error: "Question service unavailable." },
+      });
+      return;
+    }
+    await route.fulfill({ status: 200, json: [practiceItem] });
+  });
+
+  await page.goto("/emtrainer");
+  await expect(
+    page.getByRole("heading", { name: "Practice questions did not load" })
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "Retry questions" }).click();
+  await expect(page.getByText(practiceItem.vignette)).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+});
+
+test("flashcards recover after the deck request fails", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem("pathologix:theme", "dark");
+  });
+  let requestCount = 0;
+  await page.route("**/rest/v1/flashcards*", async (route) => {
+    requestCount += 1;
+    if (requestCount === 1) {
+      await route.fulfill({
+        status: 503,
+        json: { message: "Deck service unavailable." },
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify([
+        {
+          id: "retry-card",
+          domain: "Airway",
+          topic: "Airway Assessment",
+          front: "What finding suggests an upper-airway obstruction?",
+          back: "Snoring respirations suggest soft-tissue obstruction.",
+          tags: ["NREMT"],
+          difficulty: "Moderate",
+        },
+      ]),
+    });
+  });
+
+  await page.goto("/flashcards");
+  await expect(
+    page.getByRole("heading", { name: "Flashcards did not load" })
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "Retry deck" }).click();
+  await expect(
+    page.getByRole("button", { name: "Reveal the answer" })
+  ).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+});
+
 test("EMT Scene renders its responsive training shell", async ({ page }, testInfo) => {
   test.setTimeout(180_000);
   await page.goto("/emtscene");

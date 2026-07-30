@@ -56,6 +56,9 @@ export default function NremtExamPage() {
 
   const [availableQuestionCount, setAvailableQuestionCount] = useState<number | null>(null);
   const [loadingAvailability, setLoadingAvailability] = useState(true);
+  const [availabilityError, setAvailabilityError] = useState<string | null>(
+    null
+  );
 
   const current = items[currentIndex] ?? null;
   const examQuestionCount = Math.min(
@@ -96,40 +99,33 @@ export default function NremtExamPage() {
     };
   }, [router]);
 
+  const loadQuestionAvailability = useCallback(async () => {
+    setLoadingAvailability(true);
+    setAvailabilityError(null);
+
+    try {
+      const res = await authenticatedFetch("/api/exam/seed");
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(data?.error ?? "Unable to load the exam question pool.");
+      }
+
+      const available = Math.max(0, Number(data?.availableCount) || 0);
+      setAvailableQuestionCount(available);
+    } catch (err: any) {
+      setAvailableQuestionCount(null);
+      setAvailabilityError(
+        err.message ?? "Unable to load the exam question pool."
+      );
+    } finally {
+      setLoadingAvailability(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (authStatus !== "authenticated") return;
-
-    let cancelled = false;
-
-    const loadQuestionAvailability = async () => {
-      try {
-        const res = await authenticatedFetch("/api/exam/seed");
-        const data = await res.json().catch(() => null);
-        if (!res.ok) {
-          throw new Error(data?.error ?? "Unable to load the exam question pool.");
-        }
-
-        if (cancelled) return;
-
-        const available = Math.max(0, Number(data?.availableCount) || 0);
-        setAvailableQuestionCount(available);
-      } catch (err: any) {
-        if (!cancelled) {
-          setError(err.message ?? "Unable to load the exam question pool.");
-        }
-      } finally {
-        if (!cancelled) {
-          setLoadingAvailability(false);
-        }
-      }
-    };
-
     void loadQuestionAvailability();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [authStatus]);
+  }, [authStatus, loadQuestionAvailability]);
 
   const startExam = useCallback(async () => {
     setError(null);
@@ -348,6 +344,8 @@ export default function NremtExamPage() {
                 <p className="mt-2 text-xs text-slate-500">
                   {loadingAvailability
                     ? "Checking available questions..."
+                    : availabilityError
+                      ? "Question availability could not be confirmed."
                     : examQuestionCount > 0
                       ? `This exam will contain ${examQuestionCount} ${
                           examQuestionCount === 1 ? "question" : "questions"
@@ -370,9 +368,25 @@ export default function NremtExamPage() {
             </div>
 
             {error && (
-              <p className="mt-3 text-xs text-rose-600">
+              <p className="mt-3 text-sm text-rose-600" role="alert">
                 {error}
               </p>
+            )}
+
+            {availabilityError && (
+              <div
+                className="mt-4 flex flex-col gap-3 rounded-md border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-900/70 dark:bg-rose-950/40 dark:text-rose-200 sm:flex-row sm:items-center sm:justify-between"
+                role="alert"
+              >
+                <span>{availabilityError}</span>
+                <button
+                  type="button"
+                  onClick={() => void loadQuestionAvailability()}
+                  className={`${secondaryButtonClass} shrink-0`}
+                >
+                  Retry questions
+                </button>
+              </div>
             )}
           </div>
         )}

@@ -1,11 +1,14 @@
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabase";
+import { reportClientIssue } from "@/lib/telemetry";
 import Header from "@/components/Header";
 import { Camera, Loader2, UserRound, Archive, ArrowLeft } from "lucide-react";
 import Seo from "@/components/Seo";
 import Link from "next/link";
 import {
   AppShell,
+  ErrorState,
+  LoadingState,
   PageContainer,
   PageIntro,
   cardClass,
@@ -25,8 +28,8 @@ type Profile = {
 };
 
 export default function ProfilePage() {
-  const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -37,28 +40,53 @@ export default function ProfilePage() {
 
   // --- Auth gate + load profile
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data }) => {
-      const s = data.session;
-      if (!s) {
+    void loadAccount();
+  }, []);
+
+  async function loadAccount() {
+    setLoading(true);
+    setLoadError(null);
+
+    try {
+      const { data: sessionData, error: sessionError } =
+        await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
+      if (!sessionData.session) {
         window.location.href = "/login";
         return;
       }
-      setSession(s);
-      setEmail(s.user.email ?? "");
-      await loadProfile();
-      setLoading(false);
-    });
-  }, []);
 
-  async function loadProfile() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("id, full_name, avatar_url, cohort, bio, role")
-      .eq("id", user.id)
-      .single();
-    if (!error && data) setProfile(data as Profile);
+      setEmail(sessionData.session.user.email ?? "");
+
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+      if (userError) throw userError;
+      if (!user) throw new Error("Not signed in");
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name, avatar_url, cohort, bio, role")
+        .eq("id", user.id)
+        .single();
+      if (error) throw error;
+      if (!data) throw new Error("Profile not found");
+
+      setProfile(data as Profile);
+    } catch (error) {
+      reportClientIssue(error, {
+        context: "route_navigation",
+        code: "PROFILE_LOAD_FAILED",
+        recoverable: true,
+      });
+      setProfile(null);
+      setLoadError(
+        "We could not load your learner profile. Check your connection and try again."
+      );
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -130,7 +158,48 @@ export default function ProfilePage() {
           noIndex
         />
         <Header />
-        <PageContainer size="normal" className="text-slate-600">Loading profile...</PageContainer>
+        <PageContainer size="normal" className="space-y-6">
+          <PageIntro
+            eyebrow="Learner profile"
+            title="Profile"
+            description="Keep your EMT training context current so your saved work and progress feel personal."
+            icon={UserRound}
+          />
+          <LoadingState
+            title="Loading your profile"
+            description="Retrieving your learner details and account preferences."
+          />
+        </PageContainer>
+      </AppShell>
+    );
+  }
+
+  if (loadError || !profile) {
+    return (
+      <AppShell>
+        <Seo
+          title="Profile"
+          description="Manage your private PathoLogix learner profile."
+          path="/profile"
+          noIndex
+        />
+        <Header />
+        <PageContainer size="normal" className="space-y-6">
+          <PageIntro
+            eyebrow="Learner profile"
+            title="Profile"
+            description="Keep your EMT training context current so your saved work and progress feel personal."
+            icon={UserRound}
+          />
+          <ErrorState
+            title="Profile did not load"
+            description={
+              loadError ??
+              "Your learner profile is unavailable right now. Please try again."
+            }
+            onRetry={() => void loadAccount()}
+          />
+        </PageContainer>
       </AppShell>
     );
   }

@@ -3,6 +3,7 @@ import Link from "next/link";
 import Header from "@/components/Header";
 import { supabase } from "@/lib/supabase";
 import { ADAPTIVE_TARGET_STORAGE_KEY } from "@/lib/adaptive";
+import { reportClientIssue } from "@/lib/telemetry";
 import {
   ArrowRight,
   Award,
@@ -22,6 +23,8 @@ import { useLearnerProgress } from "@/hooks/useLearnerProgress";
 import Seo from "@/components/Seo";
 import {
   AppShell,
+  ErrorState,
+  LoadingState,
   PageContainer,
   PageIntro,
   MetricCard,
@@ -159,6 +162,7 @@ export default function ProgressPage() {
   const { progress: learnerProgress, level: learnerLevel } =
     useLearnerProgress();
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [rows, setRows] = useState<PerfRow[]>([]);
   const [examRows, setExamRows] = useState<ExamSessionRow[]>([]);
   const [examHistoryAvailable, setExamHistoryAvailable] = useState(true);
@@ -169,66 +173,94 @@ export default function ProgressPage() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data }) => {
-      const s = data.session;
-      if (!s) {
-        window.location.href = "/login";
-        return;
-      }
-      await loadPerf();
-      setLoading(false);
-    });
+    void supabase.auth
+      .getSession()
+      .then(async ({ data, error }) => {
+        if (error) throw error;
+        if (!data.session) {
+          window.location.href = "/login";
+          return;
+        }
+        await loadPerf();
+      })
+      .catch((error) => {
+        reportClientIssue(error, {
+          context: "route_navigation",
+          code: "PROGRESS_AUTH_FAILED",
+          recoverable: true,
+        });
+        setLoadError(
+          "We could not verify your account. Check your connection and try again."
+        );
+        setLoading(false);
+      });
   }, []);
 
   async function loadPerf() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
     setLoading(true);
+    setLoadError(null);
 
-    const [performanceResult, examResult, scenarioResult] = await Promise.all([
-      supabase
-        .from("performance")
-        .select("user_id, topic, accuracy, attempts, last_practiced")
-        .eq("user_id", user.id),
-      supabase
-        .from("exam_sessions")
-        .select("id, correct_count, question_count, score_percent, domain_stats, completed_at")
-        .eq("user_id", user.id)
-        .eq("status", "completed")
-        .order("completed_at", { ascending: false })
-        .limit(10),
-      supabase
-        .from("scenario_attempts")
-        .select(
-          "id, scenario_id, simulation_mode, score_percent, score_breakdown, completed_objectives, total_objectives, elapsed_seconds, hints_used, completed_at"
-        )
-        .eq("user_id", user.id)
-        .eq("status", "completed")
-        .order("completed_at", { ascending: false })
-        .limit(10),
-    ]);
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+      if (userError) throw userError;
+      if (!user) throw new Error("Not signed in");
 
-    if (!performanceResult.error && performanceResult.data) {
-      setRows(performanceResult.data as PerfRow[]);
+      const [performanceResult, examResult, scenarioResult] = await Promise.all([
+        supabase
+          .from("performance")
+          .select("user_id, topic, accuracy, attempts, last_practiced")
+          .eq("user_id", user.id),
+        supabase
+          .from("exam_sessions")
+          .select("id, correct_count, question_count, score_percent, domain_stats, completed_at")
+          .eq("user_id", user.id)
+          .eq("status", "completed")
+          .order("completed_at", { ascending: false })
+          .limit(10),
+        supabase
+          .from("scenario_attempts")
+          .select(
+            "id, scenario_id, simulation_mode, score_percent, score_breakdown, completed_objectives, total_objectives, elapsed_seconds, hints_used, completed_at"
+          )
+          .eq("user_id", user.id)
+          .eq("status", "completed")
+          .order("completed_at", { ascending: false })
+          .limit(10),
+      ]);
+
+      if (performanceResult.error) throw performanceResult.error;
+      setRows((performanceResult.data ?? []) as PerfRow[]);
+
+      if (!examResult.error && examResult.data) {
+        setExamRows(examResult.data as ExamSessionRow[]);
+        setExamHistoryAvailable(true);
+      } else {
+        setExamRows([]);
+        setExamHistoryAvailable(false);
+      }
+
+      if (!scenarioResult.error && scenarioResult.data) {
+        setScenarioRows(scenarioResult.data as ScenarioAttemptRow[]);
+        setScenarioHistoryAvailable(true);
+      } else {
+        setScenarioRows([]);
+        setScenarioHistoryAvailable(false);
+      }
+    } catch (error) {
+      reportClientIssue(error, {
+        context: "route_navigation",
+        code: "PROGRESS_LOAD_FAILED",
+        recoverable: true,
+      });
+      setLoadError(
+        "We could not load your progress dashboard. Check your connection and try again."
+      );
+    } finally {
+      setLoading(false);
     }
-
-    if (!examResult.error && examResult.data) {
-      setExamRows(examResult.data as ExamSessionRow[]);
-      setExamHistoryAvailable(true);
-    } else {
-      setExamRows([]);
-      setExamHistoryAvailable(false);
-    }
-
-    if (!scenarioResult.error && scenarioResult.data) {
-      setScenarioRows(scenarioResult.data as ScenarioAttemptRow[]);
-      setScenarioHistoryAvailable(true);
-    } else {
-      setScenarioRows([]);
-      setScenarioHistoryAvailable(false);
-    }
-
-    setLoading(false);
   }
 
   function toggleSort(key: typeof sortKey) {
@@ -392,6 +424,59 @@ export default function ProgressPage() {
       localStorage.removeItem(ADAPTIVE_TARGET_STORAGE_KEY);
     }
     window.location.href = next.href;
+  }
+
+  if (loading) {
+    return (
+      <AppShell>
+        <Seo
+          title="My EMT Training Progress"
+          description="Review your private PathoLogix practice history, accuracy, and weaker EMT domains."
+          path="/progress"
+          noIndex
+        />
+        <Header />
+        <PageContainer className="space-y-6">
+          <PageIntro
+            eyebrow="Progress dashboard"
+            title="My Progress"
+            description="Track accuracy, attempts, and weak domains so your next study session has a clear target."
+            icon={BarChart2}
+          />
+          <LoadingState
+            title="Loading your progress"
+            description="Combining question practice, exam results, and completed simulations."
+          />
+        </PageContainer>
+      </AppShell>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <AppShell>
+        <Seo
+          title="My EMT Training Progress"
+          description="Review your private PathoLogix practice history, accuracy, and weaker EMT domains."
+          path="/progress"
+          noIndex
+        />
+        <Header />
+        <PageContainer className="space-y-6">
+          <PageIntro
+            eyebrow="Progress dashboard"
+            title="My Progress"
+            description="Track accuracy, attempts, and weak domains so your next study session has a clear target."
+            icon={BarChart2}
+          />
+          <ErrorState
+            title="Progress did not load"
+            description={loadError}
+            onRetry={() => void loadPerf()}
+          />
+        </PageContainer>
+      </AppShell>
+    );
   }
 
   return (

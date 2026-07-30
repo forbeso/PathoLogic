@@ -1,6 +1,12 @@
 import React from "react";
 import Link from "next/link";
-import { ArrowRight, type LucideIcon } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowRight,
+  LoaderCircle,
+  RefreshCw,
+  type LucideIcon,
+} from "lucide-react";
 
 export const pageBg =
   "app-theme-surface relative min-h-screen w-full overflow-x-hidden app-background text-slate-950 dark:text-slate-50";
@@ -162,6 +168,81 @@ export function EmptyState({
           <ArrowRight size={16} />
         </Link>
       ) : null}
+    </div>
+  );
+}
+
+export function LoadingState({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <div
+      className={`${cardClass} flex items-start gap-4 p-5`}
+      role="status"
+      aria-live="polite"
+    >
+      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-md bg-teal-50 text-teal-700 dark:bg-teal-950/60 dark:text-teal-300">
+        <LoaderCircle
+          className="animate-spin motion-reduce:animate-none"
+          size={21}
+          aria-hidden="true"
+        />
+      </span>
+      <div className="min-w-0">
+        <h2 className="font-semibold text-slate-950 dark:text-white">
+          {title}
+        </h2>
+        <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-300">
+          {description}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+export function ErrorState({
+  title,
+  description,
+  onRetry,
+  retryLabel = "Try again",
+}: {
+  title: string;
+  description: string;
+  onRetry?: () => void;
+  retryLabel?: string;
+}) {
+  return (
+    <div
+      className={`${cardClass} border-rose-200 p-5 dark:border-rose-900/70`}
+      role="alert"
+    >
+      <div className="flex items-start gap-4">
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-md bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300">
+          <AlertTriangle size={21} aria-hidden="true" />
+        </span>
+        <div className="min-w-0">
+          <h2 className="font-semibold text-slate-950 dark:text-white">
+            {title}
+          </h2>
+          <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-300">
+            {description}
+          </p>
+          {onRetry ? (
+            <button
+              type="button"
+              onClick={onRetry}
+              className={`${secondaryButtonClass} mt-4`}
+            >
+              <RefreshCw size={16} aria-hidden="true" />
+              {retryLabel}
+            </button>
+          ) : null}
+        </div>
+      </div>
     </div>
   );
 }

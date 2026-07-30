@@ -1,4 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
   Check,
@@ -27,6 +33,8 @@ import { authenticatedFetch } from "@/lib/authenticatedFetch";
 import { reportClientIssue, trackProductEvent } from "@/lib/telemetry";
 import {
   cardClass,
+  ErrorState,
+  LoadingState,
   mutedCardClass,
   primaryButtonClass,
   secondaryButtonClass,
@@ -184,6 +192,7 @@ export default function EMTScenarioTrainer() {
   const reduceMotion = useReducedMotion();
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoadError, setInitialLoadError] = useState<string | null>(null);
   const [index, setIndex] = useState(0);
   const [selected, setSelected] = useState<null | string>(null);
   const [showCues, setShowCues] = useState(true);
@@ -199,25 +208,43 @@ export default function EMTScenarioTrainer() {
   const [pendingAnswer, setPendingAnswer] =
     useState<PracticeResultInput | null>(null);
 
-  // Initial fetch + normalize
-  useEffect(() => {
-    async function fetchItems() {
-      setLoading(true);
-      try {
-        const res = await fetch("/api/test");
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        const normalized = (Array.isArray(data) ? data : []).map((item) =>
-          normalizeItem({ ...item, source: "static" })
+  const fetchItems = useCallback(async () => {
+    setLoading(true);
+    setInitialLoadError(null);
+
+    try {
+      const res = await fetch("/api/test");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const normalized = (Array.isArray(data) ? data : []).map((item) =>
+        normalizeItem({ ...item, source: "static" })
+      );
+      setItems(normalized);
+      setIndex(0);
+
+      if (!normalized.length) {
+        setInitialLoadError(
+          "The practice question set is empty right now. Please try again shortly."
         );
-        setItems(normalized);
-      } catch {
-        setItems([]);
       }
+    } catch (error) {
+      reportClientIssue(error, {
+        context: "practice_load",
+        code: "PRACTICE_LOAD_FAILED",
+        recoverable: true,
+      });
+      setItems([]);
+      setInitialLoadError(
+        "We could not load the practice questions. Check your connection and try again."
+      );
+    } finally {
       setLoading(false);
     }
-    fetchItems();
   }, []);
+
+  useEffect(() => {
+    void fetchItems();
+  }, [fetchItems]);
 
   // After-login handoff: run startAdaptive once after initial load if flagged
   const handoffRanRef = useRef(false);
@@ -400,34 +427,27 @@ export default function EMTScenarioTrainer() {
 
   if (loading) {
     return (
-      <div
-        className={`${cardClass} mx-auto flex max-w-3xl items-center gap-3 p-5 text-slate-700`}
-        role="status"
-        aria-live="polite"
-      >
-        <LoaderCircle
-          className="shrink-0 animate-spin text-teal-600 motion-reduce:animate-none"
-          size={24}
-          aria-hidden="true"
+      <div className="mx-auto max-w-3xl">
+        <LoadingState
+          title="Loading scenario trainer"
+          description="Preparing the question set and clinical cues."
         />
-        <div>
-          <div className="font-semibold text-slate-950">
-            Loading scenario trainer
-          </div>
-          <p className="mt-0.5 text-sm text-slate-600">
-            Preparing the question set and clinical cues.
-          </p>
-        </div>
       </div>
     );
   }
 
-  if (!items.length) {
+  if (initialLoadError || !items.length) {
     return (
-      <div className="mx-auto max-w-3xl px-4">
-        <div className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-rose-700 shadow-sm">
-          No scenarios found.
-        </div>
+      <div className="mx-auto max-w-3xl">
+        <ErrorState
+          title="Practice questions did not load"
+          description={
+            initialLoadError ??
+            "The practice question set is unavailable right now."
+          }
+          onRetry={() => void fetchItems()}
+          retryLabel="Retry questions"
+        />
       </div>
     );
   }

@@ -23,6 +23,7 @@ export type ClientIssueContext =
   | "exam_complete"
   | "exam_abandon"
   | "adaptive_practice"
+  | "practice_load"
   | "practice_save"
   | "window_error"
   | "unhandled_rejection";
