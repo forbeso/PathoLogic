@@ -13,17 +13,24 @@ import {
 } from "@/components/AppShell";
 import { ArrowRight, LockKeyhole, Mail, MailCheck, ShieldCheck } from "lucide-react";
 
-type AuthView = "sign-in" | "sign-up" | "forgot-password";
+type AuthView =
+  | "sign-in"
+  | "sign-up"
+  | "forgot-password"
+  | "update-password";
 
 export default function LoginPage() {
   const [view, setView] = useState<AuthView>("sign-in");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [recoveryReady, setRecoveryReady] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const router = useRouter();
   const navigatedRef = useRef(false);
+  const recoveryRef = useRef(false);
 
   const continueAfterLogin = useCallback(() => {
     const to =
@@ -42,26 +49,90 @@ export default function LoginPage() {
   }, [router]);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session && !navigatedRef.current) {
+    if (!router.isReady) return;
+
+    let active = true;
+    let recoveryTimeout: number | undefined;
+    const hashParams = new URLSearchParams(window.location.hash.slice(1));
+    const recoveryRequested =
+      router.query.reset === "1" || hashParams.get("type") === "recovery";
+
+    const enterRecovery = (hasSession: boolean) => {
+      recoveryRef.current = true;
+      setView("update-password");
+      setRecoveryReady(hasSession);
+      setNotice("");
+      setError("");
+    };
+
+    if (recoveryRequested) {
+      enterRecovery(false);
+      recoveryTimeout = window.setTimeout(async () => {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!active || session) return;
+        setError(
+          "This reset link is invalid or has expired. Request a new link to continue."
+        );
+      }, 4000);
+    }
+
+    const handleSession = (
+      session: Awaited<
+        ReturnType<typeof supabase.auth.getSession>
+      >["data"]["session"]
+    ) => {
+      if (!active || !session) return;
+      if (recoveryRef.current) {
+        if (recoveryTimeout) window.clearTimeout(recoveryTimeout);
+        setRecoveryReady(true);
+        setError("");
+        return;
+      }
+      if (!navigatedRef.current) {
         navigatedRef.current = true;
         continueAfterLogin();
       }
+    };
+
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY") {
+        enterRecovery(Boolean(session));
+        if (recoveryTimeout) window.clearTimeout(recoveryTimeout);
+        return;
+      }
+      handleSession(session);
     });
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_evt, session) => {
-      if (session && !navigatedRef.current) {
-        navigatedRef.current = true;
-        continueAfterLogin();
-      }
+    void supabase.auth.getSession().then(({ data }) => {
+      handleSession(data.session);
     });
 
     return () => {
+      active = false;
+      if (recoveryTimeout) window.clearTimeout(recoveryTimeout);
       listener?.subscription?.unsubscribe?.();
     };
-  }, [continueAfterLogin]);
+  }, [continueAfterLogin, router.isReady, router.query.reset]);
 
-  const callbackUrl = () => `${window.location.origin}/login`;
+  const callbackUrl = (purpose: "account" | "recovery" = "account") =>
+    `${window.location.origin}/login${purpose === "recovery" ? "?reset=1" : ""}`;
+
+  async function returnToSignIn() {
+    if (view === "update-password") {
+      await supabase.auth.signOut();
+      await router.replace("/login", undefined, { shallow: true });
+    }
+    recoveryRef.current = false;
+    navigatedRef.current = false;
+    setRecoveryReady(false);
+    setPassword("");
+    setConfirmPassword("");
+    setError("");
+    setNotice("");
+    setView("sign-in");
+  }
 
   async function handleEmailAuth(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -70,10 +141,38 @@ export default function LoginPage() {
     setNotice("");
 
     try {
+      if (view === "update-password") {
+        if (!recoveryReady) {
+          setError(
+            "This reset link is not ready. Request a new link if the problem continues."
+          );
+          return;
+        }
+        if (password !== confirmPassword) {
+          setError("The passwords do not match.");
+          return;
+        }
+
+        const { error: updateError } = await supabase.auth.updateUser({
+          password,
+        });
+        if (updateError) throw updateError;
+
+        await supabase.auth.signOut();
+        recoveryRef.current = false;
+        setRecoveryReady(false);
+        setPassword("");
+        setConfirmPassword("");
+        setView("sign-in");
+        setNotice("Password updated. Sign in with your new password.");
+        void router.replace("/login", undefined, { shallow: true });
+        return;
+      }
+
       if (view === "forgot-password") {
         const { error: resetError } = await supabase.auth.resetPasswordForEmail(
           email,
-          { redirectTo: callbackUrl() }
+          { redirectTo: callbackUrl("recovery") }
         );
         if (resetError) throw resetError;
         setNotice("Check your email for a secure password reset link.");
@@ -125,16 +224,20 @@ export default function LoginPage() {
             title={
               view === "sign-up"
                 ? "Create your account"
-                : view === "forgot-password"
-                  ? "Reset your password"
-                  : "Sign in to PathoLogix"
+                : view === "update-password"
+                  ? "Choose a new password"
+                  : view === "forgot-password"
+                    ? "Reset your password"
+                    : "Sign in to PathoLogix"
             }
             description={
               view === "sign-up"
                 ? "Save your progress, build a streak, and keep your practice history in one place."
-                : view === "forgot-password"
-                  ? "We will send a secure reset link to your email address."
-                  : "Continue your EMT practice from exactly where you left off."
+                : view === "update-password"
+                  ? "Enter a new password for your PathoLogix account."
+                  : view === "forgot-password"
+                    ? "We will send a secure reset link to your email address."
+                    : "Continue your EMT practice from exactly where you left off."
             }
             icon={ShieldCheck}
           />
@@ -160,31 +263,33 @@ export default function LoginPage() {
             ) : null}
 
             <form onSubmit={handleEmailAuth} className="space-y-4">
-              <label className="block">
-                <span className="mb-1.5 block text-sm font-semibold text-slate-800">
-                  Email address
-                </span>
-                <span className="relative block">
-                  <Mail
-                    size={16}
-                    className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                  />
-                  <input
-                    type="email"
-                    autoComplete="email"
-                    required
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    placeholder="you@example.com"
-                    className={`${inputClass} min-h-11 w-full pl-9`}
-                  />
-                </span>
-              </label>
+              {view !== "update-password" ? (
+                <label className="block">
+                  <span className="mb-1.5 block text-sm font-semibold text-slate-800">
+                    Email address
+                  </span>
+                  <span className="relative block">
+                    <Mail
+                      size={16}
+                      className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                    />
+                    <input
+                      type="email"
+                      autoComplete="email"
+                      required
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                      placeholder="you@example.com"
+                      className={`${inputClass} min-h-11 w-full pl-9`}
+                    />
+                  </span>
+                </label>
+              ) : null}
 
               {view !== "forgot-password" ? (
                 <label className="block">
                   <span className="mb-1.5 block text-sm font-semibold text-slate-800">
-                    Password
+                    {view === "update-password" ? "New password" : "Password"}
                   </span>
                   <span className="relative block">
                     <LockKeyhole
@@ -193,7 +298,11 @@ export default function LoginPage() {
                     />
                     <input
                       type="password"
-                      autoComplete={view === "sign-up" ? "new-password" : "current-password"}
+                      autoComplete={
+                        view === "sign-up" || view === "update-password"
+                          ? "new-password"
+                          : "current-password"
+                      }
                       required
                       minLength={6}
                       value={password}
@@ -203,6 +312,41 @@ export default function LoginPage() {
                     />
                   </span>
                 </label>
+              ) : null}
+
+              {view === "update-password" ? (
+                <label className="block">
+                  <span className="mb-1.5 block text-sm font-semibold text-slate-800">
+                    Confirm new password
+                  </span>
+                  <span className="relative block">
+                    <LockKeyhole
+                      size={16}
+                      className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                    />
+                    <input
+                      type="password"
+                      autoComplete="new-password"
+                      required
+                      minLength={6}
+                      value={confirmPassword}
+                      onChange={(event) =>
+                        setConfirmPassword(event.target.value)
+                      }
+                      placeholder="Enter it again"
+                      className={`${inputClass} min-h-11 w-full pl-9`}
+                    />
+                  </span>
+                </label>
+              ) : null}
+
+              {view === "update-password" && !recoveryReady && !error ? (
+                <div
+                  role="status"
+                  className="rounded-md border border-teal-200 bg-teal-50 px-3 py-2 text-sm text-teal-800"
+                >
+                  Verifying your secure reset link...
+                </div>
               ) : null}
 
               {error ? (
@@ -218,16 +362,20 @@ export default function LoginPage() {
 
               <button
                 type="submit"
-                disabled={submitting}
+                disabled={
+                  submitting || (view === "update-password" && !recoveryReady)
+                }
                 className={`${primaryButtonClass} min-h-11 w-full`}
               >
                 {submitting
                   ? "Please wait..."
                   : view === "sign-up"
                     ? "Create account"
-                    : view === "forgot-password"
-                      ? "Send reset link"
-                      : "Sign in"}
+                    : view === "update-password"
+                      ? "Update password"
+                      : view === "forgot-password"
+                        ? "Send reset link"
+                        : "Sign in"}
                 {!submitting ? <ArrowRight size={17} /> : null}
               </button>
             </form>
@@ -243,7 +391,11 @@ export default function LoginPage() {
                   </button>
                 </>
               ) : (
-                <button type="button" onClick={() => setView("sign-in")} className="min-h-11 px-2 font-semibold text-teal-700 hover:text-teal-600">
+                <button
+                  type="button"
+                  onClick={() => void returnToSignIn()}
+                  className="min-h-11 px-2 font-semibold text-teal-700 hover:text-teal-600"
+                >
                   Back to sign in
                 </button>
               )}

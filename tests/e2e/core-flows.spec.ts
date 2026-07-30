@@ -1160,6 +1160,21 @@ test("account access exposes sign-in, sign-up, and recovery views", async ({ pag
   await page.getByRole("button", { name: "Forgot password?" }).click();
   await expect(page.getByRole("heading", { name: "Reset your password" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Send reset link" })).toBeVisible();
+
+  await page.goto("/login?reset=1");
+  await expect(
+    page.getByRole("heading", { name: "Choose a new password" })
+  ).toBeVisible();
+  await expect(page.getByLabel("New password", { exact: true })).toBeVisible();
+  await expect(
+    page.getByLabel("Confirm new password", { exact: true })
+  ).toBeVisible();
+  await expect(
+    page.getByText("Verifying your secure reset link...")
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Update password" })
+  ).toBeDisabled();
 });
 
 test("all learn articles remain readable in dark mode", async ({ page }) => {
