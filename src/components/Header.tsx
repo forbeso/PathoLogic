@@ -97,7 +97,14 @@ export default function Header() {
               Sign in
             </Link>
           ) : (
-            <UserMenu email={session.user.email} />
+            <UserMenu
+              email={session.user.email}
+              avatarUrl={
+                typeof session.user.user_metadata?.avatar_url === "string"
+                  ? session.user.user_metadata.avatar_url
+                  : null
+              }
+            />
           )}
           <button
             id="mobile-navigation-toggle"
