@@ -824,6 +824,44 @@ test("scenario trainer recovers after its initial question request fails", async
   await expectNoHorizontalOverflow(page);
 });
 
+test("signed-out practice gives feedback without attempting a progress save", async ({
+  page,
+}) => {
+  let practiceSaveRequests = 0;
+  page.on("request", (request) => {
+    if (request.url().includes("/api/practice/answer")) {
+      practiceSaveRequests += 1;
+    }
+  });
+
+  await page.goto("/emtrainer");
+  await page
+    .getByRole("button", {
+      name: /Open the airway with a jaw-thrust maneuver/,
+    })
+    .click();
+
+  await expect(page.getByText("Correct", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText(
+      "Answer checked. Sign in to save this result to your progress and streak."
+    )
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Sign in to save" })
+  ).toHaveAttribute("href", "/login");
+  await expect(
+    page.getByText(
+      "Your answer is shown, but it could not be added to your progress."
+    )
+  ).toHaveCount(0);
+  await expect(page.getByRole("dialog", { name: "Runtime Error" })).toHaveCount(
+    0
+  );
+  expect(practiceSaveRequests).toBe(0);
+  await expectNoHorizontalOverflow(page);
+});
+
 test("flashcards recover after the deck request fails", async ({ page }) => {
   await page.addInitScript(() => {
     window.localStorage.setItem("pathologix:theme", "dark");

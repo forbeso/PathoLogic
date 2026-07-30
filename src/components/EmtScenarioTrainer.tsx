@@ -5,6 +5,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import Link from "next/link";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
   Check,
@@ -20,6 +21,7 @@ import {
   Shuffle,
   Sparkles,
   LoaderCircle,
+  LogIn,
 } from "lucide-react";
 import {
   ADAPTIVE_TARGET_STORAGE_KEY,
@@ -205,6 +207,7 @@ export default function EMTScenarioTrainer() {
   );
   const [savingAnswer, setSavingAnswer] = useState(false);
   const [answerSaveError, setAnswerSaveError] = useState<string | null>(null);
+  const [showSignInToSave, setShowSignInToSave] = useState(false);
   const [pendingAnswer, setPendingAnswer] =
     useState<PracticeResultInput | null>(null);
 
@@ -343,13 +346,13 @@ export default function EMTScenarioTrainer() {
       setShowElims(false);
       setSavingAnswer(false);
       setAnswerSaveError(null);
+      setShowSignInToSave(false);
       setPendingAnswer(null);
       localStorage.removeItem(ADAPTIVE_TARGET_STORAGE_KEY);
       trackProductEvent("adaptive_practice_loaded", {
         source: loadedFromCache ? "cache" : "generated",
       });
     } catch (e) {
-      console.error("Adaptive load failed:", e);
       reportClientIssue(e, {
         context: "adaptive_practice",
         code: "ADAPTIVE_LOAD_FAILED",
@@ -383,6 +386,7 @@ export default function EMTScenarioTrainer() {
     setShowElims(false);
     setSavingAnswer(false);
     setAnswerSaveError(null);
+    setShowSignInToSave(false);
     setPendingAnswer(null);
     if (items.length > 0) {
       setIndex(((i % items.length) + items.length) % items.length);
@@ -401,17 +405,35 @@ export default function EMTScenarioTrainer() {
   const savePracticeAnswer = async (answer: PracticeResultInput) => {
     setSavingAnswer(true);
     setAnswerSaveError(null);
+    setShowSignInToSave(false);
     setPendingAnswer(answer);
 
     try {
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
+
+      if (!session) {
+        setPendingAnswer(null);
+        setShowSignInToSave(true);
+        trackProductEvent("practice_answered", {
+          correct: answer.correct,
+          source: answer.source,
+          recorded: false,
+        });
+        return;
+      }
+
       await recordResult(answer);
       setPendingAnswer(null);
       trackProductEvent("practice_answered", {
         correct: answer.correct,
         source: answer.source,
+        recorded: true,
       });
     } catch (error) {
-      console.error("Failed to record result", error);
       reportClientIssue(error, {
         context: "practice_save",
         code: "PRACTICE_SAVE_FAILED",
@@ -730,6 +752,30 @@ export default function EMTScenarioTrainer() {
                 Retry save
               </button>
             ) : null}
+          </div>
+        ) : null}
+        {showSignInToSave ? (
+          <div
+            className="flex flex-col gap-3 rounded-md border border-teal-200 bg-teal-50 p-3 text-sm text-teal-950 dark:border-teal-500/40 dark:bg-teal-400/10 dark:text-teal-100 sm:flex-row sm:items-center sm:justify-between"
+            role="status"
+          >
+            <p>
+              Answer checked. Sign in to save this result to your progress and
+              streak.
+            </p>
+            <Link
+              href="/login"
+              onClick={() =>
+                localStorage.setItem(
+                  "pathologix:redirect_after_login",
+                  "/emtrainer"
+                )
+              }
+              className={`${secondaryButtonClass} shrink-0`}
+            >
+              <LogIn size={16} aria-hidden="true" />
+              Sign in to save
+            </Link>
           </div>
         ) : null}
 
