@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/router";
 import { supabase } from "@/lib/supabase";
 import { reportClientIssue } from "@/lib/telemetry";
 import Header from "@/components/Header";
@@ -37,6 +38,7 @@ type GeneratedScenario = {
 const PAGE_SIZE = 10;
 
 export default function MyScenariosPage() {
+  const router = useRouter();
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -52,8 +54,13 @@ export default function MyScenariosPage() {
       .getSession()
       .then(({ data, error }) => {
         if (error) throw error;
-        if (!data.session) window.location.href = "/login";
-        else setSession(data.session);
+        if (!data.session) {
+          localStorage.setItem(
+            "pathologix:redirect_after_login",
+            "/my-scenarios"
+          );
+          void router.replace("/login");
+        } else setSession(data.session);
       })
       .catch((error) => {
         reportClientIssue(error, {
@@ -66,7 +73,7 @@ export default function MyScenariosPage() {
         );
         setLoading(false);
       });
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     if (!session) return;

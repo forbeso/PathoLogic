@@ -1194,6 +1194,30 @@ test("Exam Mode redirects signed-out learners to login", async ({ page }) => {
   await expect(page.getByRole("heading", { name: /sign in/i })).toBeVisible();
 });
 
+test("progress sign-in gate preserves a useful browser back path", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("link", { name: "View progress" }).click();
+
+  await expect(page).toHaveURL(/\/login$/, { timeout: 20_000 });
+  await expect(
+    page.getByRole("heading", { name: "Sign in to PathoLogix" })
+  ).toBeVisible();
+  expect(
+    await page.evaluate(() =>
+      localStorage.getItem("pathologix:redirect_after_login")
+    )
+  ).toBe("/progress");
+
+  await page.goBack();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(
+    page.getByRole("heading", { name: "PathoLogix", exact: true })
+  ).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+});
+
 test("mobile navigation exposes every primary destination", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.startsWith("mobile"));
   await page.goto("/flashcards");

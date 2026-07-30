@@ -1,4 +1,5 @@
-import { useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
+import { useRouter } from "next/router";
 import { supabase } from "@/lib/supabase";
 import { reportClientIssue } from "@/lib/telemetry";
 import Header from "@/components/Header";
@@ -28,6 +29,7 @@ type Profile = {
 };
 
 export default function ProfilePage() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -38,12 +40,7 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // --- Auth gate + load profile
-  useEffect(() => {
-    void loadAccount();
-  }, []);
-
-  async function loadAccount() {
+  const loadAccount = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
 
@@ -52,7 +49,8 @@ export default function ProfilePage() {
         await supabase.auth.getSession();
       if (sessionError) throw sessionError;
       if (!sessionData.session) {
-        window.location.href = "/login";
+        localStorage.setItem("pathologix:redirect_after_login", "/profile");
+        void router.replace("/login");
         return;
       }
 
@@ -87,7 +85,12 @@ export default function ProfilePage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [router]);
+
+  // --- Auth gate + load profile
+  useEffect(() => {
+    void loadAccount();
+  }, [loadAccount]);
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();

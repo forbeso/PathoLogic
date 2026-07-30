@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import Header from "@/components/Header";
 import { supabase } from "@/lib/supabase";
 import { ADAPTIVE_TARGET_STORAGE_KEY } from "@/lib/adaptive";
@@ -159,6 +160,7 @@ function PercentBar({ value }: { value: number }) {
 }
 
 export default function ProgressPage() {
+  const router = useRouter();
   const { progress: learnerProgress, level: learnerLevel } =
     useLearnerProgress();
   const [loading, setLoading] = useState(true);
@@ -178,7 +180,11 @@ export default function ProgressPage() {
       .then(async ({ data, error }) => {
         if (error) throw error;
         if (!data.session) {
-          window.location.href = "/login";
+          localStorage.setItem(
+            "pathologix:redirect_after_login",
+            "/progress"
+          );
+          void router.replace("/login");
           return;
         }
         await loadPerf();
@@ -194,7 +200,7 @@ export default function ProgressPage() {
         );
         setLoading(false);
       });
-  }, []);
+  }, [router]);
 
   async function loadPerf() {
     setLoading(true);
