@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 import { reportClientIssue } from "@/lib/telemetry";
+import { markActivationCompleted } from "@/lib/onboarding";
 
 import {
   Brain,
@@ -301,7 +302,14 @@ export default function FlashcardTrainer() {
                   animate={{ rotateY: 0, opacity: 1 }}
                   exit={{ rotateY: -78, opacity: 0 }}
                   transition={{ duration: 0.22, ease: "easeOut" }}
-                  onClick={() => setFlipped((value) => !value)}
+                  onClick={() => {
+                    if (!flipped) {
+                      void markActivationCompleted("flashcard").catch(() => {
+                        // Activation tracking must not interrupt the card.
+                      });
+                    }
+                    setFlipped((value) => !value);
+                  }}
                   aria-pressed={flipped}
                   aria-label={flipped ? "Show the question" : "Reveal the answer"}
                   className={`col-start-1 row-start-1 min-h-[360px] w-full select-none rounded-lg border p-6 text-left shadow-[0_18px_50px_rgba(15,23,42,0.14)] transition focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-4 sm:min-h-[430px] sm:p-10 ${

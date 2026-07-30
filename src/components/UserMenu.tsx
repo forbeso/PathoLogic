@@ -1,7 +1,17 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import { ChevronDown, LogOut, User, BarChart2 } from "lucide-react";
+import {
+  BarChart2,
+  ChevronDown,
+  Link2,
+  LogOut,
+  MessageSquareText,
+  User,
+  UserPlus,
+} from "lucide-react";
+import FeedbackDialog from "@/components/FeedbackDialog";
+import { trackProductEvent } from "@/lib/telemetry";
 
 type Props = {
   email?: string | null;
@@ -10,6 +20,8 @@ type Props = {
 
 export default function UserMenu({ email, avatarUrl }: Props) {
   const [open, setOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [inviteStatus, setInviteStatus] = useState("");
   const menuRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
@@ -68,6 +80,30 @@ export default function UserMenu({ email, avatarUrl }: Props) {
     const letters = namePart.replace(/[^a-zA-Z]/g, "");
     return letters.slice(0, 2).toUpperCase() || "U";
   }, [email]);
+
+  async function shareInvite() {
+    const inviteUrl = `${window.location.origin}/?utm_source=member_invite&utm_medium=product&utm_campaign=beta`;
+    const shareData = {
+      title: "PathoLogix EMT training",
+      text: "Try PathoLogix for EMT scenarios, exam practice, and flashcards.",
+      url: inviteUrl,
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+        setInviteStatus("Invite shared.");
+        trackProductEvent("invite_shared", { method: "native" });
+      } else {
+        await navigator.clipboard.writeText(inviteUrl);
+        setInviteStatus("Invite link copied.");
+        trackProductEvent("invite_shared", { method: "clipboard" });
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      setInviteStatus("Could not copy the link. Please try again.");
+    }
+  }
 
   return (
     <div className="relative" ref={menuRef}>
@@ -149,6 +185,37 @@ export default function UserMenu({ email, avatarUrl }: Props) {
           </Link>
           <div className="h-px bg-slate-100" />
           <button
+            type="button"
+            role="menuitem"
+            onClick={() => void shareInvite()}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-slate-50"
+          >
+            <UserPlus size={16} className="text-slate-600" />
+            Invite a classmate
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false);
+              setFeedbackOpen(true);
+            }}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-slate-50"
+          >
+            <MessageSquareText size={16} className="text-slate-600" />
+            Give feedback
+          </button>
+          {inviteStatus ? (
+            <div
+              role="status"
+              className="flex items-start gap-2 border-t border-slate-100 px-3 py-2 text-xs leading-5 text-slate-600"
+            >
+              <Link2 size={14} className="mt-0.5 shrink-0" />
+              {inviteStatus}
+            </div>
+          ) : null}
+          <div className="h-px bg-slate-100" />
+          <button
             role="menuitem"
             onClick={async () => {
               await supabase.auth.signOut();
@@ -161,6 +228,13 @@ export default function UserMenu({ email, avatarUrl }: Props) {
           </button>
         </div>
       )}
+      <FeedbackDialog
+        open={feedbackOpen}
+        onClose={() => {
+          setFeedbackOpen(false);
+          window.requestAnimationFrame(() => triggerRef.current?.focus());
+        }}
+      />
     </div>
   );
 }

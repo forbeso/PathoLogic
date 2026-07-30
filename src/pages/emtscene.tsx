@@ -16,6 +16,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import { useLearnerProgress } from "@/hooks/useLearnerProgress";
 import { awardProgress, createProgressionRunId } from "@/lib/progression";
 import { trackProductEvent } from "@/lib/telemetry";
+import { markActivationCompleted } from "@/lib/onboarding";
 import { useModalFocus } from "@/hooks/useModalFocus";
 import {
   abandonScenarioAttempt,
@@ -1024,6 +1025,9 @@ export default function EMTScene() {
         score: overallScore,
         elapsedSeconds: gameState.elapsedTime,
         hintsUsed: gameState.hintsUsed,
+      });
+      void markActivationCompleted("emt_scene").catch(() => {
+        // Activation tracking must not interrupt the debrief.
       });
     }
 

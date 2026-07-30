@@ -1,6 +1,7 @@
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { supabase } from "@/lib/supabase";
+import { hasCompletedOnboarding } from "@/lib/onboarding";
 import Header from "@/components/Header";
 import Seo from "@/components/Seo";
 import {
@@ -32,9 +33,13 @@ export default function LoginPage() {
   const navigatedRef = useRef(false);
   const recoveryRef = useRef(false);
 
-  const continueAfterLogin = useCallback(() => {
+  const continueAfterLogin = useCallback((userMetadata: Record<string, unknown>) => {
+    const storedRedirect = localStorage.getItem(
+      "pathologix:redirect_after_login"
+    );
     const to =
-      localStorage.getItem("pathologix:redirect_after_login") || "/emtrainer";
+      storedRedirect ||
+      (hasCompletedOnboarding(userMetadata) ? "/emtrainer" : "/welcome");
     const action =
       localStorage.getItem("pathologix:post_login_action") || null;
 
@@ -92,7 +97,7 @@ export default function LoginPage() {
       }
       if (!navigatedRef.current) {
         navigatedRef.current = true;
-        continueAfterLogin();
+        continueAfterLogin(session.user.user_metadata);
       }
     };
 

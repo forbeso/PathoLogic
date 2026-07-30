@@ -13,6 +13,11 @@ export type ProductEventName =
   | "adaptive_practice_started"
   | "adaptive_practice_loaded"
   | "practice_answered"
+  | "onboarding_started"
+  | "onboarding_completed"
+  | "activation_completed"
+  | "feedback_submitted"
+  | "invite_shared"
   | "web_vital";
 
 export type ClientIssueContext =

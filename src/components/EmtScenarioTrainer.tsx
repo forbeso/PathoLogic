@@ -33,6 +33,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import { authenticatedFetch } from "@/lib/authenticatedFetch";
 import { reportClientIssue, trackProductEvent } from "@/lib/telemetry";
+import { markActivationCompleted } from "@/lib/onboarding";
 import {
   cardClass,
   ErrorState,
@@ -432,6 +433,9 @@ export default function EMTScenarioTrainer() {
         correct: answer.correct,
         source: answer.source,
         recorded: true,
+      });
+      void markActivationCompleted("practice_answer").catch(() => {
+        // Activation tracking must not interrupt answer review.
       });
     } catch (error) {
       reportClientIssue(error, {

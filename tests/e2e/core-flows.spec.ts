@@ -168,6 +168,23 @@ test("telemetry endpoint accepts only privacy-safe issue envelopes", async ({
   expect(rejected.status()).toBe(400);
 });
 
+test("feedback endpoint is authenticated and POST-only", async ({
+  request,
+}) => {
+  const unsupportedMethod = await request.get("/api/feedback");
+  expect(unsupportedMethod.status()).toBe(405);
+
+  const unauthorized = await request.post("/api/feedback", {
+    data: {
+      category: "friction",
+      rating: 4,
+      message: "The next action was difficult to find.",
+      route: "/emtrainer",
+    },
+  });
+  expect(unauthorized.status()).toBe(401);
+});
+
 test("offline state explains what remains available and confirms recovery", async ({
   page,
   context,
@@ -1207,6 +1224,22 @@ test("Exam Mode redirects signed-out learners to login", async ({ page }) => {
   await page.goto("/exam/nremt");
   await expect(page).toHaveURL(/\/login$/, { timeout: 20_000 });
   await expect(page.getByRole("heading", { name: /sign in/i })).toBeVisible();
+});
+
+test("first-run onboarding preserves its destination while signed out", async ({
+  page,
+}) => {
+  await page.goto("/welcome");
+  await expect(page).toHaveURL(/\/login$/, { timeout: 20_000 });
+  await expect(
+    page.getByRole("heading", { name: "Sign in to PathoLogix" })
+  ).toBeVisible();
+  expect(
+    await page.evaluate(() =>
+      localStorage.getItem("pathologix:redirect_after_login")
+    )
+  ).toBe("/welcome");
+  await expectNoHorizontalOverflow(page);
 });
 
 test("progress sign-in gate preserves a useful browser back path", async ({

@@ -8,6 +8,7 @@ import Seo from "@/components/Seo";
 import { supabase } from "@/lib/supabase";
 import { authenticatedFetch } from "@/lib/authenticatedFetch";
 import { reportClientIssue, trackProductEvent } from "@/lib/telemetry";
+import { markActivationCompleted } from "@/lib/onboarding";
 import {
   abandonExam,
   completeExam,
@@ -229,6 +230,9 @@ export default function NremtExamPage() {
         trackProductEvent("exam_completed", {
           questionCount: summary.totalQuestions,
           scorePercent: summary.scorePercent,
+        });
+        void markActivationCompleted("exam").catch(() => {
+          // Activation tracking must not interrupt exam completion.
         });
       } catch (error) {
         reportClientIssue(error, {
