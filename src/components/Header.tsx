@@ -99,6 +99,11 @@ export default function Header() {
           ) : (
             <UserMenu
               email={session.user.email}
+              fullName={
+                typeof session.user.user_metadata?.full_name === "string"
+                  ? session.user.user_metadata.full_name
+                  : null
+              }
               avatarUrl={
                 typeof session.user.user_metadata?.avatar_url === "string"
                   ? session.user.user_metadata.avatar_url

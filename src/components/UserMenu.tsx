@@ -15,10 +15,11 @@ import { trackProductEvent } from "@/lib/telemetry";
 
 type Props = {
   email?: string | null;
+  fullName?: string | null;
   avatarUrl?: string | null; // if you later store in profiles
 };
 
-export default function UserMenu({ email, avatarUrl }: Props) {
+export default function UserMenu({ email, fullName, avatarUrl }: Props) {
   const [open, setOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [inviteStatus, setInviteStatus] = useState("");
@@ -74,12 +75,18 @@ export default function UserMenu({ email, avatarUrl }: Props) {
     };
   }, [open]);
 
+  const firstName = useMemo(
+    () => fullName?.trim().split(/\s+/)[0] || null,
+    [fullName]
+  );
+
   const initials = useMemo(() => {
+    if (firstName) return firstName.slice(0, 2).toUpperCase();
     if (!email) return "U";
     const namePart = email.split("@")[0] || "U";
     const letters = namePart.replace(/[^a-zA-Z]/g, "");
     return letters.slice(0, 2).toUpperCase() || "U";
-  }, [email]);
+  }, [email, firstName]);
 
   async function shareInvite() {
     const inviteUrl = `${window.location.origin}/?utm_source=member_invite&utm_medium=product&utm_campaign=beta`;
@@ -140,7 +147,9 @@ export default function UserMenu({ email, avatarUrl }: Props) {
             {initials}
           </span>
         )}
-        <span className="hidden sm:inline max-w-[160px] truncate text-slate-700">{email}</span>
+        <span className="hidden max-w-[160px] truncate text-slate-700 sm:inline">
+          {firstName || email}
+        </span>
         <ChevronDown size={16} className="text-slate-500" />
       </button>
 
