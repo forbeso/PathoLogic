@@ -825,9 +825,78 @@ export default function ProgressPage() {
           </section>
         )}
 
-        {/* Table */}
+        {/* Topic performance */}
         <section className={`${cardClass} p-4`}>
-          <div className="overflow-x-auto">
+          <div className="mb-3 sm:hidden">
+            <h2 className="font-semibold text-slate-950 dark:text-white">
+              Topic performance
+            </h2>
+            <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
+              Review accuracy and start a focused practice session.
+            </p>
+          </div>
+
+          <div className="space-y-3 sm:hidden">
+            {loading ? (
+              <p className="py-6 text-center text-sm text-slate-600 dark:text-slate-300">
+                Loading...
+              </p>
+            ) : null}
+
+            {!loading && sorted.length === 0 ? (
+              <p className="py-6 text-center text-sm text-slate-600 dark:text-slate-300">
+                No data yet. Answer a few questions in the trainer to see
+                progress.
+              </p>
+            ) : null}
+
+            {!loading &&
+              sorted.map((row) => {
+                const percentage = row.accuracy * 100;
+                return (
+                  <article
+                    key={row.topic}
+                    className="rounded-md border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-[#0c1d23]"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h3 className="font-semibold text-slate-950 dark:text-white">
+                          {row.topic}
+                        </h3>
+                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                          {row.attempts}{" "}
+                          {row.attempts === 1 ? "attempt" : "attempts"} · Last
+                          practiced{" "}
+                          {new Date(row.last_practiced).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <span className="shrink-0 font-semibold tabular-nums text-slate-900 dark:text-slate-100">
+                        {percentage.toFixed(0)}%
+                      </span>
+                    </div>
+                    <div className="mt-3">
+                      <PercentBar value={row.accuracy} />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        localStorage.setItem(
+                          ADAPTIVE_TARGET_STORAGE_KEY,
+                          row.topic
+                        );
+                        window.location.href = "/emtrainer";
+                      }}
+                      className={`${secondaryButtonClass} mt-4 w-full`}
+                    >
+                      Train this topic
+                      <ArrowRight size={15} aria-hidden="true" />
+                    </button>
+                  </article>
+                );
+              })}
+          </div>
+
+          <div className="hidden overflow-x-auto sm:block">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-slate-600">
