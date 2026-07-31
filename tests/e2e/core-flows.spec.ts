@@ -1226,6 +1226,20 @@ test("Exam Mode redirects signed-out learners to login", async ({ page }) => {
   await expect(page.getByRole("heading", { name: /sign in/i })).toBeVisible();
 });
 
+test("feedback inbox requires an authenticated administrator", async ({ page }) => {
+  await page.goto("/admin/feedback");
+  await expect(page).toHaveURL(/\/login$/, { timeout: 20_000 });
+  await expect(
+    page.getByRole("heading", { name: "Sign in to PathoLogix" })
+  ).toBeVisible();
+  expect(
+    await page.evaluate(() =>
+      localStorage.getItem("pathologix:redirect_after_login")
+    )
+  ).toBe("/admin/feedback");
+  await expectNoHorizontalOverflow(page);
+});
+
 test("first-run onboarding preserves its destination while signed out", async ({
   page,
 }) => {

@@ -99,6 +99,7 @@ export default function Header() {
           ) : (
             <UserMenu
               email={session.user.email}
+              isAdmin={session.user.app_metadata?.role === "admin"}
               fullName={
                 typeof session.user.user_metadata?.full_name === "string"
                   ? session.user.user_metadata.full_name

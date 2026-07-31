@@ -7,6 +7,7 @@ import {
   Link2,
   LogOut,
   MessageSquareText,
+  ShieldCheck,
   User,
   UserPlus,
 } from "lucide-react";
@@ -16,10 +17,16 @@ import { trackProductEvent } from "@/lib/telemetry";
 type Props = {
   email?: string | null;
   fullName?: string | null;
+  isAdmin?: boolean;
   avatarUrl?: string | null; // if you later store in profiles
 };
 
-export default function UserMenu({ email, fullName, avatarUrl }: Props) {
+export default function UserMenu({
+  email,
+  fullName,
+  isAdmin = false,
+  avatarUrl,
+}: Props) {
   const [open, setOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [inviteStatus, setInviteStatus] = useState("");
@@ -192,6 +199,17 @@ export default function UserMenu({ email, fullName, avatarUrl }: Props) {
             <BarChart2 size={16} className="text-slate-600" />
             My Scenarios
           </Link>
+          {isAdmin ? (
+            <Link
+              href="/admin/feedback"
+              role="menuitem"
+              className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50"
+              onClick={() => setOpen(false)}
+            >
+              <ShieldCheck size={16} className="text-slate-600" />
+              Feedback inbox
+            </Link>
+          ) : null}
           <div className="h-px bg-slate-100" />
           <button
             type="button"

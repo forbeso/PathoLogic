@@ -74,6 +74,21 @@ export async function requireApiUser(
   return user;
 }
 
+export async function requireAdminUser(
+  req: NextApiRequest,
+  res: NextApiResponse
+): Promise<User | null> {
+  const user = await requireApiUser(req, res);
+  if (!user) return null;
+
+  if (user.app_metadata?.role !== "admin") {
+    res.status(403).json({ error: "Administrator access required." });
+    return null;
+  }
+
+  return user;
+}
+
 export function enforceRateLimit(
   req: NextApiRequest,
   res: NextApiResponse,
