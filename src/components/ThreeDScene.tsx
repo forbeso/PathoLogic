@@ -2099,7 +2099,11 @@ function SceneAmbulance({
   return (
     <group position={position} rotation={[0, rotationY, 0]}>
       <CustomAmbulanceModel scale={scale} />
-      <group position={[cabX, roofY, 0]} rotation={[0, Math.PI / 2, 0]}>
+      <group
+        position={[cabX, roofY, 0]}
+        rotation={[0, Math.PI / 2, 0]}
+        scale={scale / 3.78}
+      >
         <AmbulanceLightGlow position={[0, 0, 0]} />
       </group>
     </group>
@@ -2314,7 +2318,7 @@ function RoadsideFestivalEmergencyScene({
       <RoadsideFestivalGround />
       <RoadsideVillageBackdrop />
 
-      <SceneAmbulance position={[-4.55, 0.96, -4.78]} scale={3.78} rotationY={0.34} />
+      <SceneAmbulance position={[-4.75, 1.4, -4.78]} scale={5.15} rotationY={0.34} />
       <FloatingWalkieTalkie position={FESTIVAL_RADIO_POSITION} />
       {/* DamagedCar is intentionally hidden for this focused single-scene pass. */}
       {/* <DamagedCar position={[3.85, 0.08, -4.72]} /> */}
@@ -2542,7 +2546,7 @@ function CarAccidentEmergencyScene({
       <CarAccidentGround />
       <ResidentialRoadEdge />
 
-      <SceneAmbulance position={[-2.8, 0.94, 1.15]} scale={3.45} rotationY={0.06} />
+      <SceneAmbulance position={[-3.15, 1.35, 1.15]} scale={4.65} rotationY={0.06} />
       <FloatingWalkieTalkie position={COLLISION_RADIO_POSITION} scale={0.36} />
       <DamagedCar position={[2.6, 0.12, 0]} rotationY={0.02} showDriver />
       <CustomFirstAidBagModel
@@ -4705,7 +4709,7 @@ export default function ThreeDScene({
               scale={0.88}
               rotation={[0, 0, 0]}
             />
-            <CustomAmbulanceModel position={[-3.95, 0.52, -0.7]} scale={2.05} rotation={[0, 0.58, 0]} />
+            <CustomAmbulanceModel position={[-4.2, 1.35, -0.7]} scale={4.65} rotation={[0, 0.58, 0]} />
           </>
         ) : null}
         <ParamedicGuideDialogue

@@ -6,6 +6,7 @@ const publicRoutes = [
   { path: "/", modified: "2026-07-17" },
   { path: "/learn", modified: "2026-07-17" },
   { path: "/emtrainer", modified: "2026-07-17" },
+  { path: "/triage", modified: "2026-07-31" },
   { path: "/exam/nremt", modified: "2026-07-17" },
   { path: "/flashcards", modified: "2026-07-17" },
   { path: "/emtscene", modified: "2026-07-17" },
