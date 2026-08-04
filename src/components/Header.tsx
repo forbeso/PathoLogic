@@ -14,7 +14,11 @@ const navItems = [
   { href: "/progress", label: "Progress" },
 ];
 
-export default function Header() {
+export default function Header({
+  compactOnLandscape = false,
+}: {
+  compactOnLandscape?: boolean;
+}) {
   const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [session, setSession] = useState<
@@ -52,17 +56,17 @@ export default function Header() {
       : router.pathname === href || router.pathname.startsWith(`${href}/`);
 
   return (
-    <header className="sticky top-0 z-30 border-b border-[#c8dcd6] bg-white/88 px-4 text-slate-950 shadow-[0_10px_28px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:border-slate-700 dark:bg-[#0b1c22]/95 dark:text-slate-50 dark:shadow-black/30">
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 py-3">
+    <header className={`${compactOnLandscape ? "compact-landscape-header" : ""} sticky top-0 z-30 border-b border-[#c8dcd6] bg-white/88 px-4 text-slate-950 shadow-[0_10px_28px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:border-slate-700 dark:bg-[#0b1c22]/95 dark:text-slate-50 dark:shadow-black/30`}>
+      <div className="site-header-inner mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 py-3">
         <div className="flex items-center gap-7">
           <Link href="/" className="flex items-center gap-2">
-            <span className="grid h-10 w-10 place-items-center rounded-lg border border-teal-200 bg-teal-50 text-teal-700 shadow-sm">
+            <span className="site-header-logo grid h-10 w-10 place-items-center rounded-lg border border-teal-200 bg-teal-50 text-teal-700 shadow-sm">
               <Ambulance size={20} />
             </span>
-            <span className="text-xl font-black text-slate-950 dark:text-slate-50">PathoLogix</span>
+            <span className="site-header-name text-xl font-black text-slate-950 dark:text-slate-50">PathoLogix</span>
           </Link>
 
-          <nav className="hidden items-center gap-1 text-sm md:flex">
+          <nav className="site-header-nav hidden items-center gap-1 text-sm md:flex">
             {navItems.map((item) => (
               <Link
                 key={item.href}
@@ -80,11 +84,11 @@ export default function Header() {
           </nav>
         </div>
 
-        <div className="flex items-center gap-2 text-sm text-slate-700">
+        <div className="site-header-actions flex items-center gap-2 text-sm text-slate-700">
           <ThemeToggle />
           <Link
             href="/emtrainer"
-            className="hidden items-center gap-2 rounded-md bg-teal-600 px-3 py-2 font-semibold text-white shadow-sm transition hover:bg-teal-500 sm:inline-flex"
+            className="site-header-practice hidden items-center gap-2 rounded-md bg-teal-600 px-3 py-2 font-semibold text-white shadow-sm transition hover:bg-teal-500 sm:inline-flex"
           >
             Practice
             <ArrowRight size={15} />
@@ -119,7 +123,7 @@ export default function Header() {
             aria-expanded={mobileMenuOpen}
             aria-controls="mobile-navigation"
             onClick={() => setMobileMenuOpen((open) => !open)}
-            className="grid h-11 w-11 place-items-center rounded-md border border-[#b7ccc5] bg-white text-slate-800 shadow-sm transition hover:border-teal-500 hover:bg-teal-50 dark:border-slate-700 dark:bg-[#102329] dark:text-slate-200 dark:hover:border-teal-500 dark:hover:bg-[#16333a] md:hidden"
+            className="site-header-menu grid h-11 w-11 place-items-center rounded-md border border-[#b7ccc5] bg-white text-slate-800 shadow-sm transition hover:border-teal-500 hover:bg-teal-50 dark:border-slate-700 dark:bg-[#102329] dark:text-slate-200 dark:hover:border-teal-500 dark:hover:bg-[#16333a] md:hidden"
           >
             {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
@@ -129,7 +133,7 @@ export default function Header() {
       {mobileMenuOpen ? (
         <nav
           id="mobile-navigation"
-          className="mx-auto grid max-w-6xl grid-cols-2 gap-2 border-t border-[#d8e7e2] py-3 dark:border-slate-700 md:hidden"
+          className="site-header-mobile-nav mx-auto grid max-w-6xl grid-cols-2 gap-2 border-t border-[#d8e7e2] py-3 dark:border-slate-700 md:hidden"
         >
           {navItems.map((item) => (
             <Link

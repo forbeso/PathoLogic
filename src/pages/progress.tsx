@@ -19,6 +19,7 @@ import {
   Sparkles,
   Trophy,
   Zap,
+  Siren,
 } from "lucide-react";
 import { useLearnerProgress } from "@/hooks/useLearnerProgress";
 import Seo from "@/components/Seo";
@@ -66,6 +67,22 @@ type ScenarioAttemptRow = {
   total_objectives: number;
   elapsed_seconds: number;
   hints_used: number;
+  completed_at: string;
+};
+
+type TriageAttemptRow = {
+  id: string;
+  scenario_id: string;
+  simulation_mode: "learn" | "challenge";
+  outcome: "completed" | "timed-out";
+  score: number;
+  accuracy: number;
+  correct_classifications: number;
+  correct_interventions: number;
+  over_triage: number;
+  under_triage: number;
+  untagged: number;
+  elapsed_seconds: number;
   completed_at: string;
 };
 
@@ -171,6 +188,8 @@ export default function ProgressPage() {
   const [scenarioRows, setScenarioRows] = useState<ScenarioAttemptRow[]>([]);
   const [scenarioHistoryAvailable, setScenarioHistoryAvailable] =
     useState(true);
+  const [triageRows, setTriageRows] = useState<TriageAttemptRow[]>([]);
+  const [triageHistoryAvailable, setTriageHistoryAvailable] = useState(true);
   const [sortKey, setSortKey] = useState<"topic" | "accuracy" | "attempts" | "last_practiced">("accuracy");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
@@ -214,7 +233,7 @@ export default function ProgressPage() {
       if (userError) throw userError;
       if (!user) throw new Error("Not signed in");
 
-      const [performanceResult, examResult, scenarioResult] = await Promise.all([
+      const [performanceResult, examResult, scenarioResult, triageResult] = await Promise.all([
         supabase
           .from("performance")
           .select("user_id, topic, accuracy, attempts, last_practiced")
@@ -233,6 +252,14 @@ export default function ProgressPage() {
           )
           .eq("user_id", user.id)
           .eq("status", "completed")
+          .order("completed_at", { ascending: false })
+          .limit(10),
+        supabase
+          .from("triage_attempts")
+          .select(
+            "id, scenario_id, simulation_mode, outcome, score, accuracy, correct_classifications, correct_interventions, over_triage, under_triage, untagged, elapsed_seconds, completed_at"
+          )
+          .eq("user_id", user.id)
           .order("completed_at", { ascending: false })
           .limit(10),
       ]);
@@ -254,6 +281,14 @@ export default function ProgressPage() {
       } else {
         setScenarioRows([]);
         setScenarioHistoryAvailable(false);
+      }
+
+      if (!triageResult.error && triageResult.data) {
+        setTriageRows(triageResult.data as TriageAttemptRow[]);
+        setTriageHistoryAvailable(true);
+      } else {
+        setTriageRows([]);
+        setTriageHistoryAvailable(false);
       }
     } catch (error) {
       reportClientIssue(error, {
@@ -319,6 +354,20 @@ export default function ProgressPage() {
       : 0;
     return { attempts: scenarioRows.length, average };
   }, [scenarioRows]);
+
+  const triageTotals = useMemo(() => {
+    const accuracies = triageRows.map((row) => Number(row.accuracy) || 0);
+    return {
+      attempts: triageRows.length,
+      average: accuracies.length
+        ? Math.round(
+            accuracies.reduce((sum, accuracy) => sum + accuracy, 0) /
+              accuracies.length
+          )
+        : 0,
+      best: accuracies.length ? Math.max(...accuracies) : 0,
+    };
+  }, [triageRows]);
 
   const recommendation = useMemo<StudyRecommendation>(() => {
     if (!rows.length) {
@@ -819,6 +868,100 @@ export default function ProgressPage() {
                 </p>
                 <p className="mt-1 text-xs text-slate-600">
                   Finish every objective in an EMT Scene run to save it here.
+                </p>
+              </div>
+            )}
+          </section>
+        )}
+
+        {triageHistoryAvailable && (
+          <section className={`${cardClass} p-4 sm:p-5`}>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <div className="flex items-center gap-2 text-teal-700 dark:text-teal-300">
+                  <Siren size={18} aria-hidden="true" />
+                  <h2 className="text-sm font-semibold uppercase tracking-wide">
+                    MCI triage history
+                  </h2>
+                </div>
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                  Completed initial-triage incidents, accuracy, and decision time.
+                </p>
+              </div>
+              <Link href="/triage" className={secondaryButtonClass}>
+                Open MCI Triage
+              </Link>
+            </div>
+
+            {triageRows.length > 0 ? (
+              <>
+                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-[#0c1d23]">
+                    <div className="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">Completed runs</div>
+                    <div className="mt-1 text-2xl font-semibold text-slate-950 dark:text-white">{triageTotals.attempts}</div>
+                  </div>
+                  <div className="rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-[#0c1d23]">
+                    <div className="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">Average accuracy</div>
+                    <div className="mt-1 text-2xl font-semibold text-slate-950 dark:text-white">{triageTotals.average}%</div>
+                  </div>
+                  <div className="rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-[#0c1d23]">
+                    <div className="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">Best accuracy</div>
+                    <div className="mt-1 text-2xl font-semibold text-slate-950 dark:text-white">{triageTotals.best}%</div>
+                  </div>
+                </div>
+
+                <div className="mt-4 divide-y divide-slate-100 border-t border-slate-100 dark:divide-slate-800 dark:border-slate-800">
+                  {triageRows.slice(0, 5).map((attempt) => {
+                    const accuracy = Math.round(Number(attempt.accuracy));
+                    return (
+                      <article
+                        key={attempt.id}
+                        className="grid gap-3 py-4 text-sm sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+                      >
+                        <div className="min-w-0">
+                          <div className="font-semibold text-slate-950 dark:text-white">
+                            Highway Collision — Initial Triage
+                          </div>
+                          <div className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                            {attempt.simulation_mode === "learn" ? "Learn" : "Challenge"} · {formatDuration(attempt.elapsed_seconds)} · {new Date(attempt.completed_at).toLocaleDateString()}
+                            {attempt.outcome === "timed-out" ? " · Time expired" : ""}
+                          </div>
+                          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600 dark:text-slate-300">
+                            <span>{attempt.correct_classifications}/8 tags correct</span>
+                            <span>{attempt.correct_interventions} rapid interventions</span>
+                            {attempt.under_triage > 0 ? (
+                              <span className="font-semibold text-rose-700 dark:text-rose-300">
+                                {attempt.under_triage} under-triaged
+                              </span>
+                            ) : null}
+                            <Link href="/triage" className="inline-flex items-center gap-1.5 font-semibold text-teal-700 hover:text-teal-900 dark:text-teal-300 dark:hover:text-teal-200">
+                              <RotateCcw size={13} aria-hidden="true" />
+                              Triage again
+                            </Link>
+                          </div>
+                        </div>
+                        <div
+                          className={`text-2xl font-semibold tabular-nums sm:text-right ${
+                            accuracy >= 75
+                              ? "text-emerald-700 dark:text-emerald-300"
+                              : accuracy >= 60
+                                ? "text-amber-700 dark:text-amber-300"
+                                : "text-rose-700 dark:text-rose-300"
+                          }`}
+                          aria-label={`Accuracy ${accuracy}%`}
+                        >
+                          {accuracy}%
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
+              <div className="mt-4 rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center dark:border-slate-700 dark:bg-[#0c1d23]">
+                <p className="text-sm font-medium text-slate-900 dark:text-white">No completed triage incidents yet</p>
+                <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
+                  Complete or time out an MCI triage run to save it here.
                 </p>
               </div>
             )}

@@ -33,6 +33,17 @@ const SHIRTS = [
   "#475569",
 ];
 
+const PORTRAIT_PATIENT_POSITIONS: Record<string, [number, number, number]> = {
+  "patient-01": [-5.9, 0, 2.75],
+  "patient-02": [5.9, 0, 2.75],
+  "patient-03": [-4.0, 0, -1.75],
+  "patient-04": [-0.75, 0, -2.75],
+  "patient-05": [-1.7, 0, 2.15],
+  "patient-06": [0.85, 0, -0.25],
+  "patient-07": [4.15, 0, -0.85],
+  "patient-08": [6.65, 0, -2.45],
+};
+
 function Limb({
   position,
   rotation = [0, 0, 0],
@@ -193,12 +204,11 @@ function PatientFigure({
   const distress = patient.initialFindings.respiratoryDistress;
   const isUpright = patient.position === "walking" || patient.position === "standing";
   const portrait = size.width / size.height < 0.82;
-  const figurePosition: [number, number, number] =
-    patient.id === "patient-08" && portrait
-      ? [3.25, 0, -2.65]
-      : patient.visualPosition;
+  const figurePosition = portrait
+    ? PORTRAIT_PATIENT_POSITIONS[patient.id] ?? patient.visualPosition
+    : patient.visualPosition;
   const markerHeight = isUpright ? 2.25 : patient.position === "seated" || patient.position === "kneeling" ? 1.7 : 1.2;
-  const markerDistanceFactor = portrait ? 16 : 10;
+  const markerDistanceFactor = portrait ? 9 : 10;
 
   useFrame(({ clock }) => {
     if (!figure.current || reduceMotion) return;
@@ -340,27 +350,31 @@ function SceneControls() {
 
   useEffect(() => {
     const portrait = size.width / size.height < 0.82;
-    camera.position.set(0, portrait ? 7.4 : 5.7, portrait ? 15.2 : 10.8);
+    camera.position.set(0, portrait ? 6.3 : 5.7, portrait ? 12.4 : 10.8);
     if (camera instanceof THREE.PerspectiveCamera) {
-      camera.fov = portrait ? 45 : 42;
+      camera.fov = portrait ? 46 : 42;
       camera.updateProjectionMatrix();
     }
-    controls.current?.target.set(0, 0.65, 0);
+    controls.current?.target.set(0, 0.65, portrait ? 0.45 : 0);
     controls.current?.update();
   }, [camera, size.height, size.width]);
+
+  const portrait = size.width / size.height < 0.82;
 
   return (
     <OrbitControls
       ref={controls}
       makeDefault
-      target={[0, 0.65, 0]}
-      minDistance={8.5}
-      maxDistance={24}
+      target={[0, 0.65, portrait ? 0.45 : 0]}
+      minDistance={portrait ? 7.5 : 8.5}
+      maxDistance={portrait ? 18 : 24}
       minPolarAngle={0.55}
       maxPolarAngle={1.42}
-      enablePan={false}
-      rotateSpeed={0.55}
-      zoomSpeed={0.65}
+      enablePan={portrait}
+      screenSpacePanning={false}
+      rotateSpeed={portrait ? 0.42 : 0.55}
+      panSpeed={portrait ? 0.8 : 1}
+      zoomSpeed={portrait ? 0.52 : 0.65}
     />
   );
 }
@@ -388,25 +402,25 @@ function RoadsideDiorama(props: SceneProps) {
       />
 
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[22, 15]} />
+        <planeGeometry args={[38, 17]} />
         <meshStandardMaterial color="#567747" roughness={1} />
       </mesh>
       <mesh position={[0, 0.025, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[18, 7.4]} />
+        <planeGeometry args={[32, 7.4]} />
         <meshStandardMaterial color="#3e4850" roughness={0.94} />
       </mesh>
       <mesh position={[0, 0.045, 3.65]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[18, 0.7]} />
+        <planeGeometry args={[32, 0.7]} />
         <meshStandardMaterial color="#987a53" roughness={1} />
       </mesh>
       <mesh position={[0, 0.045, -3.65]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[18, 0.7]} />
+        <planeGeometry args={[32, 0.7]} />
         <meshStandardMaterial color="#987a53" roughness={1} />
       </mesh>
-      {Array.from({ length: 10 }, (_, index) => (
+      {Array.from({ length: 18 }, (_, index) => (
         <mesh
           key={`lane-${index}`}
-          position={[-7.9 + index * 1.75, 0.055, 0]}
+          position={[-14.9 + index * 1.75, 0.055, 0]}
           rotation={[-Math.PI / 2, 0, 0]}
         >
           <planeGeometry args={[1.05, 0.11]} />
@@ -415,20 +429,20 @@ function RoadsideDiorama(props: SceneProps) {
       ))}
       {[-3.55, 3.55].map((z) => (
         <mesh key={z} position={[0, 0.058, z]} rotation={[-Math.PI / 2, 0, 0]}>
-          <planeGeometry args={[18, 0.09]} />
+          <planeGeometry args={[32, 0.09]} />
           <meshBasicMaterial color="#f8fafc" />
         </mesh>
       ))}
 
       <Suspense fallback={null}>
         <CustomAmbulanceModel
-          position={[portrait ? -2.9 : -5.25, 1.55, -3.05]}
+          position={[portrait ? -10.5 : -8.25, 1.55, -3.05]}
           rotation={[0, 0.42, 0]}
           scale={6.2}
         />
       </Suspense>
-      <DamagedCar position={[-2.15, 0.62, -0.2]} color="#315d86" />
-      <DamagedCar position={[2.8, 0.78, 0.7]} color="#8b3e31" overturned />
+      <DamagedCar position={[portrait ? -3.45 : -2.15, 0.62, -0.2]} color="#315d86" />
+      <DamagedCar position={[portrait ? 3.85 : 2.8, 0.78, 0.7]} color="#8b3e31" overturned />
 
       {[
         [-0.9, 0.13, -1.2, 0.2],
@@ -460,7 +474,7 @@ function RoadsideDiorama(props: SceneProps) {
       <ContactShadows
         position={[0, 0.065, 0]}
         opacity={0.34}
-        scale={22}
+        scale={34}
         blur={2.4}
         far={6}
       />

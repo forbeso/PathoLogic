@@ -58,7 +58,7 @@ export function PatientAssessmentPanel({
     <aside
       data-testid="triage-assessment-panel"
       aria-label={`${patient.displayName} rapid assessment`}
-      className="pointer-events-auto absolute inset-x-2 bottom-2 z-40 max-h-[66dvh] overflow-y-auto rounded-lg border border-white/15 bg-[#071820] text-white shadow-2xl sm:inset-x-4 lg:inset-y-4 lg:left-auto lg:right-4 lg:top-28 lg:w-[390px] lg:max-h-none"
+      className="triage-assessment-panel pointer-events-auto absolute inset-x-2 bottom-2 z-40 max-h-[66dvh] overflow-y-auto rounded-lg border border-white/15 bg-[#071820] text-white shadow-2xl sm:inset-x-4 lg:inset-y-4 lg:left-auto lg:right-4 lg:top-28 lg:w-[390px] lg:max-h-none"
     >
       <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-white/10 bg-[#071820] p-4">
         <div>

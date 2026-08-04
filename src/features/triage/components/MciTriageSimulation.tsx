@@ -16,6 +16,9 @@ import { PatientAssessmentPanel } from "./PatientAssessmentPanel";
 import { TriageBriefing } from "./TriageBriefing";
 import { TriageDebrief } from "./TriageDebrief";
 import { TriageHud } from "./TriageHud";
+import { createProgressionRunId, syncLearnerProgress } from "@/lib/progression";
+import { saveTriageCompletion } from "@/lib/triageAttemptApi";
+import { trackProductEvent } from "@/lib/telemetry";
 
 const TriageScene = dynamic(
   () => import("./TriageScene").then((module) => module.TriageScene),
@@ -43,6 +46,11 @@ const categoryByKey: Record<string, TriageCategory> = {
 const BEST_SCORE_KEY = `pathologix:triage:best:${highwayCollisionScenario.id}`;
 const MODE_KEY = "pathologix:triage:last-mode";
 const COMPLETED_KEY = "pathologix:triage:completed";
+
+type SaveState =
+  | { status: "idle" | "saving"; xp: 0 }
+  | { status: "saved"; xp: number; awarded: boolean }
+  | { status: "signed-out" | "error"; xp: 0 };
 
 function playTagSound() {
   const AudioContextClass = window.AudioContext;
@@ -73,6 +81,8 @@ export default function MciTriageSimulation() {
   const [restartOpen, setRestartOpen] = useState(false);
   const [sceneKey, setSceneKey] = useState(0);
   const [bestScore, setBestScore] = useState(0);
+  const [runId, setRunId] = useState(() => createProgressionRunId("triage"));
+  const [saveState, setSaveState] = useState<SaveState>({ status: "idle", xp: 0 });
   const completionSaved = useRef(false);
 
   useEffect(() => {
@@ -104,6 +114,34 @@ export default function MciTriageSimulation() {
     [state.elapsedSeconds, state.patients, state.scenario]
   );
 
+  const persistCompletion = useCallback(async () => {
+    if (state.status !== "completed" && state.status !== "timed-out") return;
+    setSaveState({ status: "saving", xp: 0 });
+
+    try {
+      const result = await saveTriageCompletion({
+        runId,
+        scenarioId: state.scenario.id,
+        mode: state.mode,
+        status: state.status,
+        elapsedSeconds: state.elapsedSeconds,
+        patients: state.patients,
+      });
+      if (result.status === "signed-out") {
+        setSaveState({ status: "signed-out", xp: 0 });
+        return;
+      }
+      setSaveState({
+        status: "saved",
+        xp: result.xp,
+        awarded: result.awarded,
+      });
+      await syncLearnerProgress();
+    } catch {
+      setSaveState({ status: "error", xp: 0 });
+    }
+  }, [runId, state.elapsedSeconds, state.mode, state.patients, state.scenario.id, state.status]);
+
   useEffect(() => {
     if (state.status !== "completed" && state.status !== "timed-out") {
       completionSaved.current = false;
@@ -118,7 +156,16 @@ export default function MciTriageSimulation() {
       String(Number(window.localStorage.getItem(COMPLETED_KEY) ?? 0) + 1)
     );
     setBestScore(nextBest);
-  }, [bestScore, debrief.score, state.status]);
+    trackProductEvent("triage_completed", {
+      scenarioId: state.scenario.id,
+      mode: state.mode,
+      outcome: state.status,
+      score: debrief.score,
+      accuracy: debrief.accuracy,
+      elapsedSeconds: state.elapsedSeconds,
+    });
+    void persistCompletion();
+  }, [bestScore, debrief.accuracy, debrief.score, persistCompletion, state.elapsedSeconds, state.mode, state.scenario.id, state.status]);
 
   const selectedPatient = state.scenario.patients.find(
     (patient) => patient.id === state.selectedPatientId
@@ -184,12 +231,18 @@ export default function MciTriageSimulation() {
 
   const begin = () => {
     window.localStorage.setItem(MODE_KEY, state.mode);
+    trackProductEvent("triage_started", {
+      scenarioId: state.scenario.id,
+      mode: state.mode,
+    });
     dispatch({ type: "START" });
   };
 
   const restart = () => {
     setRestartOpen(false);
     setSceneKey((value) => value + 1);
+    setRunId(createProgressionRunId("triage"));
+    setSaveState({ status: "idle", xp: 0 });
     dispatch({ type: "RESTART" });
   };
 
@@ -204,7 +257,7 @@ export default function MciTriageSimulation() {
   const showDebrief = state.status === "completed" || state.status === "timed-out";
 
   return (
-    <div className="theme-locked-dark relative h-[calc(100dvh-65px)] min-h-[640px] overflow-hidden bg-[#31533f] text-white">
+    <div className="triage-simulation-shell theme-locked-dark relative h-full min-h-0 overflow-hidden bg-[#31533f] text-white">
       <div className="sr-only" aria-live="polite" aria-atomic="true">{state.announcement}</div>
 
       <TriageScene
@@ -274,8 +327,10 @@ export default function MciTriageSimulation() {
       ) : null}
 
       {state.status === "active" && !selectedPatient && !state.lastFeedback ? (
-        <div className="pointer-events-none absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full border border-white/20 bg-[#071820] px-4 py-2 text-xs font-bold shadow-xl">
-          <MousePointer2 size={15} className="text-teal-300" /> Select a patient to begin
+        <div className="triage-scene-hint pointer-events-none absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full border border-white/20 bg-[#071820] px-4 py-2 text-xs font-bold shadow-xl">
+          <MousePointer2 size={15} className="text-teal-300" />
+          <span className="hidden sm:inline">Select a patient to begin</span>
+          <span className="sm:hidden">Drag to explore · tap a patient</span>
         </div>
       ) : null}
 
@@ -322,6 +377,8 @@ export default function MciTriageSimulation() {
           debrief={debrief}
           bestScore={Math.max(bestScore, debrief.score)}
           timedOut={state.status === "timed-out"}
+          saveState={saveState}
+          onRetrySave={() => void persistCompletion()}
           onRestart={restart}
         />
       ) : null}

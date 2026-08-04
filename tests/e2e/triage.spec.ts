@@ -12,6 +12,12 @@ import {
 } from "@/features/triage/state";
 import type { TriageFindingState } from "@/features/triage/types";
 
+test.beforeEach(async ({ page }, testInfo) => {
+  if (testInfo.project.name.startsWith("mobile")) {
+    await page.setViewportSize({ width: 390, height: 844 });
+  }
+});
+
 const stable: TriageFindingState = {
   breathing: true,
   followsCommands: true,
@@ -178,6 +184,17 @@ test("triage briefing holds the timer until the user begins", async ({ page }) =
   await expect(page.getByTestId("triage-timer")).toHaveCount(0);
 });
 
+test("portrait phones can enter and use triage without an orientation gate", async ({ page }, testInfo) => {
+  test.skip(!testInfo.project.name.startsWith("mobile"));
+  await page.goto("/triage");
+
+  await expect(page.getByRole("heading", { name: /Highway Collision/i })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Rotate your phone" })).toHaveCount(0);
+  await page.getByTestId("triage-begin").click();
+  await expect(page.getByText("Drag to explore · tap a patient")).toBeVisible();
+  await expect(page.getByTestId("triage-patient-patient-06")).toBeVisible();
+});
+
 test("Learn mode supports patient selection, keyboard tagging, and reassessment", async ({ page }) => {
   await page.goto("/triage");
   await page.getByRole("radio", { name: /Learn/i }).click();
@@ -233,6 +250,9 @@ test("completing all eight patients opens a scored debrief", async ({ page }, te
   await expect(page.getByRole("heading", { name: "MCI triage debrief" })).toBeVisible();
   await expect(page.getByText("100%", { exact: true })).toBeVisible();
   await expect(page.getByText("Expectant is not Dead.", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText(/Sign in to save future results and earn XP/i)
+  ).toBeVisible();
 });
 
 test("mobile triage controls fit the viewport and patient panel remains usable", async ({ page }, testInfo) => {

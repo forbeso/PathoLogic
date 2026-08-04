@@ -7,6 +7,8 @@ export type ProductEventName =
   | "emt_scene_started"
   | "emt_scene_completed"
   | "emt_scene_mode_changed"
+  | "triage_started"
+  | "triage_completed"
   | "exam_started"
   | "exam_completed"
   | "exam_abandoned"

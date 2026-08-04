@@ -1,4 +1,16 @@
-import { AlertTriangle, CheckCircle2, Clock3, RotateCcw, Target, Trophy, type LucideIcon } from "lucide-react";
+import Link from "next/link";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Clock3,
+  LoaderCircle,
+  RefreshCw,
+  RotateCcw,
+  Target,
+  Trophy,
+  Zap,
+  type LucideIcon,
+} from "lucide-react";
 import { TRIAGE_CATEGORY_META } from "../engine";
 import type { TriageDebrief as Debrief, TriageInterventionId } from "../types";
 
@@ -18,11 +30,18 @@ export function TriageDebrief({
   debrief,
   bestScore,
   timedOut,
+  saveState,
+  onRetrySave,
   onRestart,
 }: {
   debrief: Debrief;
   bestScore: number;
   timedOut: boolean;
+  saveState:
+    | { status: "idle" | "saving"; xp: 0 }
+    | { status: "saved"; xp: number; awarded: boolean }
+    | { status: "signed-out" | "error"; xp: 0 };
+  onRetrySave: () => void;
   onRestart: () => void;
 }) {
   const metrics: Array<{ label: string; value: string | number; icon: LucideIcon }> = [
@@ -47,6 +66,35 @@ export function TriageDebrief({
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
               Review every tag against the patient’s major assessment findings and the rapid interventions available at this incident.
             </p>
+            <div className="mt-3 min-h-8" role="status" aria-live="polite">
+              {saveState.status === "idle" || saveState.status === "saving" ? (
+                <span className="inline-flex items-center gap-2 text-xs font-bold text-slate-300">
+                  <LoaderCircle className="animate-spin motion-reduce:animate-none" size={15} />
+                  Saving this run to your progress
+                </span>
+              ) : null}
+              {saveState.status === "saved" ? (
+                <span className="inline-flex items-center gap-2 rounded-md border border-amber-300/30 bg-amber-300/10 px-3 py-1.5 text-xs font-black text-amber-100">
+                  <Zap size={15} />
+                  {saveState.awarded
+                    ? `Saved to Progress · +${saveState.xp} XP`
+                    : "Already saved · XP was not awarded twice"}
+                </span>
+              ) : null}
+              {saveState.status === "signed-out" ? (
+                <span className="text-xs font-bold text-slate-300">
+                  This run is saved on this device. <Link href="/login" className="text-teal-300 underline decoration-teal-300/50 underline-offset-4 hover:text-teal-200">Sign in</Link> to save future results and earn XP.
+                </span>
+              ) : null}
+              {saveState.status === "error" ? (
+                <span className="inline-flex flex-wrap items-center gap-2 text-xs font-bold text-rose-200">
+                  Your local result is safe, but account progress did not update.
+                  <button type="button" onClick={onRetrySave} className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-rose-200/30 px-3 hover:bg-rose-200/10">
+                    <RefreshCw size={13} /> Retry save
+                  </button>
+                </span>
+              ) : null}
+            </div>
           </div>
           <button
             type="button"
