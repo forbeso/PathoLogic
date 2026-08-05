@@ -95,7 +95,7 @@ export const highwayCollisionScenario: TriageScenario = {
   description:
     "A two-vehicle collision has created eight patients. Additional EMS resources are delayed. You are the first EMT assigned to begin primary MCI triage.",
   protocol: "SALT_MUCC",
-  durationSeconds: 240,
+  durationSeconds: 120,
   availableResources: [
     { id: "bleeding-control", label: "Bleeding-control supplies", available: true },
     { id: "tourniquet", label: "Commercial tourniquets", available: true },

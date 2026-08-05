@@ -22,6 +22,9 @@ export function TriageBriefing({
   onModeChange: (mode: SimulationMode) => void;
   onBegin: () => void;
 }) {
+  const challengeMinutes = Math.ceil(scenario.durationSeconds / 60);
+  const challengeTimeLabel = `${challengeMinutes} ${challengeMinutes === 1 ? "minute" : "minutes"}`;
+
   return (
     <div className="absolute inset-0 z-50 grid overflow-y-auto bg-[#031016]/[0.78] p-3 backdrop-blur-sm sm:p-6">
       <section
@@ -52,7 +55,7 @@ export function TriageBriefing({
               <div className="rounded-md border border-white/10 bg-white/5 p-3">
                 <Clock3 size={18} className="text-amber-300" aria-hidden="true" />
                 <div className="mt-2 text-xs font-bold uppercase text-slate-400">Challenge time</div>
-                <div className="mt-0.5 text-sm font-black">4 minutes</div>
+                <div className="mt-0.5 text-sm font-black">{challengeTimeLabel}</div>
               </div>
               <div className="rounded-md border border-white/10 bg-white/5 p-3">
                 <ShieldCheck size={18} className="text-sky-300" aria-hidden="true" />
@@ -76,7 +79,7 @@ export function TriageBriefing({
                   }`}
                 >
                   <span className="flex items-center gap-2 font-black"><Trophy size={17} /> Challenge</span>
-                  <span className="mt-1 block text-xs leading-5 text-slate-300">Four-minute limit. Results and rationale appear at the end.</span>
+                  <span className="mt-1 block text-xs leading-5 text-slate-300">{challengeTimeLabel} to triage the incident. Results and rationale appear at the end.</span>
                 </button>
                 <button
                   type="button"

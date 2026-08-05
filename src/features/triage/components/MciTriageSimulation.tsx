@@ -1,6 +1,7 @@
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { LoaderCircle, MousePointer2, Pause, RotateCcw, X } from "lucide-react";
+import { Clock3, LoaderCircle, MousePointer2, Pause, RotateCcw, X } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import { buildTriageDebrief, scorePatient, TRIAGE_CATEGORY_META } from "../engine";
 import { highwayCollisionScenario } from "../scenario";
 import {
@@ -83,6 +84,7 @@ export default function MciTriageSimulation() {
   const [bestScore, setBestScore] = useState(0);
   const [runId, setRunId] = useState(() => createProgressionRunId("triage"));
   const [saveState, setSaveState] = useState<SaveState>({ status: "idle", xp: 0 });
+  const [startNoticeMode, setStartNoticeMode] = useState<SimulationMode | null>(null);
   const completionSaved = useRef(false);
 
   useEffect(() => {
@@ -108,6 +110,12 @@ export default function MciTriageSimulation() {
     );
     return () => window.clearTimeout(timeout);
   }, [state.lastFeedback, state.mode]);
+
+  useEffect(() => {
+    if (!startNoticeMode) return;
+    const timeout = window.setTimeout(() => setStartNoticeMode(null), 4000);
+    return () => window.clearTimeout(timeout);
+  }, [startNoticeMode]);
 
   const debrief = useMemo(
     () => buildTriageDebrief(state.scenario, state.patients, state.elapsedSeconds),
@@ -231,6 +239,7 @@ export default function MciTriageSimulation() {
 
   const begin = () => {
     window.localStorage.setItem(MODE_KEY, state.mode);
+    setStartNoticeMode(state.mode);
     trackProductEvent("triage_started", {
       scenarioId: state.scenario.id,
       mode: state.mode,
@@ -240,6 +249,7 @@ export default function MciTriageSimulation() {
 
   const restart = () => {
     setRestartOpen(false);
+    setStartNoticeMode(null);
     setSceneKey((value) => value + 1);
     setRunId(createProgressionRunId("triage"));
     setSaveState({ status: "idle", xp: 0 });
@@ -289,6 +299,35 @@ export default function MciTriageSimulation() {
           onToggleSound={() => setSoundEnabled((enabled) => !enabled)}
         />
       ) : null}
+
+      <AnimatePresence>
+        {state.status === "active" && startNoticeMode ? (
+          <div className="pointer-events-none absolute inset-0 z-40 grid place-items-center px-4">
+            <motion.div
+              data-testid="triage-start-notice"
+              role="status"
+              initial={{ opacity: 1, y: 10, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -10, scale: 0.98 }}
+              transition={{ duration: 0.24, ease: "easeOut" }}
+              className="w-full max-w-[390px] rounded-lg border border-teal-200/35 bg-[#071820]/95 px-5 py-4 text-center text-white shadow-2xl backdrop-blur-md"
+            >
+              <Clock3 size={24} className="mx-auto text-amber-300" aria-hidden="true" />
+              <div className="mt-2 text-[10px] font-black uppercase tracking-[0.16em] text-teal-300">
+                {startNoticeMode === "challenge" ? "Challenge started" : "Learn mode started"}
+              </div>
+              <div className="mt-1 text-2xl font-black">
+                {startNoticeMode === "challenge" ? "2:00 starts now" : "Take your time"}
+              </div>
+              <p className="mt-1.5 text-sm leading-5 text-slate-300">
+                {startNoticeMode === "challenge"
+                  ? `Triage all ${state.scenario.patients.length} patients before time runs out.`
+                  : "Assess each patient carefully. Learn Mode has no countdown."}
+              </p>
+            </motion.div>
+          </div>
+        ) : null}
+      </AnimatePresence>
 
       {state.status === "briefing" ? (
         <TriageBriefing

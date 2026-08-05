@@ -150,6 +150,24 @@ test("paused reducer state prevents patient interaction and timer changes", () =
   expect(selected.selectedPatientId).toBeNull();
 });
 
+test("Challenge mode ends at the two-minute limit and cannot keep ticking", () => {
+  expect(highwayCollisionScenario.durationSeconds).toBe(120);
+
+  let state = createTriageSimulationState(highwayCollisionScenario, "challenge");
+  state = triageSimulationReducer(state, { type: "START" });
+  state = {
+    ...state,
+    elapsedSeconds: 119,
+    remainingSeconds: 1,
+  };
+
+  const timedOut = triageSimulationReducer(state, { type: "TICK" });
+  expect(timedOut.status).toBe("timed-out");
+  expect(timedOut.elapsedSeconds).toBe(120);
+  expect(timedOut.remainingSeconds).toBe(0);
+  expect(triageSimulationReducer(timedOut, { type: "TICK" })).toEqual(timedOut);
+});
+
 test("Challenge mode withholds correctness while Learn mode explains it", () => {
   const assignFirst = (mode: "challenge" | "learn") => {
     let state = createTriageSimulationState(highwayCollisionScenario, mode);
@@ -182,6 +200,18 @@ test("triage briefing holds the timer until the user begins", async ({ page }) =
   await expect(page.getByTestId("triage-timer")).toHaveCount(0);
   await page.waitForTimeout(1100);
   await expect(page.getByTestId("triage-timer")).toHaveCount(0);
+});
+
+test("starting Challenge mode briefly announces the two-minute limit", async ({ page }) => {
+  await page.goto("/triage");
+  await page.getByRole("radio", { name: /Challenge/i }).click();
+  await page.getByTestId("triage-begin").click();
+
+  const notice = page.getByTestId("triage-start-notice");
+  await expect(notice).toBeVisible();
+  await expect(notice).toContainText("2:00 starts now");
+  await expect(notice).toContainText("Triage all 8 patients");
+  await expect(notice).toBeHidden({ timeout: 6_000 });
 });
 
 test("portrait phones can enter and use triage without an orientation gate", async ({ page }, testInfo) => {
