@@ -966,6 +966,7 @@ test("EMT Scene renders its responsive training shell", async ({ page }, testInf
   await page.goto("/emtscene");
 
   await expect(page.getByRole("link", { name: "PathoLogix home" })).toBeVisible();
+  await expect(page.getByTestId("emt-scene-triage-link")).toHaveAttribute("href", "/triage");
   const canvas = page.locator("canvas");
   const sceneLoader = page.getByRole("heading", { name: "Preparing EMT Scene" });
   await expect(canvas).toHaveCount(1);

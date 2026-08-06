@@ -197,6 +197,10 @@ test("Learn mode flags a missed rapid intervention even when the final tag categ
 test("triage briefing holds the timer until the user begins", async ({ page }) => {
   await page.goto("/triage");
   await expect(page.getByRole("heading", { name: /Highway Collision/i })).toBeVisible();
+  await expect(page.getByTestId("triage-briefing-simulator-link")).toHaveAttribute(
+    "href",
+    "/emtscene?scenario=car-accident"
+  );
   await expect(page.getByTestId("triage-timer")).toHaveCount(0);
   await page.waitForTimeout(1100);
   await expect(page.getByTestId("triage-timer")).toHaveCount(0);
@@ -278,6 +282,10 @@ test("completing all eight patients opens a scored debrief", async ({ page }, te
   }
 
   await expect(page.getByRole("heading", { name: "MCI triage debrief" })).toBeVisible();
+  await expect(page.getByTestId("triage-debrief-simulator-link")).toHaveAttribute(
+    "href",
+    "/emtscene?scenario=car-accident"
+  );
   await expect(page.getByText("100%", { exact: true })).toBeVisible();
   await expect(page.getByText("Expectant is not Dead.", { exact: true })).toBeVisible();
   await expect(

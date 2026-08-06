@@ -51,6 +51,7 @@ import {
   Stethoscope,
   Timer,
   Trophy,
+  Users,
   Volume2,
   Wind,
 } from "lucide-react";
@@ -267,6 +268,7 @@ const MOBILE_HUD_SECTIONS = [
 ] satisfies Array<{ key: MobileHudSection; label: string; icon: typeof Activity }>;
 
 const SITE_NAV_ITEMS = [
+  { href: "/triage", label: "MCI Triage" },
   { href: "/emtrainer", label: "Scenarios" },
   { href: "/exam/nremt", label: "Exam Mode" },
   { href: "/flashcards", label: "Flashcards" },
@@ -652,6 +654,17 @@ function SceneTopBar({
 
       <div className="flex items-center gap-2">
         <ThemeToggle surface="dark" />
+        <Link
+          href="/triage"
+          data-testid="emt-scene-triage-link"
+          aria-label="Open MCI triage simulator"
+          title="Open MCI triage simulator"
+          className="inline-flex h-10 min-w-10 flex-col items-center justify-center gap-0.5 rounded-lg border border-teal-300/35 bg-teal-300/10 px-2 text-teal-100 transition hover:border-teal-200/70 hover:bg-teal-300/20 2xl:flex-row 2xl:gap-2 2xl:px-3"
+        >
+          <Users size={14} aria-hidden="true" className="2xl:h-[17px] 2xl:w-[17px]" />
+          <span className="text-[8px] font-black uppercase leading-none tracking-[0.08em] 2xl:hidden">MCI</span>
+          <span className="hidden text-xs font-black 2xl:inline">MCI Triage</span>
+        </Link>
         <button
           type="button"
           onClick={onObjectivesClick}
@@ -661,10 +674,10 @@ function SceneTopBar({
           <ClipboardCheck size={16} />
           Objectives
         </button>
-        <button type="button" aria-label="Music" className="grid h-10 w-10 place-items-center rounded-lg border border-white/15 bg-white/5 text-slate-100 transition hover:border-teal-200/50">
+        <button type="button" aria-label="Music" className="hidden h-10 w-10 place-items-center rounded-lg border border-white/15 bg-white/5 text-slate-100 transition hover:border-teal-200/50 sm:grid">
           <Music size={17} />
         </button>
-        <button type="button" aria-label="Volume" className="grid h-10 w-10 place-items-center rounded-lg border border-white/15 bg-white/5 text-slate-100 transition hover:border-teal-200/50">
+        <button type="button" aria-label="Volume" className="hidden h-10 w-10 place-items-center rounded-lg border border-white/15 bg-white/5 text-slate-100 transition hover:border-teal-200/50 sm:grid">
           <Volume2 size={17} />
         </button>
         <div className="relative">

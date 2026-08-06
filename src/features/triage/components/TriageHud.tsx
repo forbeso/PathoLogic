@@ -3,11 +3,13 @@ import {
   Pause,
   Play,
   RotateCcw,
+  Stethoscope,
   Trophy,
   Users,
   Volume2,
   VolumeX,
 } from "lucide-react";
+import Link from "next/link";
 import type { SimulationMode, SimulationStatus } from "../types";
 
 function formatTime(seconds: number) {
@@ -52,7 +54,7 @@ export function TriageHud({
 
   return (
     <header className="triage-hud pointer-events-auto absolute inset-x-2 top-2 z-30 rounded-lg border border-white/15 bg-[#071820] p-2 text-white shadow-2xl sm:inset-x-4 sm:top-4 sm:p-3 lg:flex lg:items-center lg:justify-between lg:gap-4">
-      <div className="triage-hud-title min-w-0">
+      <div className="triage-hud-title min-w-0 pr-12 lg:pr-0">
         <div className="flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-teal-300">
           <span>SALT/MUCC</span>
           <span aria-hidden="true" className="text-slate-600">•</span>
@@ -61,7 +63,27 @@ export function TriageHud({
         <h1 className="mt-0.5 truncate text-sm font-black sm:mt-1 sm:text-base">{title}</h1>
       </div>
 
+      <Link
+        href="/emtscene?scenario=car-accident"
+        data-testid="triage-to-simulator-mobile"
+        aria-label="Open EMT patient care simulator"
+        title="Open EMT patient care simulator"
+        style={{ right: "0.5rem", top: "0.5rem" }}
+        className="absolute right-2 top-2 flex h-10 w-10 flex-col items-center justify-center gap-0.5 rounded-md border border-white/15 bg-white/5 text-teal-200 transition hover:border-teal-300/60 hover:bg-teal-300/10 lg:hidden"
+      >
+        <Stethoscope size={14} aria-hidden="true" />
+        <span className="text-[8px] font-black uppercase leading-none tracking-[0.08em]">Care</span>
+      </Link>
+
       <div className="triage-hud-controls mt-2 grid grid-cols-[minmax(84px,1.2fr)_minmax(56px,.8fr)_minmax(52px,.7fr)_44px_44px] items-center gap-1.5 sm:mt-3 sm:flex sm:gap-2 lg:mt-0">
+        <Link
+          href="/emtscene?scenario=car-accident"
+          data-testid="triage-to-simulator-desktop"
+          className="hidden min-h-11 shrink-0 items-center gap-2 rounded-md border border-teal-300/35 bg-teal-300/10 px-3 text-xs font-black text-teal-100 transition hover:border-teal-300/70 hover:bg-teal-300/20 lg:inline-flex"
+        >
+          <Stethoscope size={16} aria-hidden="true" />
+          Patient Simulator
+        </Link>
         <div
           data-testid="triage-timer"
           role="timer"

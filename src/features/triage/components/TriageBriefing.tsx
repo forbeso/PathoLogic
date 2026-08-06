@@ -1,4 +1,5 @@
-import { Activity, Clock3, GraduationCap, Radio, ShieldCheck, Trophy } from "lucide-react";
+import Link from "next/link";
+import { Activity, Clock3, GraduationCap, Radio, ShieldCheck, Stethoscope, Trophy } from "lucide-react";
 import { TRIAGE_CATEGORY_META } from "../engine";
 import type { SimulationMode, TriageCategory, TriageScenario } from "../types";
 import { TriageCategoryTag } from "./TriageCategoryTag";
@@ -117,14 +118,24 @@ export function TriageBriefing({
           <p className="text-[11px] leading-4 text-slate-400">
             Educational simulation only. Follow your approved curriculum, local protocol, scope of practice, and medical direction.
           </p>
-          <button
-            type="button"
-            data-testid="triage-begin"
-            onClick={onBegin}
-            className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-md bg-teal-400 px-5 py-2 text-sm font-black text-slate-950 shadow-lg transition hover:bg-teal-300 focus:outline-none focus:ring-2 focus:ring-white"
-          >
-            Begin triage
-          </button>
+          <div className="grid shrink-0 gap-2 sm:flex">
+            <Link
+              href="/emtscene?scenario=car-accident"
+              data-testid="triage-briefing-simulator-link"
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-white/15 bg-white/5 px-4 py-2 text-sm font-bold text-slate-100 transition hover:border-teal-300/50 hover:bg-teal-300/10"
+            >
+              <Stethoscope size={17} aria-hidden="true" />
+              Patient care simulator
+            </Link>
+            <button
+              type="button"
+              data-testid="triage-begin"
+              onClick={onBegin}
+              className="inline-flex min-h-11 items-center justify-center rounded-md bg-teal-400 px-5 py-2 text-sm font-black text-slate-950 shadow-lg transition hover:bg-teal-300 focus:outline-none focus:ring-2 focus:ring-white"
+            >
+              Begin triage
+            </button>
+          </div>
         </div>
       </section>
     </div>

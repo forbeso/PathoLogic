@@ -4,8 +4,10 @@ import {
   CheckCircle2,
   Clock3,
   LoaderCircle,
+  ArrowRight,
   RefreshCw,
   RotateCcw,
+  Stethoscope,
   Target,
   Trophy,
   Zap,
@@ -96,13 +98,22 @@ export function TriageDebrief({
               ) : null}
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onRestart}
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-teal-400 px-5 py-2 text-sm font-black text-slate-950 hover:bg-teal-300"
-          >
-            <RotateCcw size={17} /> Triage again
-          </button>
+          <div className="grid shrink-0 gap-2 sm:flex">
+            <button
+              type="button"
+              onClick={onRestart}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-white/15 bg-white/5 px-4 py-2 text-sm font-bold text-slate-100 hover:border-teal-300/50 hover:bg-teal-300/10"
+            >
+              <RotateCcw size={17} /> Triage again
+            </button>
+            <Link
+              href="/emtscene?scenario=car-accident"
+              data-testid="triage-debrief-simulator-link"
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-teal-400 px-5 py-2 text-sm font-black text-slate-950 hover:bg-teal-300"
+            >
+              <Stethoscope size={17} /> Continue in EMT Simulator <ArrowRight size={16} />
+            </Link>
+          </div>
         </div>
 
         <section className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-6" aria-label="Simulation results">
