@@ -135,7 +135,6 @@ function renderHighlighted(text: string, cues: Cue[], show: boolean) {
           initial={false}
           animate={{ backgroundColor: show ? "#fde68a" : "transparent" }}
           className="rounded px-1"
-          title={cue.rationale}
         >
           {chunk}
         </motion.mark>
@@ -199,7 +198,6 @@ export default function EMTScenarioTrainer() {
   const [index, setIndex] = useState(0);
   const [selected, setSelected] = useState<null | string>(null);
   const [showCues, setShowCues] = useState(true);
-  const [showRationale, setShowRationale] = useState(false);
   const [showElims, setShowElims] = useState(false);
   const [adaptiveLoading, setAdaptiveLoading] = useState(false);
   const [adaptiveTarget, setAdaptiveTarget] = useState<string | null>(null);
@@ -343,7 +341,6 @@ export default function EMTScenarioTrainer() {
       });
       setSelected(null);
       setShowCues(true);
-      setShowRationale(false);
       setShowElims(false);
       setSavingAnswer(false);
       setAnswerSaveError(null);
@@ -383,7 +380,6 @@ export default function EMTScenarioTrainer() {
   const goto = (i: number) => {
     setSelected(null);
     setShowCues(true);
-    setShowRationale(false);
     setShowElims(false);
     setSavingAnswer(false);
     setAnswerSaveError(null);
@@ -623,14 +619,6 @@ export default function EMTScenarioTrainer() {
           >
             {showCues ? "Hide" : "Show"} cues
           </button>
-          <button
-            type="button"
-            onClick={() => setShowRationale((s) => !s)}
-            className={secondaryButtonClass}
-          >
-            {showRationale ? "Hide" : "Show"} rationales
-          </button>
-
           {/* Adaptive */}
           <button
             onClick={() => void startAdaptive(item.topic)}
@@ -662,7 +650,6 @@ export default function EMTScenarioTrainer() {
                 onClick={async () => {
                   if (selected !== null || savingAnswer) return;
                   setSelected(c.id);
-                  setShowRationale(true);
                   await savePracticeAnswer({
                     attemptId: crypto.randomUUID(),
                     source: item.source,
@@ -707,7 +694,7 @@ export default function EMTScenarioTrainer() {
                     )}
                   </AnimatePresence>
 
-                  {showRationale && (
+                  {selected !== null && (
                     <div className="mt-2 text-sm text-slate-700">
                       {c.correct ? (
                         c.why_right ? (
@@ -807,28 +794,30 @@ export default function EMTScenarioTrainer() {
       </section>
 
       {/* Reasoning Panels */}
-      <section className="space-y-3">
-        <Panel title="Step-by-step breakdown" icon={ListChecks} openByDefault>
-          <ol className="list-decimal space-y-2 pl-5">
-            {item.reasoning_steps.map((s: Step, i: number) => (
-              <li key={i} className="leading-relaxed">
-                <span className="font-medium">{s.label}:</span> {s.detail}
-              </li>
-            ))}
-          </ol>
-        </Panel>
+      {selected !== null ? (
+        <section className="space-y-3">
+          <Panel title="Step-by-step breakdown" icon={ListChecks} openByDefault>
+            <ol className="list-decimal space-y-2 pl-5">
+              {item.reasoning_steps.map((s: Step, i: number) => (
+                <li key={i} className="leading-relaxed">
+                  <span className="font-medium">{s.label}:</span> {s.detail}
+                </li>
+              ))}
+            </ol>
+          </Panel>
 
-        <Panel title="Cue rationales" icon={Highlighter}>
-          <ul className="space-y-2">
-            {item.cues.map((c: Cue, i: number) => (
-              <li key={i} className="rounded-md border border-slate-200 bg-white p-3 shadow-sm">
-                <div className="font-medium">{c.text}</div>
-                <p className="text-sm text-gray-700">{c.rationale}</p>
-              </li>
-            ))}
-          </ul>
-        </Panel>
-      </section>
+          <Panel title="Cue rationales" icon={Highlighter}>
+            <ul className="space-y-2">
+              {item.cues.map((c: Cue, i: number) => (
+                <li key={i} className="rounded-md border border-slate-200 bg-white p-3 shadow-sm">
+                  <div className="font-medium">{c.text}</div>
+                  <p className="text-sm text-gray-700">{c.rationale}</p>
+                </li>
+              ))}
+            </ul>
+          </Panel>
+        </section>
+      ) : null}
 
       {/* Footer */}
       <footer className="pt-2 text-xs text-slate-400 mb-4">

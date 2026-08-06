@@ -852,6 +852,10 @@ test("signed-out practice gives feedback without attempting a progress save", as
   });
 
   await page.goto("/emtrainer");
+  await expect(page.getByRole("button", { name: /rationales/i })).toHaveCount(0);
+  await expect(page.getByText("Step-by-step breakdown", { exact: true })).toHaveCount(0);
+  await expect(page.getByText(practiceItem.choices[0].why_right!)).toHaveCount(0);
+  await expect(page.locator("mark[title]")).toHaveCount(0);
   await page
     .getByRole("button", {
       name: /Open the airway with a jaw-thrust maneuver/,
@@ -859,6 +863,8 @@ test("signed-out practice gives feedback without attempting a progress save", as
     .click();
 
   await expect(page.getByText("Correct", { exact: true })).toBeVisible();
+  await expect(page.getByText(practiceItem.choices[0].why_right!)).toBeVisible();
+  await expect(page.getByText("Step-by-step breakdown", { exact: true })).toBeVisible();
   await expect(
     page.getByText(
       "Answer checked. Sign in to save this result to your progress and streak."
