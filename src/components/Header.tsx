@@ -8,6 +8,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 
 const navItems = [
   { href: "/emtrainer", label: "Scenarios" },
+  { href: "/focused-exams", label: "Exam Labs" },
   { href: "/exam/nremt", label: "Exam Mode" },
   { href: "/flashcards", label: "Flashcards" },
   { href: "/learn", label: "Learn" },
