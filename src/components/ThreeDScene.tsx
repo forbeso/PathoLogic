@@ -3365,6 +3365,25 @@ function InteractiveHotspot({
           depthWrite={false}
         />
       </mesh>
+      {isSuggested && !disabled && !object.completed ? (
+        <Html
+          position={[0, 0, 0]}
+          center
+          distanceFactor={isTransportDecision ? 8.4 : isClinicalDecisionHotspot ? 8 : 9}
+          zIndexRange={SCENE_HTML_Z_INDEX_RANGE}
+          style={{ pointerEvents: "auto" }}
+        >
+          <div
+            aria-hidden="true"
+            data-testid={`scene-hotspot-hit-${object.id}`}
+            onClick={(event) => {
+              event.stopPropagation();
+              onSelect?.(object.id);
+            }}
+            className="h-40 w-40 cursor-pointer rounded-full bg-transparent"
+          />
+        </Html>
+      ) : null}
       <Html
         center
         eps={0.025}

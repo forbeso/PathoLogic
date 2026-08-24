@@ -170,11 +170,12 @@ async function clickReachableTargetAt(
 
 async function expectEntireTargetReachable(
   page: Page,
-  attribute: TargetAttribute
+  attribute: TargetAttribute,
+  acceptedOverlay?: TargetAttribute
 ) {
   await expect
     .poll(() =>
-      page.evaluate(({ name, value }) => {
+      page.evaluate(({ name, value, acceptedOverlay }) => {
         const elements = Array.from(
           document.querySelectorAll<HTMLElement>(`[${name}]`)
         ).filter((candidate) => candidate.getAttribute(name) === value);
@@ -208,10 +209,23 @@ async function expectEntireTargetReachable(
               rect.left + rect.width * x,
               rect.top + rect.height * y
             );
-            return hit === element || Boolean(hit && element.contains(hit));
+            if (hit === element || Boolean(hit && element.contains(hit))) return true;
+            if (!hit || !acceptedOverlay) return false;
+
+            let candidate: Element | null = hit;
+            while (candidate) {
+              if (
+                candidate.getAttribute(acceptedOverlay.name) ===
+                acceptedOverlay.value
+              ) {
+                return true;
+              }
+              candidate = candidate.parentElement;
+            }
+            return false;
           });
         });
-      }, attribute)
+      }, { ...attribute, acceptedOverlay })
     )
     .toBe(true);
 }
@@ -249,6 +263,7 @@ async function selectSceneAction(
   options?: {
     discoverByRotation?: boolean;
     objectClickPosition?: { x: number; y: number };
+    objectTargetTestId?: string;
   }
 ) {
   const object = page.getByRole("button", {
@@ -272,7 +287,9 @@ async function selectSceneAction(
     await waitForSceneTarget(page, object);
   }
   if (!isMobile) {
-    const objectTarget = { name: "aria-label", value: objectAriaLabel } as const;
+    const objectTarget = options?.objectTargetTestId
+      ? ({ name: "data-testid", value: options.objectTargetTestId } as const)
+      : ({ name: "aria-label", value: objectAriaLabel } as const);
     if (options?.objectClickPosition) {
       await clickReachableTargetAt(page, objectTarget, options.objectClickPosition);
     } else {
@@ -1424,12 +1441,16 @@ test("anaphylaxis scene completes the full interactive clinical flow", async ({
   await selectSceneAction(page, "Chest / Breathing", "count-respirations");
   if (!mobileViewport) {
     await expectEntireTargetReachable(page, {
+      name: "data-testid",
+      value: "scene-hotspot-hit-pulse-hotspot",
+    }, {
       name: "aria-label",
       value: "Recommended next object: Radial Pulse",
     });
   }
   await selectSceneAction(page, "Radial Pulse", "check-radial-pulse", {
-    objectClickPosition: { x: 0.08, y: 0.5 },
+    objectClickPosition: { x: 0.5, y: 0.85 },
+    objectTargetTestId: "scene-hotspot-hit-pulse-hotspot",
   });
   await selectSceneAction(
     page,
