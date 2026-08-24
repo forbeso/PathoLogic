@@ -153,6 +153,69 @@ async function clickReachableTarget(page: Page, attribute: TargetAttribute) {
   );
 }
 
+async function clickReachableTargetAt(
+  page: Page,
+  attribute: TargetAttribute,
+  position: { x: number; y: number }
+) {
+  await expect.poll(() => getReachableTargetRect(page, attribute)).not.toBeNull();
+  const bounds = await getReachableTargetRect(page, attribute);
+  expect(bounds).not.toBeNull();
+  if (!bounds) return;
+  await page.mouse.click(
+    bounds.x + bounds.width * position.x,
+    bounds.y + bounds.height * position.y
+  );
+}
+
+async function expectEntireTargetReachable(
+  page: Page,
+  attribute: TargetAttribute
+) {
+  await expect
+    .poll(() =>
+      page.evaluate(({ name, value }) => {
+        const elements = Array.from(
+          document.querySelectorAll<HTMLElement>(`[${name}]`)
+        ).filter((candidate) => candidate.getAttribute(name) === value);
+        const samplePositions = [
+          [0.08, 0.5],
+          [0.92, 0.5],
+          [0.5, 0.08],
+          [0.5, 0.92],
+          [0.5, 0.5],
+          [0.24, 0.28],
+          [0.76, 0.28],
+          [0.24, 0.72],
+          [0.76, 0.72],
+        ] as const;
+
+        return elements.some((element) => {
+          const rect = element.getBoundingClientRect();
+          if (
+            rect.width <= 0 ||
+            rect.height <= 0 ||
+            rect.left < 0 ||
+            rect.top < 0 ||
+            rect.right > window.innerWidth ||
+            rect.bottom > window.innerHeight
+          ) {
+            return false;
+          }
+
+          return samplePositions.every(([x, y]) => {
+            const hit = document.elementFromPoint(
+              rect.left + rect.width * x,
+              rect.top + rect.height * y
+            );
+            return hit === element || Boolean(hit && element.contains(hit));
+          });
+        });
+      }, attribute)
+    )
+    .toBe(true);
+}
+
 async function rotateSceneUntilVisible(page: Page, ariaLabel: string) {
   const canvas = page.locator("canvas");
   const bounds = await canvas.boundingBox();
@@ -183,7 +246,10 @@ async function selectSceneAction(
   page: Page,
   objectName: string,
   actionId: string,
-  options?: { discoverByRotation?: boolean }
+  options?: {
+    discoverByRotation?: boolean;
+    objectClickPosition?: { x: number; y: number };
+  }
 ) {
   const object = page.getByRole("button", {
     name: `Recommended next object: ${objectName}`,
@@ -206,7 +272,12 @@ async function selectSceneAction(
     await waitForSceneTarget(page, object);
   }
   if (!isMobile) {
-    await clickReachableTarget(page, { name: "aria-label", value: objectAriaLabel });
+    const objectTarget = { name: "aria-label", value: objectAriaLabel } as const;
+    if (options?.objectClickPosition) {
+      await clickReachableTargetAt(page, objectTarget, options.objectClickPosition);
+    } else {
+      await clickReachableTarget(page, objectTarget);
+    }
   }
 
   const action = page.getByTestId(`scene-action-${actionId}`);
@@ -1351,7 +1422,15 @@ test("anaphylaxis scene completes the full interactive clinical flow", async ({
 
   await selectSceneAction(page, "Airway", "inspect-airway");
   await selectSceneAction(page, "Chest / Breathing", "count-respirations");
-  await selectSceneAction(page, "Radial Pulse", "check-radial-pulse");
+  if (!mobileViewport) {
+    await expectEntireTargetReachable(page, {
+      name: "aria-label",
+      value: "Recommended next object: Radial Pulse",
+    });
+  }
+  await selectSceneAction(page, "Radial Pulse", "check-radial-pulse", {
+    objectClickPosition: { x: 0.08, y: 0.5 },
+  });
   await selectSceneAction(
     page,
     "Working Impression",

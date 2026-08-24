@@ -3277,6 +3277,20 @@ function InteractiveHotspot({
     isSuggested && !selected && showSelectionPrompt && !isClinicalDecisionHotspot
       ? `Select ${object.name}`
       : object.name;
+  const visualRadius = isTransportDecision
+    ? 0.5
+    : object.category === "movement"
+      ? 0.42
+      : object.category === "patient"
+        ? 0.46
+        : 0.34;
+  const hitRadius = isTransportDecision
+    ? 0.68
+    : object.category === "movement"
+      ? 0.58
+      : object.category === "patient"
+        ? 0.66
+        : 0.5;
 
   useEffect(() => {
     if (!hovered) return;
@@ -3303,7 +3317,6 @@ function InteractiveHotspot({
   return (
     <group position={object.position}>
       <mesh
-        ref={mesh}
         raycast={object.completed ? () => null : undefined}
         onClick={(event) => {
           event.stopPropagation();
@@ -3315,19 +3328,16 @@ function InteractiveHotspot({
         }}
         onPointerOut={() => setHovered(false)}
       >
-        <sphereGeometry
-          args={[
-            isTransportDecision
-              ? 0.5
-              : object.category === "movement"
-                ? 0.42
-                : object.category === "patient"
-                  ? 0.46
-                  : 0.34,
-            20,
-            20,
-          ]}
+        <sphereGeometry args={[hitRadius, 16, 16]} />
+        <meshBasicMaterial
+          transparent
+          opacity={0}
+          depthWrite={false}
+          colorWrite={false}
         />
+      </mesh>
+      <mesh ref={mesh} raycast={() => null}>
+        <sphereGeometry args={[visualRadius, 20, 20]} />
         <meshStandardMaterial
           color={disabled ? "#64748b" : color}
           emissive={disabled ? "#111827" : color}
@@ -3393,7 +3403,7 @@ function InteractiveHotspot({
             event.stopPropagation();
             onSelect?.(object.id);
           }}
-          className={`${labelSizeClass} cursor-pointer rounded-full border text-center font-black uppercase shadow-xl backdrop-blur transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${
+          className={`${labelSizeClass} inline-flex cursor-pointer items-center justify-center rounded-full border text-center font-black uppercase shadow-xl backdrop-blur transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${
             labelVisible ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
           } ${disabled
             ? "border-slate-400/30 bg-slate-950/75 text-slate-300"
