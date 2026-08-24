@@ -1,6 +1,11 @@
 import {
+  ANAPHYLAXIS_BYSTANDER_HOTSPOT_POSITION,
+  ANAPHYLAXIS_PATIENT_SIDE_PARAMEDIC_POSITION,
+  COLLISION_PATIENT_SIDE_PARAMEDIC_POSITION,
   COLLISION_RADIO_POSITION,
+  FESTIVAL_PATIENT_SIDE_PARAMEDIC_POSITION,
   FESTIVAL_RADIO_POSITION,
+  FESTIVAL_TRANSPORT_POSITION,
 } from "@/lib/emtSceneLayout";
 
 export type ScenarioPhase =
@@ -498,6 +503,19 @@ const ADDITIONAL_MEDICAL_PROFILES: Record<AdditionalMedicalScenarioId, Additiona
   },
 };
 
+const ANAPHYLAXIS_PATIENT_POINTS: Record<
+  "overview" | "airway" | "breathing" | "radialPulse" | "medication" | "history" | "exam",
+  Vec3
+> = {
+  overview: [5.38, 1.18, 1.28],
+  airway: [5.38, 1.82, 1.28],
+  breathing: [5.38, 1.36, 1.28],
+  radialPulse: [5.38, 0.94, 0.88],
+  medication: [5.38, 0.78, 1.28],
+  history: [5.38, 1.54, 1.28],
+  exam: [5.38, 1.22, 1.28],
+};
+
 export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
   id: "anaphylaxis-festival",
   title: "Teen With Shortness of Breath",
@@ -671,7 +689,7 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
       hintLevels: [
         "Use the primary findings to decide urgency.",
         "This patient has respiratory compromise and signs of poor perfusion.",
-        "Choose urgent transport while treatment and monitoring continue.",
+        "Rotate toward the ambulance and select the highlighted Urgent Transport marker.",
       ],
     },
     {
@@ -749,9 +767,9 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
       category: "hazard",
       visibleWhen: ["DISPATCH_RECEIVED"],
       completedWhen: ["DOG_INSPECTED"],
-      position: [5.38, 0.72, 1.28],
+      position: [2.28, 0.72, 1.18],
       focusPosition: [-1.95, 1.62, -0.75],
-      focusTarget: [4.9, 0.75, 1.25],
+      focusTarget: [2.28, 0.72, 1.18],
       highlightColor: "#fb7185",
       actions: [
         {
@@ -793,14 +811,14 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
     },
     {
       id: "bystanders",
-      name: "Bystanders",
+      name: "Bystander",
       category: "bystander",
       optional: true,
       visibleWhen: ["DISPATCH_RECEIVED"],
       completedWhen: ["BYSTANDERS_QUESTIONED"],
-      position: [6.6, 1.0, -2.2],
-      focusPosition: [2.3, 1.8, -0.2],
-      focusTarget: [6.4, 1.0, -2.1],
+      position: ANAPHYLAXIS_BYSTANDER_HOTSPOT_POSITION,
+      focusPosition: [3.8, 1.65, 3.35],
+      focusTarget: ANAPHYLAXIS_BYSTANDER_HOTSPOT_POSITION,
       highlightColor: "#c084fc",
       actions: [
         {
@@ -870,9 +888,9 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
       category: "movement",
       visibleWhen: ["PPE_EQUIPPED"],
       completedWhen: ["PATIENT_APPROACHED"],
-      position: [0.65, 0.08, 1.8],
+      position: ANAPHYLAXIS_PATIENT_SIDE_PARAMEDIC_POSITION,
       focusPosition: [5.5, 2.8, 5.0],
-      focusTarget: [2.15, 0.45, 1.55],
+      focusTarget: ANAPHYLAXIS_PATIENT_POINTS.overview,
       highlightColor: "#67e8f9",
       enabledWhen: ["DOG_SECURED", "PPE_EQUIPPED"],
       actions: [
@@ -891,16 +909,16 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
       category: "patient",
       visibleWhen: ["PATIENT_APPROACHED"],
       completedWhen: ["RESPONSIVENESS_CHECKED"],
-      position: [2.2, 0.9, 1.45],
-      focusPosition: [4.9, 2.6, 4.7],
-      focusTarget: [2.1, 0.8, 1.45],
+      position: ANAPHYLAXIS_PATIENT_POINTS.overview,
+      focusPosition: [0.2, 1.72, 3.15],
+      focusTarget: ANAPHYLAXIS_PATIENT_POINTS.overview,
       highlightColor: "#fda4af",
       enabledWhen: ["PATIENT_APPROACHED"],
       actions: [
         {
           id: "general-impression",
           label: "Observe general impression",
-          description: "Teen upright on ground, anxious, flushed skin, visible hives, labored breathing.",
+          description: "Teen standing but visibly anxious, with flushed skin, hives, and labored breathing.",
           outcome: "correct",
           onSuccessEvents: ["GENERAL_IMPRESSION_OBSERVED"],
           scoreEffect: 5,
@@ -943,9 +961,9 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
       name: "Airway",
       category: "patient",
       visibleWhen: ["RESPONSIVENESS_CHECKED"],
-      position: [1.82, 0.46, 1.18],
-      focusPosition: [3.7, 2.0, 3.2],
-      focusTarget: [1.82, 0.42, 1.18],
+      position: ANAPHYLAXIS_PATIENT_POINTS.airway,
+      focusPosition: [0.42, 1.92, 2.75],
+      focusTarget: ANAPHYLAXIS_PATIENT_POINTS.airway,
       highlightColor: "#fbbf24",
       enabledWhen: ["RESPONSIVENESS_CHECKED"],
       actions: [
@@ -994,9 +1012,9 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
       name: "Chest / Breathing",
       category: "patient",
       visibleWhen: ["AIRWAY_OPENED"],
-      position: [2.45, 0.48, 1.28],
-      focusPosition: [4.3, 2.2, 3.6],
-      focusTarget: [2.45, 0.42, 1.28],
+      position: ANAPHYLAXIS_PATIENT_POINTS.breathing,
+      focusPosition: [0.3, 1.72, 2.95],
+      focusTarget: ANAPHYLAXIS_PATIENT_POINTS.breathing,
       highlightColor: "#38bdf8",
       enabledWhen: ["AIRWAY_OPENED"],
       actions: [
@@ -1045,9 +1063,9 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
       name: "Radial Pulse",
       category: "patient",
       visibleWhen: ["RESPIRATIONS_COUNTED"],
-      position: [2.16, 0.96, 1.08],
-      focusPosition: [4.1, 2.0, 3.4],
-      focusTarget: [2.0, 0.95, 1.25],
+      position: ANAPHYLAXIS_PATIENT_POINTS.radialPulse,
+      focusPosition: [0.35, 1.5, 2.8],
+      focusTarget: ANAPHYLAXIS_PATIENT_POINTS.radialPulse,
       highlightColor: "#f472b6",
       enabledWhen: ["RESPIRATIONS_COUNTED"],
       actions: [
@@ -1093,13 +1111,13 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
     },
     {
       id: "transport-decision",
-      name: "Transport Decision",
+      name: "Urgent Transport",
       category: "movement",
       visibleWhen: ["OXYGEN_APPLIED"],
-      position: [3.9, 0.12, 0.95],
-      focusPosition: [5.8, 2.8, 4.2],
-      focusTarget: [2.4, 0.8, 1.3],
-      highlightColor: "#a7f3d0",
+      position: FESTIVAL_TRANSPORT_POSITION,
+      focusPosition: [-1.9, 2.8, -0.7],
+      focusTarget: FESTIVAL_TRANSPORT_POSITION,
+      highlightColor: "#fbbf24",
       enabledWhen: ["OXYGEN_APPLIED"],
       actions: [
         {
@@ -1138,9 +1156,9 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
       category: "patient",
       visibleWhen: ["PULSE_CHECKED"],
       completedWhen: ["WORKING_IMPRESSION_SELECTED"],
-      position: [3.0, 0.4, 1.55],
-      focusPosition: [5.4, 2.45, 4.2],
-      focusTarget: [2.25, 0.85, 1.45],
+      position: ANAPHYLAXIS_PATIENT_POINTS.overview,
+      focusPosition: [0.2, 1.72, 3.15],
+      focusTarget: ANAPHYLAXIS_PATIENT_POINTS.overview,
       highlightColor: "#f0abfc",
       enabledWhen: ["PULSE_CHECKED"],
       actions: [
@@ -1190,9 +1208,9 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
       category: "patient",
       visibleWhen: ["WORKING_IMPRESSION_SELECTED"],
       completedWhen: ["EPINEPHRINE_ADMINISTERED"],
-      position: [2.65, 0.72, 1.5],
-      focusPosition: [5.0, 2.5, 4.4],
-      focusTarget: [2.2, 0.8, 1.45],
+      position: ANAPHYLAXIS_PATIENT_POINTS.medication,
+      focusPosition: [0.28, 1.48, 3.0],
+      focusTarget: ANAPHYLAXIS_PATIENT_POINTS.medication,
       highlightColor: "#fb7185",
       enabledWhen: ["WORKING_IMPRESSION_SELECTED"],
       actions: [
@@ -1243,9 +1261,9 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
       category: "equipment",
       visibleWhen: ["EPINEPHRINE_ADMINISTERED"],
       completedWhen: ["OXYGEN_APPLIED"],
-      position: [2.38, 0.68, 1.08],
-      focusPosition: [4.8, 2.35, 4.0],
-      focusTarget: [2.15, 0.8, 1.4],
+      position: ANAPHYLAXIS_PATIENT_POINTS.breathing,
+      focusPosition: [2.8, 1.72, 3.3],
+      focusTarget: ANAPHYLAXIS_PATIENT_POINTS.breathing,
       highlightColor: "#38bdf8",
       enabledWhen: ["EPINEPHRINE_ADMINISTERED"],
       actions: [
@@ -1286,9 +1304,9 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
       category: "patient",
       visibleWhen: ["TRANSPORT_SELECTED", "BLOOD_PRESSURE_OBTAINED", "SPO2_OBTAINED"],
       completedWhen: ["FOCUSED_HISTORY_OBTAINED"],
-      position: [2.02, 1.08, 1.5],
-      focusPosition: [4.9, 2.45, 4.15],
-      focusTarget: [2.15, 0.9, 1.42],
+      position: ANAPHYLAXIS_PATIENT_POINTS.history,
+      focusPosition: [0.22, 1.78, 3.08],
+      focusTarget: ANAPHYLAXIS_PATIENT_POINTS.history,
       highlightColor: "#c084fc",
       enabledWhen: ["TRANSPORT_SELECTED", "BLOOD_PRESSURE_OBTAINED", "SPO2_OBTAINED"],
       actions: [
@@ -1329,9 +1347,9 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
       category: "patient",
       visibleWhen: ["FOCUSED_HISTORY_OBTAINED"],
       completedWhen: ["FOCUSED_EXAM_COMPLETED"],
-      position: [2.3, 0.98, 1.43],
-      focusPosition: [4.8, 2.4, 4.05],
-      focusTarget: [2.16, 0.85, 1.42],
+      position: ANAPHYLAXIS_PATIENT_POINTS.exam,
+      focusPosition: [0.2, 1.68, 3.05],
+      focusTarget: ANAPHYLAXIS_PATIENT_POINTS.exam,
       highlightColor: "#f59e0b",
       enabledWhen: ["FOCUSED_HISTORY_OBTAINED"],
       actions: [
@@ -1372,9 +1390,9 @@ export const anaphylaxisFestivalScenario: SceneScenarioConfig = {
       category: "patient",
       visibleWhen: ["FOCUSED_EXAM_COMPLETED"],
       completedWhen: ["REASSESSMENT_COMPLETED"],
-      position: [2.2, 0.94, 1.45],
-      focusPosition: [4.9, 2.5, 4.3],
-      focusTarget: [2.15, 0.8, 1.42],
+      position: ANAPHYLAXIS_PATIENT_POINTS.exam,
+      focusPosition: [0.2, 1.72, 3.15],
+      focusTarget: ANAPHYLAXIS_PATIENT_POINTS.exam,
       highlightColor: "#2dd4bf",
       enabledWhen: ["FOCUSED_EXAM_COMPLETED"],
       actions: [
@@ -1733,7 +1751,7 @@ function createAdditionalMedicalScenario(
         category: "movement",
         visibleWhen: ["PPE_EQUIPPED"],
         completedWhen: ["PATIENT_APPROACHED"],
-        position: [0.65, 0.08, 1.8],
+        position: FESTIVAL_PATIENT_SIDE_PARAMEDIC_POSITION,
         focusPosition: [5.5, 2.8, 5.0],
         focusTarget: [2.15, 0.45, 1.55],
         highlightColor: "#67e8f9",
@@ -2483,7 +2501,7 @@ export const carAccidentScenario: SceneScenarioConfig = {
       category: "movement",
       visibleWhen: ["PPE_EQUIPPED"],
       completedWhen: ["PATIENT_APPROACHED"],
-      position: [1.25, 0.12, 2.15],
+      position: COLLISION_PATIENT_SIDE_PARAMEDIC_POSITION,
       focusPosition: [7.4, 3.3, 7.8],
       focusTarget: [2.25, 1.0, 0.35],
       highlightColor: "#67e8f9",
@@ -3135,9 +3153,9 @@ function feedbackForEvent(event: SceneEvent, state: ScenarioState): string {
     case "MEDICAL_BAG_OPENED":
       return "The medical bag is open. Gloves are visible inside.";
     case "GLOVES_EQUIPPED":
-      return "Gloves on. BSI/PPE is complete before patient contact.";
+      return "Gloves on. Move to the highlighted approach point beside the patient.";
     case "PPE_EQUIPPED":
-      return "Gloves on. BSI/PPE is complete before patient contact.";
+      return "Gloves on. Move to the highlighted approach point beside the patient.";
     case "PATIENT_APPROACHED":
       return isCrash
         ? "You bring the aid bag to the driver side and approach from the secured shoulder."
@@ -3187,7 +3205,7 @@ function feedbackForEvent(event: SceneEvent, state: ScenarioState): string {
     case "OXYGEN_APPLIED":
       return isCrash
         ? "Oxygen applied. Continue assessing ventilation, chest movement, perfusion, and any need for assisted ventilation."
-        : "Oxygen applied. Work of breathing remains increased; continue urgent transport preparation and reassess the full response.";
+        : "Oxygen applied. Work of breathing remains increased. Rotate toward the ambulance and find the highlighted Urgent Transport marker.";
     case "SPINAL_PRECAUTIONS_MAINTAINED":
       return "Manual stabilization and spinal motion restriction are maintained. Coordinate a controlled, time-conscious extrication.";
     case "EXTRICATION_COORDINATED":
@@ -3446,7 +3464,9 @@ function applyEvent(state: ScenarioState, event: SceneEvent): ScenarioState {
       ? medicalProfile.requiresBreathingSupport
         ? "oxygen-support"
         : "scenario-treatment"
-      : "transport-decision";
+      : isCrash
+        ? "transport-decision"
+        : "epinephrine-treatment";
   }
   if (event === "TRANSPORT_SELECTED") {
     next.currentPhase = isCrash ? "interventions" : medicalProfile ? "transport" : "primaryAssessment";

@@ -133,6 +133,9 @@ function getScenarioProTip(phase: ScenarioPhase, objectiveId: string) {
   if (objectiveId === "working-impression") {
     return "Use the full pattern of findings. The best impression should explain the history, exam, and vital signs together.";
   }
+  if (objectiveId === "transport-priority") {
+    return "Rotate toward the ambulance and find the highlighted Urgent Transport marker.";
+  }
 
   switch (phase) {
     case "sceneSafety":
@@ -266,6 +269,11 @@ const MOBILE_HUD_SECTIONS = [
   { key: "equipment", label: "Gear", icon: ShieldCheck },
   { key: "progress", label: "Progress", icon: Star },
 ] satisfies Array<{ key: MobileHudSection; label: string; icon: typeof Activity }>;
+
+const SCENARIO_CLINICAL_FOCUS_OBJECT_IDS = [
+  "patient-approach",
+  "patient",
+] as const;
 
 const SITE_NAV_ITEMS = [
   { href: "/triage", label: "MCI Triage" },
@@ -775,6 +783,7 @@ export default function EMTScene() {
   const [primaryFeedback, setPrimaryFeedback] = useState("Start with the action that protects you, your partner, and the patient.");
   const [sceneFinding, setSceneFinding] = useState("");
   const [animalControlResponseActive, setAnimalControlResponseActive] = useState(false);
+  const [clinicalCameraFocusId, setClinicalCameraFocusId] = useState<string | null>(null);
   const { progress: learnerProgress, level: learnerLevel } = useLearnerProgress();
   const [recentXpAward, setRecentXpAward] = useState(0);
   const lastGameFeedback = useRef(gameState.feedback);
@@ -920,7 +929,7 @@ export default function EMTScene() {
   const cameraFocusObjectId =
     simulationMode === "guided" || animalControlResponseActive
       ? gameState.focusedObjectId
-      : null;
+      : clinicalCameraFocusId;
   const phaseObjectives = sceneScenario.objectives.filter((objective) => objective.phase === gameState.currentPhase);
   const activeStage = STAGES.find((item) => item.key === stage) ?? STAGES[0];
   const completedCount = phaseObjectives.filter((objective) => gameState.completedObjectives.includes(objective.id)).length;
@@ -934,6 +943,26 @@ export default function EMTScene() {
       ? Math.round((completedCount / totalTasks) * 100)
       : 0;
   const scenarioProgressPercent = Math.round((scenarioCompletedCount / scenarioTasks.length) * 100);
+
+  useEffect(() => {
+    if (simulationMode === "guided") {
+      setClinicalCameraFocusId(null);
+      return;
+    }
+
+    const nextFocusId = gameState.focusedObjectId;
+    if (
+      !nextFocusId ||
+      !SCENARIO_CLINICAL_FOCUS_OBJECT_IDS.includes(
+        nextFocusId as (typeof SCENARIO_CLINICAL_FOCUS_OBJECT_IDS)[number]
+      )
+    ) {
+      setClinicalCameraFocusId(null);
+      return;
+    }
+
+    setClinicalCameraFocusId(nextFocusId);
+  }, [gameState.focusedObjectId, progressionRunId, simulationMode]);
 
   useEffect(() => {
     if (scenarioComplete) return;
@@ -2465,6 +2494,7 @@ export default function EMTScene() {
                         <button
                           key={item.id}
                           type="button"
+                          data-testid={`equipment-${item.id}`}
                           onClick={() => {
                             runEquipmentDockAction(item.id);
                             setMobileHudOpen(false);
@@ -2971,6 +3001,7 @@ export default function EMTScene() {
                   <button
                     key={item.id}
                     type="button"
+                    data-testid={`equipment-${item.id}`}
                     onClick={() => runEquipmentDockAction(item.id)}
                     className={`group flex min-w-0 flex-col items-center gap-1 overflow-hidden rounded-xl border px-0.5 py-2 text-center transition 2xl:gap-2 2xl:px-1.5 2xl:py-2.5 ${active
                       ? "border-teal-300 bg-teal-400/15 text-teal-200 shadow-[0_0_28px_rgba(45,212,191,0.2)]"

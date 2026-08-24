@@ -17,6 +17,7 @@ import {
   type SceneScenarioConfig,
 } from "@/lib/emtSceneEngine";
 import { learnArticles } from "@/lib/learnArticles";
+import { FESTIVAL_TRANSPORT_POSITION } from "@/lib/emtSceneLayout";
 
 const practiceItem = {
   id: 1,
@@ -105,6 +106,115 @@ async function expectNoHorizontalOverflow(page: Page) {
     scrollWidth: document.documentElement.scrollWidth,
   }));
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth + 1);
+}
+
+async function waitForSceneTarget(page: Page, target: Locator) {
+  await expect(target).toBeVisible();
+  await expect(target).toBeInViewport();
+  await page.waitForTimeout(750);
+}
+
+type TargetAttribute = { name: "aria-label" | "data-testid"; value: string };
+
+async function getReachableTargetRect(page: Page, attribute: TargetAttribute) {
+  return page.evaluate(({ name, value }) => {
+    const elements = Array.from(document.querySelectorAll<HTMLElement>(`[${name}]`)).filter(
+      (candidate) => candidate.getAttribute(name) === value
+    );
+    for (const element of elements) {
+      const rect = element.getBoundingClientRect();
+      const isInViewport =
+        rect.width > 0 &&
+        rect.height > 0 &&
+        rect.left >= 0 &&
+        rect.top >= 0 &&
+        rect.right <= window.innerWidth &&
+        rect.bottom <= window.innerHeight;
+      if (!isInViewport) continue;
+      const hit = document.elementFromPoint(
+        rect.left + rect.width / 2,
+        rect.top + rect.height / 2
+      );
+      if (hit !== element && !element.contains(hit)) continue;
+      return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+    }
+    return null;
+  }, attribute);
+}
+
+async function clickReachableTarget(page: Page, attribute: TargetAttribute) {
+  await expect.poll(() => getReachableTargetRect(page, attribute)).not.toBeNull();
+  const bounds = await getReachableTargetRect(page, attribute);
+  expect(bounds).not.toBeNull();
+  if (!bounds) return;
+  await page.mouse.click(
+    bounds.x + bounds.width / 2,
+    bounds.y + bounds.height / 2
+  );
+}
+
+async function rotateSceneUntilVisible(page: Page, ariaLabel: string) {
+  const canvas = page.locator("canvas");
+  const bounds = await canvas.boundingBox();
+  expect(bounds).not.toBeNull();
+  if (!bounds) return;
+
+  for (
+    let attempt = 0;
+    attempt < 12 &&
+    !(await getReachableTargetRect(page, { name: "aria-label", value: ariaLabel }));
+    attempt += 1
+  ) {
+    const startX = bounds.x + bounds.width * 0.48;
+    const y = bounds.y + bounds.height * 0.52;
+    await page.mouse.move(startX, y);
+    await page.mouse.down();
+    await page.mouse.move(startX + bounds.width * 0.26, y, { steps: 10 });
+    await page.mouse.up();
+    await page.waitForTimeout(120);
+  }
+
+  await expect
+    .poll(() => getReachableTargetRect(page, { name: "aria-label", value: ariaLabel }))
+    .not.toBeNull();
+}
+
+async function selectSceneAction(
+  page: Page,
+  objectName: string,
+  actionId: string,
+  options?: { discoverByRotation?: boolean }
+) {
+  const object = page.getByRole("button", {
+    name: `Recommended next object: ${objectName}`,
+    exact: true,
+  });
+  const objectAriaLabel = `Recommended next object: ${objectName}`;
+  const isMobile = (page.viewportSize()?.width ?? 1280) < 768;
+  if (isMobile) {
+    await expect(page.getByTestId("mobile-next-scene-object")).toContainText(
+      `Tap ${objectName}`,
+      { timeout: 15_000 }
+    );
+    await clickReachableTarget(page, {
+      name: "data-testid",
+      value: "mobile-next-scene-object",
+    });
+  } else if (options?.discoverByRotation) {
+      await rotateSceneUntilVisible(page, objectAriaLabel);
+  } else {
+    await waitForSceneTarget(page, object);
+  }
+  if (!isMobile) {
+    await clickReachableTarget(page, { name: "aria-label", value: objectAriaLabel });
+  }
+
+  const action = page.getByTestId(`scene-action-${actionId}`);
+  await expect(action).toBeVisible();
+  await expect(action).toBeEnabled();
+  await page.waitForTimeout(150);
+  await clickReachableTarget(page, { name: "data-testid", value: `scene-action-${actionId}` });
+  await page.waitForTimeout(200);
 }
 
 async function getContrastRatio(locator: Locator) {
@@ -685,10 +795,20 @@ test("festival clickable actions treat anaphylaxis before monitor values", () =>
 
   state = run(state, "working-impression", "suspect-severe-allergic-reaction");
   expect(state.currentObjectiveId).toBe("epinephrine-treatment");
+  expect(state.focusedObjectId).toBe("epinephrine-treatment");
   state = run(state, "epinephrine-treatment", "administer-im-epinephrine");
   expect(state.currentObjectiveId).toBe("oxygen-support");
+  expect(state.focusedObjectId).toBe("oxygen-support");
   state = run(state, "oxygen-support", "apply-oxygen-anaphylaxis");
   expect(state.currentObjectiveId).toBe("transport-priority");
+  expect(state.focusedObjectId).toBe("transport-decision");
+  expect(state.feedback).toContain("Rotate toward the ambulance");
+  const transportMarker = getVisibleInteractiveObjects(
+    anaphylaxisFestivalScenario,
+    state
+  ).find((object) => object.id === "transport-decision");
+  expect(transportMarker?.name).toBe("Urgent Transport");
+  expect(transportMarker?.position).toEqual(FESTIVAL_TRANSPORT_POSITION);
   state = run(state, "transport-decision", "urgent-transport");
   expect(state.currentObjectiveId).toBe("baseline-vitals");
 
@@ -1025,6 +1145,9 @@ test("EMT Scene renders its responsive training shell", async ({ page }, testInf
     name: "Recommended next object: Barking Dog",
   });
   await expect(recommendedDog).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Bystander", exact: true })
+  ).toBeVisible();
   await expect(page.getByText("Barking Dog", { exact: true }).first()).toBeVisible();
   await recommendedDog.focus();
   await expect(recommendedDog).toBeFocused();
@@ -1156,6 +1279,148 @@ test("EMT Scene renders its responsive training shell", async ({ page }, testInf
   expect(renderScale).toBeLessThanOrEqual(
     testInfo.project.name.startsWith("mobile") ? 1.1 : 1.4
   );
+  await expect(page.locator("body")).not.toContainText("Application error");
+  await expectNoHorizontalOverflow(page);
+});
+
+test("anaphylaxis scene completes the full interactive clinical flow", async ({
+  page,
+}) => {
+  test.setTimeout(480_000);
+  await page.goto("/emtscene?scenario=anaphylaxis");
+
+  const sceneLoader = page.getByRole("heading", { name: "Preparing EMT Scene" });
+  await expect(sceneLoader).toBeHidden({ timeout: 120_000 });
+
+  await selectSceneAction(page, "Barking Dog", "inspect-dog");
+  const ambulanceRadio = page.getByRole("button", {
+    name: "Recommended next object: Ambulance Radio",
+    exact: true,
+  });
+  await rotateSceneUntilVisible(page, "Recommended next object: Ambulance Radio");
+  await clickReachableTarget(page, {
+    name: "aria-label",
+    value: "Recommended next object: Ambulance Radio",
+  });
+  await selectSceneAction(page, "Medical Bag", "open-medical-bag", {
+    discoverByRotation: true,
+  });
+  const equipGloves = page.getByTestId("scene-action-equip-gloves");
+  await expect(equipGloves).toBeVisible();
+  await clickReachableTarget(page, {
+    name: "data-testid",
+    value: "scene-action-equip-gloves",
+  });
+
+  await selectSceneAction(page, "Approach Patient", "approach-patient");
+  await expect(page.getByTestId("scene-decision-prompt")).toHaveCount(0);
+  const patient = page.getByRole("button", {
+    name: "Recommended next object: Patient",
+    exact: true,
+  });
+  const mobileViewport = (page.viewportSize()?.width ?? 1280) < 768;
+  if (mobileViewport) {
+    await expect(page.getByTestId("mobile-next-scene-object")).toContainText("Tap Patient");
+    await clickReachableTarget(page, {
+      name: "data-testid",
+      value: "mobile-next-scene-object",
+    });
+  } else {
+    await waitForSceneTarget(page, patient);
+    await clickReachableTarget(page, {
+      name: "aria-label",
+      value: "Recommended next object: Patient",
+    });
+  }
+  await clickReachableTarget(page, {
+    name: "data-testid",
+    value: "scene-action-general-impression",
+  });
+
+  const prematureVitals = page.getByTestId("scene-action-skip-responsiveness");
+  await expect(prematureVitals).toBeVisible();
+  await clickReachableTarget(page, {
+    name: "data-testid",
+    value: "scene-action-skip-responsiveness",
+  });
+  await expect(page.getByTestId("scene-decision-prompt")).toBeVisible();
+  await clickReachableTarget(page, {
+    name: "data-testid",
+    value: "scene-action-introduce-yourself",
+  });
+
+  await selectSceneAction(page, "Airway", "inspect-airway");
+  await selectSceneAction(page, "Chest / Breathing", "count-respirations");
+  await selectSceneAction(page, "Radial Pulse", "check-radial-pulse");
+  await selectSceneAction(
+    page,
+    "Working Impression",
+    "suspect-severe-allergic-reaction"
+  );
+  await selectSceneAction(
+    page,
+    "Medication Decision",
+    "administer-im-epinephrine"
+  );
+  await selectSceneAction(
+    page,
+    "Breathing Support",
+    "apply-oxygen-anaphylaxis"
+  );
+  await selectSceneAction(page, "Urgent Transport", "urgent-transport", {
+    discoverByRotation: true,
+  });
+
+  if ((page.viewportSize()?.width ?? 1280) < 768) {
+    await clickReachableTarget(page, {
+      name: "data-testid",
+      value: "mobile-next-scene-object",
+    });
+    await expect(page.getByTestId("mobile-hud-panel")).toBeVisible();
+  }
+  await clickReachableTarget(page, { name: "data-testid", value: "equipment-bp" });
+  if ((page.viewportSize()?.width ?? 1280) < 768) {
+    await clickReachableTarget(page, {
+      name: "data-testid",
+      value: "mobile-next-scene-object",
+    });
+    await expect(page.getByTestId("mobile-hud-panel")).toBeVisible();
+  }
+  await clickReachableTarget(page, { name: "data-testid", value: "equipment-pulseox" });
+  await selectSceneAction(
+    page,
+    "Focused History",
+    "obtain-focused-allergy-history"
+  );
+  await selectSceneAction(
+    page,
+    "Focused Exam",
+    "perform-focused-anaphylaxis-exam"
+  );
+  await selectSceneAction(
+    page,
+    "Reassess Patient",
+    "repeat-abcs-and-vitals-anaphylaxis"
+  );
+
+  if ((page.viewportSize()?.width ?? 1280) < 768) {
+    await expect(page.getByTestId("mobile-next-scene-object")).toContainText(
+      "View your clinical debrief"
+    );
+    await clickReachableTarget(page, {
+      name: "data-testid",
+      value: "mobile-next-scene-object",
+    });
+    await expect(page.getByTestId("mobile-hud-panel")).toBeVisible();
+  }
+  const debriefPanel = mobileViewport
+    ? page.getByTestId("mobile-hud-panel")
+    : page.getByTestId("scenario-progress-panel");
+  await expect(debriefPanel.getByText("Scenario debrief", { exact: true })).toBeVisible();
+  await expect(
+    debriefPanel.getByText(/^Scenario complete: epinephrine and oxygenation support/)
+  ).toBeVisible();
+  await expect(page.getByTestId("scene-decision-prompt")).toHaveCount(0);
   await expect(page.locator("body")).not.toContainText("Application error");
   await expectNoHorizontalOverflow(page);
 });

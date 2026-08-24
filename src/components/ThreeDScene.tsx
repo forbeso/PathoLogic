@@ -26,8 +26,12 @@ import type { Group } from "three";
 
 import type { InteractiveObjectConfig, ScenarioState } from "@/lib/emtSceneEngine";
 import {
+  ANAPHYLAXIS_BYSTANDER_POSITION,
+  ANAPHYLAXIS_PATIENT_SIDE_PARAMEDIC_POSITION,
   COLLISION_RADIO_POSITION,
+  COLLISION_PATIENT_SIDE_PARAMEDIC_POSITION,
   FESTIVAL_RADIO_POSITION,
+  FESTIVAL_PATIENT_SIDE_PARAMEDIC_POSITION,
 } from "@/lib/emtSceneLayout";
 import { LoaderCircle, MoveLeft, MoveRight, ZoomIn, ZoomOut } from "lucide-react";
 import { Model as BushModel } from "@/components/worldassets/Bush02";
@@ -105,9 +109,9 @@ const STATIC_FOCUS_OBJECTS: Record<string, SceneInteractiveObject> = {
     name: "Barking Dog",
     category: "hazard",
     actions: [],
-    position: [5.38, 0.72, 1.28],
+    position: [2.28, 0.72, 1.18],
     focusPosition: [-1.95, 1.62, -0.75],
-    focusTarget: [4.9, 0.75, 1.25],
+    focusTarget: [2.28, 0.72, 1.18],
   },
 };
 
@@ -124,9 +128,9 @@ const CAMERA_MAX_DISTANCE = 18.5;
 const CAMERA_MAX_POLAR_ANGLE = Math.PI / 2 - 0.04;
 const GUIDE_PARAMEDIC_POSITION: Vec3 = [0.35, 0.05, 0.95];
 const STAGED_PARAMEDIC_POSITION: Vec3 = [-2.35, 0.05, -1.15];
-const PATIENT_SIDE_PARAMEDIC_POSITION: Vec3 = [1.02, 0.05, 1.3];
 const STAGED_MEDICAL_BAG_POSITION: Vec3 = [-2.9, 0.06, -0.65];
 const PATIENT_SIDE_MEDICAL_BAG_POSITION: Vec3 = [0.18, 0.06, 1.82];
+const ANAPHYLAXIS_PATIENT_SIDE_MEDICAL_BAG_POSITION: Vec3 = [3.35, 0.06, 1.62];
 const GUIDE_PARAMEDIC_MODEL_SCALE = 0.9;
 const GUIDE_PARAMEDIC_CAMERA_POSITION: Vec3 = [2.35, 1.88, 4.05];
 const GUIDE_PARAMEDIC_CAMERA_TARGET: Vec3 = [0.35, 1.3, 0.95];
@@ -142,7 +146,6 @@ const CRASH_CAMERA_TARGET: Vec3 = [0.35, 0.52, 1.15];
 const MOBILE_CRASH_CAMERA_POSITION: Vec3 = [-0.65, 2.35, 7.7];
 const MOBILE_CRASH_CAMERA_TARGET: Vec3 = [1.2, 1.02, 0.2];
 const CRASH_STAGED_PARAMEDIC_POSITION: Vec3 = [-1.25, 0.05, 4.02];
-const CRASH_PATIENT_SIDE_PARAMEDIC_POSITION: Vec3 = [0.72, 0.05, 2.1];
 const CRASH_STAGED_MEDICAL_BAG_POSITION: Vec3 = [-0.38, 0.06, 4.08];
 const CRASH_PATIENT_SIDE_MEDICAL_BAG_POSITION: Vec3 = [0.05, 0.06, 2.45];
 const CRASH_RESPONSE_ROTATION_Y = 2.4;
@@ -2157,7 +2160,7 @@ function FloatingWalkieTalkie({ position, scale = 0.52 }: { position: Vec3; scal
   );
 }
 
-function AnimalControlResponse({ active }: { active?: boolean }) {
+function AnimalControlResponse({ active, position }: { active?: boolean; position: Vec3 }) {
   const root = useRef<THREE.Group>(null);
   const dustRefs = useRef<Array<THREE.Mesh | null>>([]);
 
@@ -2185,7 +2188,7 @@ function AnimalControlResponse({ active }: { active?: boolean }) {
   ];
 
   return (
-    <group ref={root} position={[5.25, 0.02, 1.42]} rotation={[0, -0.32, 0]}>
+    <group ref={root} position={position} rotation={[0, -0.32, 0]}>
       <TinyPerson position={[0.72, 0, -0.16]} shirt="#0f766e" rotation={-1.35} scale={0.98} />
       <mesh position={[0.33, 0.78, -0.02]} rotation={[0, 0, Math.PI / 2]}>
         <cylinderGeometry args={[0.012, 0.012, 0.88, 8]} />
@@ -2285,6 +2288,89 @@ function MedicalScenarioSceneProps({ scenarioId }: { scenarioId: SceneVariant })
   return null;
 }
 
+function FestivalBystander({ position }: { position: Vec3 }) {
+  const root = useRef<THREE.Group>(null);
+  const reduceMotion = useReducedMotion();
+
+  useFrame(({ clock }) => {
+    if (!root.current) return;
+    root.current.rotation.z = reduceMotion ? 0 : Math.sin(clock.getElapsedTime() * 1.35) * 0.012;
+  });
+
+  return (
+    <group ref={root} position={position} rotation={[0, -0.88, 0]}>
+      <mesh position={[-0.12, 0.38, 0]} castShadow>
+        <cylinderGeometry args={[0.095, 0.105, 0.7, 12]} />
+        <meshStandardMaterial color="#263342" roughness={0.9} />
+      </mesh>
+      <mesh position={[0.12, 0.38, 0]} castShadow>
+        <cylinderGeometry args={[0.095, 0.105, 0.7, 12]} />
+        <meshStandardMaterial color="#263342" roughness={0.9} />
+      </mesh>
+      <mesh position={[-0.12, 0.07, 0.055]} castShadow>
+        <boxGeometry args={[0.19, 0.12, 0.32]} />
+        <meshStandardMaterial color="#202833" roughness={0.94} />
+      </mesh>
+      <mesh position={[0.12, 0.07, 0.055]} castShadow>
+        <boxGeometry args={[0.19, 0.12, 0.32]} />
+        <meshStandardMaterial color="#202833" roughness={0.94} />
+      </mesh>
+
+      <mesh position={[0, 1.02, 0]} castShadow>
+        <cylinderGeometry args={[0.24, 0.29, 0.62, 14]} />
+        <meshStandardMaterial color="#7c3aed" roughness={0.78} />
+      </mesh>
+      <mesh position={[-0.3, 0.98, 0]} rotation={[0, 0, -0.08]} castShadow>
+        <cylinderGeometry args={[0.07, 0.075, 0.58, 10]} />
+        <meshStandardMaterial color="#e0aa7d" roughness={0.84} />
+      </mesh>
+      <mesh position={[0.3, 0.98, 0]} rotation={[0, 0, 0.08]} castShadow>
+        <cylinderGeometry args={[0.07, 0.075, 0.58, 10]} />
+        <meshStandardMaterial color="#e0aa7d" roughness={0.84} />
+      </mesh>
+      <mesh position={[-0.32, 0.68, 0]} castShadow>
+        <sphereGeometry args={[0.085, 12, 10]} />
+        <meshStandardMaterial color="#e0aa7d" roughness={0.84} />
+      </mesh>
+      <mesh position={[0.32, 0.68, 0]} castShadow>
+        <sphereGeometry args={[0.085, 12, 10]} />
+        <meshStandardMaterial color="#e0aa7d" roughness={0.84} />
+      </mesh>
+
+      <mesh position={[0, 1.54, 0]} castShadow>
+        <sphereGeometry args={[0.2, 16, 14]} />
+        <meshStandardMaterial color="#e0aa7d" roughness={0.82} />
+      </mesh>
+      <mesh position={[0, 1.66, -0.015]} scale={[1.04, 0.64, 1.03]} castShadow>
+        <sphereGeometry args={[0.205, 14, 12]} />
+        <meshStandardMaterial color="#2e201b" roughness={0.92} />
+      </mesh>
+      <mesh position={[0, 0.012, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <circleGeometry args={[0.38, 24]} />
+        <meshStandardMaterial color="#1f2937" transparent opacity={0.16} depthWrite={false} />
+      </mesh>
+    </group>
+  );
+}
+
+function FestivalPatient({ standing, groundPosition }: { standing: boolean; groundPosition: Vec3 }) {
+  if (!standing) {
+    return (
+      <CustomPatientModel
+        position={[groundPosition[0], 0.2, groundPosition[2]]}
+        scale={2.0}
+        rotation={[0, -0.16, 0]}
+      />
+    );
+  }
+
+  return (
+    <group position={[groundPosition[0], 1.02, groundPosition[2]]} rotation={[0, Math.PI - 0.16, 0]}>
+      <CustomPatientModel scale={2.0} rotation={[0, 0, -Math.PI / 2]} />
+    </group>
+  );
+}
+
 function RoadsideFestivalEmergencyScene({
   environment,
   animalControlResponseActive,
@@ -2298,8 +2384,13 @@ function RoadsideFestivalEmergencyScene({
 }) {
   const medicalBagPosition =
     locationId === "patientSide"
-      ? PATIENT_SIDE_MEDICAL_BAG_POSITION
+      ? scenarioId === "anaphylaxis"
+        ? ANAPHYLAXIS_PATIENT_SIDE_MEDICAL_BAG_POSITION
+        : PATIENT_SIDE_MEDICAL_BAG_POSITION
       : STAGED_MEDICAL_BAG_POSITION;
+  const isAnaphylaxis = scenarioId === "anaphylaxis";
+  const patientGroundPosition: Vec3 = isAnaphylaxis ? [5.38, 0, 1.28] : [2.28, 0, 1.18];
+  const dogPosition: Vec3 = isAnaphylaxis ? [2.28, 0, 1.18] : [5.38, 0, 1.28];
   const cones = useMemo(
     () => [
       [-3.35, 0.11, -3.05, 0.1],
@@ -2332,21 +2423,30 @@ function RoadsideFestivalEmergencyScene({
         scale={0.88}
         rotation={[0, 0, 0]}
       />
-      <CustomPatientModel position={[2.28, 0.2, 1.18]} scale={2.0} rotation={[0, -0.16, 0]} />
+      <FestivalPatient standing={isAnaphylaxis} groundPosition={patientGroundPosition} />
+      {isAnaphylaxis ? <FestivalBystander position={ANAPHYLAXIS_BYSTANDER_POSITION} /> : null}
       <MedicalScenarioSceneProps scenarioId={scenarioId} />
-      <mesh position={[2.28, 0.025, 1.28]} rotation={[-Math.PI / 2, 0, -0.16]} receiveShadow>
-        <circleGeometry args={[1.55, 40]} />
+      <mesh
+        position={[patientGroundPosition[0], 0.025, patientGroundPosition[2]]}
+        rotation={[-Math.PI / 2, 0, -0.16]}
+        scale={isAnaphylaxis ? [0.52, 0.34, 1] : [1, 1, 1]}
+        receiveShadow
+      >
+        <circleGeometry args={[isAnaphylaxis ? 0.82 : 1.55, 40]} />
         <meshStandardMaterial color="#7e684f" transparent opacity={0.22} roughness={1} />
       </mesh>
       {environment?.dogSecured && !animalControlResponseActive ? null : (
         <BarkingDog
-          position={[5.38, 0, 1.28]}
-          rotationY={3.1}
+          position={dogPosition}
+          rotationY={isAnaphylaxis ? 0 : 3.1}
           secured={false}
           agitated={environment?.dogAgitated ?? true}
         />
       )}
-      <AnimalControlResponse active={animalControlResponseActive} />
+      <AnimalControlResponse
+        active={animalControlResponseActive}
+        position={[dogPosition[0] - 0.13, 0.02, dogPosition[2] + 0.14]}
+      />
 
       <ReferenceFence position={[-9.5, 0.05, -2.0]} rotationY={0.05} segments={7} />
       <ReferenceFence position={[6.3, 0.05, -1.9]} rotationY={0.02} segments={5} />
@@ -2722,7 +2822,15 @@ function FloatingLabel({
   );
 }
 
-function FindingBubble({ text, speaker = "coach" }: { text?: string; speaker?: "coach" | "patient" }) {
+function FindingBubble({
+  text,
+  speaker = "coach",
+  position = [2.15, 2.0, 1.65],
+}: {
+  text?: string;
+  speaker?: "coach" | "patient";
+  position?: Vec3;
+}) {
   const { size } = useThree();
   const [visibleText, setVisibleText] = useState(text ?? "");
   const [isVisible, setIsVisible] = useState(Boolean(text));
@@ -2766,7 +2874,13 @@ function FindingBubble({ text, speaker = "coach" }: { text?: string; speaker?: "
   if (size.width < 768) return null;
 
   return (
-    <Html position={[2.15, 2.0, 1.65]} center distanceFactor={6.4} zIndexRange={SCENE_HTML_Z_INDEX_RANGE}>
+    <Html
+      position={position}
+      center
+      distanceFactor={6.4}
+      zIndexRange={SCENE_HTML_Z_INDEX_RANGE}
+      style={{ pointerEvents: "none" }}
+    >
       {content}
     </Html>
   );
@@ -2826,9 +2940,26 @@ function CameraDirector({
   const reduceMotion = useReducedMotion();
   const target = useMemo(() => new THREE.Vector3(), []);
   const desiredPosition = useMemo(() => new THREE.Vector3(), []);
+  const settledFocusId = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    settledFocusId.current = undefined;
+    const controls = controlsRef?.current;
+    if (controls && focusObject) {
+      controls.enabled = false;
+      controls.enableDamping = false;
+    }
+
+    return () => {
+      if (!controls) return;
+      controls.enabled = true;
+      controls.enableDamping = false;
+    };
+  }, [controlsRef, focusObject]);
 
   useFrame(() => {
     if (!focusObject?.focusPosition && !focusObject?.focusTarget) return;
+    if (settledFocusId.current === focusObject.id) return;
 
     const fallbackPosition: Vec3 =
       locationId === "patientSide"
@@ -2857,19 +2988,42 @@ function CameraDirector({
     if (reduceMotion) {
       camera.position.copy(desiredPosition);
     } else {
-      camera.position.lerp(desiredPosition, 0.045);
+      camera.position.lerp(desiredPosition, 0.09);
     }
 
     const controls = controlsRef?.current;
+    if (controls) {
+      controls.enabled = false;
+      controls.enableDamping = false;
+    }
     if (controls?.target) {
       if (reduceMotion) {
         controls.target.copy(target);
       } else {
-        controls.target.lerp(target, 0.06);
+        controls.target.lerp(target, 0.1);
       }
       controls.update?.();
     } else {
       camera.lookAt(target);
+    }
+
+    const currentTarget = controls?.target ?? target;
+    if (
+      camera.position.distanceTo(desiredPosition) < 0.05 &&
+      currentTarget.distanceTo(target) < 0.05
+    ) {
+      camera.position.copy(desiredPosition);
+      if (controls?.target) {
+        controls.target.copy(target);
+        controls.update?.();
+      } else {
+        camera.lookAt(target);
+      }
+      settledFocusId.current = focusObject.id;
+      if (controls) {
+        controls.enabled = true;
+        controls.enableDamping = false;
+      }
     }
   });
 
@@ -3001,7 +3155,7 @@ function SceneLoadingOverlay() {
     return () => window.clearTimeout(timer);
   }, [active, complete]);
 
-  if (!visible) return null;
+  if (!visible || complete) return null;
 
   const displayedProgress =
     total > 0
@@ -3023,9 +3177,7 @@ function SceneLoadingOverlay() {
       role="status"
       aria-live="polite"
       aria-label="Preparing EMT training scene"
-      className={`pointer-events-auto absolute inset-0 z-[100] flex items-center justify-center overflow-hidden bg-[#071a29] px-6 transition-opacity duration-500 ${
-        complete ? "opacity-0" : "opacity-100"
-      }`}
+      className="pointer-events-auto absolute inset-0 z-[100] flex items-center justify-center overflow-hidden bg-[#071a29] px-6"
     >
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_35%,rgba(45,212,191,0.14),transparent_42%)]" />
       <div className="relative flex w-full max-w-sm flex-col items-center text-center">
@@ -3092,11 +3244,14 @@ function InteractiveHotspot({
   const color = object.completed ? "#34d399" : object.highlightColor ?? "#2dd4bf";
   const disabled = object.enabled === false;
   const isSuggested = Boolean(suggested && !disabled && !object.completed);
-  const highlightVisible = accessibilityMode || hovered || selected || isSuggested || object.category === "movement";
+  const isDiscoverableBystander = object.category === "bystander" && !object.completed;
+  const highlightVisible =
+    accessibilityMode || hovered || selected || isSuggested || isDiscoverableBystander || object.category === "movement";
   const isUrgentDogStatus = object.id === "dog" && object.name === "Barking Louder";
+  const isTransportDecision = object.id === "transport-decision";
   const labelVisible =
     isUrgentDogStatus ||
-    (!selected && (accessibilityMode || hovered || isSuggested || object.category === "movement"));
+    (!selected && (accessibilityMode || hovered || isSuggested || isDiscoverableBystander || object.category === "movement"));
   const isClinicalDecisionHotspot = [
     "epinephrine-treatment",
     "oxygen-support",
@@ -3109,9 +3264,15 @@ function InteractiveHotspot({
   ].includes(object.id);
   const compactLabel =
     object.category === "movement" ||
+    object.id === "dog" ||
     object.id === "ambulance-radio" ||
     object.id === "medical-bag" ||
     isClinicalDecisionHotspot;
+  const labelSizeClass = isTransportDecision
+    ? "min-h-10 max-w-[140px] px-3 py-1 text-[9px] leading-4 tracking-[0.08em]"
+    : compactLabel
+      ? "min-h-9 max-w-[112px] px-2 py-1 text-[8px] leading-3 tracking-[0.08em]"
+      : "min-h-9 max-w-[136px] px-2.5 py-1 text-[9px] leading-4 tracking-[0.08em]";
   const labelText =
     isSuggested && !selected && showSelectionPrompt && !isClinicalDecisionHotspot
       ? `Select ${object.name}`
@@ -3132,7 +3293,10 @@ function InteractiveHotspot({
       mesh.current.scale.setScalar(selected ? 1.12 : 1);
       return;
     }
-    const pulse = 1 + Math.sin(clock.getElapsedTime() * 3.2) * (isSuggested ? 0.14 : 0.08);
+    const pulse =
+      1 +
+      Math.sin(clock.getElapsedTime() * (isTransportDecision ? 2.6 : 3.2)) *
+        (isTransportDecision ? 0.16 : isSuggested ? 0.14 : 0.08);
     mesh.current.scale.setScalar(selected ? pulse * 1.12 : pulse);
   });
 
@@ -3140,6 +3304,7 @@ function InteractiveHotspot({
     <group position={object.position}>
       <mesh
         ref={mesh}
+        raycast={object.completed ? () => null : undefined}
         onClick={(event) => {
           event.stopPropagation();
           onSelect?.(object.id);
@@ -3150,20 +3315,57 @@ function InteractiveHotspot({
         }}
         onPointerOut={() => setHovered(false)}
       >
-        <sphereGeometry args={[object.category === "movement" ? 0.42 : 0.34, 20, 20]} />
+        <sphereGeometry
+          args={[
+            isTransportDecision
+              ? 0.5
+              : object.category === "movement"
+                ? 0.42
+                : object.category === "patient"
+                  ? 0.46
+                  : 0.34,
+            20,
+            20,
+          ]}
+        />
         <meshStandardMaterial
           color={disabled ? "#64748b" : color}
           emissive={disabled ? "#111827" : color}
-          emissiveIntensity={highlightVisible ? (isSuggested ? 0.75 : 0.55) : 0.12}
+          emissiveIntensity={
+            highlightVisible
+              ? isTransportDecision
+                ? 1
+                : isSuggested
+                  ? 0.75
+                  : 0.55
+              : 0.12
+          }
           transparent
-          opacity={highlightVisible ? (disabled ? 0.18 : isSuggested ? 0.36 : 0.3) : 0.03}
+          opacity={
+            highlightVisible
+              ? disabled
+                ? 0.18
+                : isTransportDecision
+                  ? 0.45
+                  : isSuggested
+                    ? 0.36
+                    : 0.3
+              : 0.03
+          }
           depthWrite={false}
         />
       </mesh>
       <Html
         center
+        eps={0.025}
         distanceFactor={
-          object.id === "ambulance-radio" || object.id === "medical-bag"
+          isTransportDecision
+            ? 8.4
+            : object.id === "dog"
+            ? 6
+            : object.id === "ambulance-radio" ||
+                object.id === "medical-bag" ||
+                object.id === "transport-decision"
             ? 7
             : isClinicalDecisionHotspot
               ? 8
@@ -3171,7 +3373,7 @@ function InteractiveHotspot({
               ? 12
               : 9
         }
-        position={[0, compactLabel ? 0.46 : 0.58, 0]}
+        position={[0, isTransportDecision ? 0.72 : compactLabel ? 0.46 : 0.58, 0]}
         zIndexRange={SCENE_HTML_Z_INDEX_RANGE}
       >
         <button
@@ -3191,12 +3393,14 @@ function InteractiveHotspot({
             event.stopPropagation();
             onSelect?.(object.id);
           }}
-          className={`${compactLabel ? "max-w-[112px] px-2 py-1 text-[8px] leading-3 tracking-[0.08em]" : "max-w-[136px] px-2.5 py-1 text-[9px] leading-4 tracking-[0.08em]"} min-h-9 cursor-pointer rounded-full border text-center font-black uppercase shadow-xl backdrop-blur transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${
+          className={`${labelSizeClass} cursor-pointer rounded-full border text-center font-black uppercase shadow-xl backdrop-blur transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${
             labelVisible ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
           } ${disabled
             ? "border-slate-400/30 bg-slate-950/75 text-slate-300"
             : object.completed
               ? "border-emerald-200/60 bg-emerald-500/35 text-emerald-50"
+              : isTransportDecision
+                ? "border-amber-200/80 bg-amber-500/30 text-amber-50 ring-1 ring-amber-200/35"
               : "border-teal-200/55 bg-slate-950/82 text-teal-50"
             }`}
         >
@@ -4562,20 +4766,36 @@ export default function ThreeDScene({
     STATIC_FOCUS_OBJECTS[activeCameraFocusObjectId ?? ""];
   const medicPosition = useCarAccidentScene
     ? locationId === "patientSide"
-      ? CRASH_PATIENT_SIDE_PARAMEDIC_POSITION
+      ? COLLISION_PATIENT_SIDE_PARAMEDIC_POSITION
       : CRASH_STAGED_PARAMEDIC_POSITION
     : locationId === "patientSide"
-      ? PATIENT_SIDE_PARAMEDIC_POSITION
+      ? activeScenarioId === "anaphylaxis"
+        ? ANAPHYLAXIS_PATIENT_SIDE_PARAMEDIC_POSITION
+        : FESTIVAL_PATIENT_SIDE_PARAMEDIC_POSITION
       : STAGED_PARAMEDIC_POSITION;
   const normalCameraPosition = useCarAccidentScene ? CRASH_CAMERA_POSITION : NORMAL_CAMERA_POSITION;
   const normalCameraTarget = useCarAccidentScene ? CRASH_CAMERA_TARGET : NORMAL_CAMERA_TARGET;
+  const findingBubblePosition: Vec3 =
+    activeScenarioId === "anaphylaxis" ? [5.38, 2.32, 1.28] : [2.15, 2.0, 1.65];
   const patientPosition: Vec3 = [2.18, 0.08, 1.55];
   const orbitControlsRef = useRef<any>(null);
+  const previousAnimalControlActive = useRef(animalControlResponseActive);
   const [guideStep, setGuideStep] = useState<GuideStep>(showGuideIntro ? "welcome" : "done");
   const [guideName, setGuideName] = useState("");
   const [cameraMode, setCameraMode] = useState<CameraMode>(showGuideIntro ? "guide" : "normal");
   const [compactRendering, setCompactRendering] = useState(false);
   const [pageVisible, setPageVisible] = useState(true);
+
+  useEffect(() => {
+    if (
+      previousAnimalControlActive.current &&
+      !animalControlResponseActive &&
+      compactRendering
+    ) {
+      setCameraMode("normal");
+    }
+    previousAnimalControlActive.current = animalControlResponseActive;
+  }, [animalControlResponseActive, compactRendering]);
 
   useEffect(() => {
     const compactQuery = window.matchMedia("(max-width: 767px)");
@@ -4742,7 +4962,7 @@ export default function ThreeDScene({
                 : MOBILE_NORMAL_CAMERA_TARGET
           }
         />
-        <FindingBubble text={sceneFinding} speaker={sceneSpeaker} />
+        <FindingBubble text={sceneFinding} speaker={sceneSpeaker} position={findingBubblePosition} />
         <InteractiveLayer
           objects={displayedInteractiveObjects}
           selectedObjectId={selectedObjectId}
@@ -4790,7 +5010,7 @@ export default function ThreeDScene({
           ref={orbitControlsRef}
           enablePan
           panSpeed={0.35}
-          enableDamping
+          enableDamping={false}
           makeDefault
           minDistance={CAMERA_MIN_DISTANCE}
           maxDistance={CAMERA_MAX_DISTANCE}
