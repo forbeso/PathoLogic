@@ -1,6 +1,7 @@
 import { ContactShadows, Html, OrbitControls, RoundedBox } from "@react-three/drei";
-import { Canvas, useFrame } from "@react-three/fiber";
-import { useMemo, useRef } from "react";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { useEffect, useMemo, useRef, type ElementRef, type RefObject } from "react";
+import { RotateCcw } from "lucide-react";
 import * as THREE from "three";
 import type {
   AnkleCaseId,
@@ -15,6 +16,36 @@ type FocusedAnkleExamSceneProps = {
   examinedFindings: ExamFindingId[];
   onExamine: (findingId: ExamFindingId) => void;
 };
+
+type OrbitControlsHandle = ElementRef<typeof OrbitControls>;
+
+function ResponsiveCamera({
+  controlsRef,
+}: {
+  controlsRef: RefObject<OrbitControlsHandle | null>;
+}) {
+  const { camera, size } = useThree();
+
+  useEffect(() => {
+    const controls = controlsRef.current;
+    if (!controls) return;
+
+    const portrait = size.width <= 600;
+    if (portrait) {
+      camera.position.set(5.35, 4.05, 7.55);
+      controls.target.set(0, 1.55, 0.65);
+    } else {
+      camera.position.set(4.8, 3.2, 6.25);
+      controls.target.set(0, 1, 0.55);
+    }
+
+    camera.updateProjectionMatrix();
+    controls.update();
+    controls.saveState();
+  }, [camera, controlsRef, size.width]);
+
+  return null;
+}
 
 type MarkerConfig = {
   id: ExamFindingId;
@@ -55,6 +86,11 @@ function ExamMarker({
   onSelect: () => void;
 }) {
   const color = marker.tone === "amber" ? "#f59e0b" : marker.tone === "rose" ? "#fb7185" : "#2dd4bf";
+  const labelPosition = marker.position[0] > 0.25
+    ? "right-0"
+    : marker.position[0] < -0.25
+      ? "left-0"
+      : "left-1/2 -translate-x-1/2";
 
   return (
     <group position={marker.position}>
@@ -89,7 +125,7 @@ function ExamMarker({
               className="pointer-events-none absolute inset-1 rounded-full border border-teal-100/80 animate-[exam-pulse_2.2s_ease-in-out_infinite]"
             />
           ) : null}
-          <span className="pointer-events-none absolute left-1/2 top-full mt-1.5 w-max max-w-36 -translate-x-1/2 rounded-md border border-white/15 bg-slate-950/92 px-2.5 py-1.5 text-center text-[10px] font-bold leading-4 text-white shadow-xl backdrop-blur sm:text-xs">
+          <span className={`pointer-events-none absolute top-full mt-1.5 w-max max-w-36 rounded-md border border-white/15 bg-slate-950/92 px-2.5 py-1.5 text-center text-[10px] font-bold leading-4 text-white shadow-xl backdrop-blur sm:text-xs ${labelPosition}`}>
             {completed ? "Checked" : marker.label}
           </span>
         </button>
@@ -156,7 +192,8 @@ function SceneContent({
   availableFindings,
   examinedFindings,
   onExamine,
-}: FocusedAnkleExamSceneProps) {
+  controlsRef,
+}: FocusedAnkleExamSceneProps & { controlsRef: RefObject<OrbitControlsHandle | null> }) {
   const markers = useMemo(() => {
     if (phase === "decision") return [];
     return PHASE_MARKERS[phase].filter((marker) => availableFindings.includes(marker.id));
@@ -183,12 +220,16 @@ function SceneContent({
         ))}
       </group>
 
-      <mesh position={[0, -0.02, 0.55]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+      <RoundedBox args={[4.7, 0.22, 4.2]} radius={0.12} smoothness={5} position={[0, -0.16, 0.62]} receiveShadow>
+        <meshStandardMaterial color="#cde5e1" roughness={0.88} />
+      </RoundedBox>
+      <mesh position={[0, -0.28, 0.55]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[9, 9]} />
-        <meshStandardMaterial color="#f0f7f5" roughness={0.95} />
+        <meshStandardMaterial color="#eef6f4" roughness={0.98} />
       </mesh>
       <ContactShadows position={[0, 0.01, 0.45]} scale={5} opacity={0.28} blur={2.5} far={3.5} />
       <OrbitControls
+        ref={controlsRef}
         makeDefault
         enablePan={false}
         minDistance={4.6}
@@ -197,11 +238,14 @@ function SceneContent({
         maxPolarAngle={Math.PI / 2.08}
         target={[0, 1.0, 0.55]}
       />
+      <ResponsiveCamera controlsRef={controlsRef} />
     </>
   );
 }
 
 export default function FocusedAnkleExamScene(props: FocusedAnkleExamSceneProps) {
+  const controlsRef = useRef<OrbitControlsHandle | null>(null);
+
   return (
     <div className="relative h-full min-h-[340px] w-full overflow-hidden bg-[#dceff0]">
       <Canvas
@@ -210,8 +254,20 @@ export default function FocusedAnkleExamScene(props: FocusedAnkleExamSceneProps)
         gl={{ antialias: true, alpha: false, powerPreference: "high-performance" }}
         shadows
       >
-        <SceneContent {...props} />
+        <SceneContent {...props} controlsRef={controlsRef} />
       </Canvas>
+      <div className="pointer-events-none absolute right-3 top-3 rounded-md border border-slate-900/10 bg-white/75 px-2.5 py-1.5 text-[9px] font-black uppercase tracking-[0.14em] text-slate-600 shadow-sm backdrop-blur">
+        Right ankle
+      </div>
+      <button
+        type="button"
+        title="Reset ankle view"
+        aria-label="Reset ankle view"
+        onClick={() => controlsRef.current?.reset()}
+        className="absolute bottom-3 right-3 z-10 grid h-9 w-9 place-items-center rounded-full border border-slate-900/10 bg-white/85 text-slate-700 shadow-md backdrop-blur transition hover:bg-white focus:ring-4 focus:ring-teal-300/50"
+      >
+        <RotateCcw size={15} />
+      </button>
       <div className="pointer-events-none absolute bottom-3 left-3 rounded-md border border-white/50 bg-white/72 px-3 py-2 text-[11px] font-semibold text-slate-700 shadow-sm backdrop-blur dark:bg-slate-950/70 dark:text-slate-200">
         Drag to rotate · Pinch or scroll to zoom
       </div>

@@ -21,6 +21,7 @@ test("ankle lab completes the likely sprain pathway", async ({ page }) => {
   await expectNoHorizontalOverflow(page);
 
   await page.getByTestId("begin-ankle-exam").click();
+  await expect(page.locator("aside")).toHaveCount(0);
 
   const firstMarker = page.getByTestId("exam-marker-appearance");
   const box = await firstMarker.boundingBox();
@@ -28,6 +29,10 @@ test("ankle lab completes the likely sprain pathway", async ({ page }) => {
   expect(box?.height).toBeGreaterThanOrEqual(60);
 
   await clickMarker(page, "appearance");
+  await expect(page.getByTestId("exam-finding-message")).toContainText("Compare both ankles before touching");
+  await expect(page.getByTestId("exam-finding-message")).toContainText("Mild lateral swelling");
+  await page.getByRole("button", { name: "Dismiss finding" }).click();
+  await expect(page.getByTestId("exam-finding-message")).toHaveCount(0);
   await clickMarker(page, "skin");
   await page.getByTestId("continue-exam").click();
 
@@ -52,7 +57,55 @@ test("ankle lab completes the likely sprain pathway", async ({ page }) => {
   await expect(debrief).toContainText("Good clinical decision");
   await expect(debrief).toContainText("100");
   await expect(debrief).toContainText("rather than promising that fracture is impossible");
+  await expect(debrief).toContainText("Findings that drove the decision");
+  await expect(page.locator("aside")).toBeVisible();
   await expectNoHorizontalOverflow(page);
+});
+
+test("lateral malleolus findings lead to ankle radiographs", async ({ page }) => {
+  await page.goto("/focused-exams/ankle");
+  await page.getByLabel("Choose ankle case").selectOption("lateral-malleolus");
+  await page.getByTestId("begin-ankle-exam").click();
+
+  await clickMarker(page, "appearance");
+  await clickMarker(page, "skin");
+  await page.getByTestId("continue-exam").click();
+  await clickMarker(page, "lateral-malleolus");
+  await clickMarker(page, "medial-malleolus");
+  await page.getByTestId("continue-exam").click();
+  await clickMarker(page, "dorsalis-pedis");
+  await clickMarker(page, "sensation");
+  await clickMarker(page, "motor");
+  await page.getByTestId("continue-exam").click();
+  await clickMarker(page, "weight-bearing");
+  await page.getByTestId("continue-exam").click();
+
+  await page.getByRole("button", { name: "Ankle radiographs are indicated", exact: true }).click();
+  await expect(page.getByTestId("exam-debrief")).toContainText("qualifying lateral malleolus tenderness");
+  await expect(page.getByTestId("exam-debrief")).toContainText("100");
+});
+
+test("fifth metatarsal findings lead to foot radiographs", async ({ page }) => {
+  await page.goto("/focused-exams/ankle");
+  await page.getByLabel("Choose ankle case").selectOption("fifth-metatarsal");
+  await page.getByTestId("begin-ankle-exam").click();
+
+  await clickMarker(page, "appearance");
+  await clickMarker(page, "skin");
+  await page.getByTestId("continue-exam").click();
+  await clickMarker(page, "navicular");
+  await clickMarker(page, "fifth-metatarsal");
+  await page.getByTestId("continue-exam").click();
+  await clickMarker(page, "dorsalis-pedis");
+  await clickMarker(page, "sensation");
+  await clickMarker(page, "motor");
+  await page.getByTestId("continue-exam").click();
+  await clickMarker(page, "weight-bearing");
+  await page.getByTestId("continue-exam").click();
+
+  await page.getByRole("button", { name: "Foot radiographs are indicated", exact: true }).click();
+  await expect(page.getByTestId("exam-debrief")).toContainText("base of the fifth metatarsal");
+  await expect(page.getByTestId("exam-debrief")).toContainText("100");
 });
 
 test("limb-threat case bypasses unsafe weight bearing", async ({ page }) => {

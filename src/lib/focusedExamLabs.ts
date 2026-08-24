@@ -43,8 +43,23 @@ export type AnkleExamCase = {
   canBearWeight: boolean;
   correctDecision: ImagingDecision;
   requiredFindings: ExamFindingId[];
+  decisionDrivers: ExamFindingId[];
   findings: Record<ExamFindingId, string>;
   rationale: string;
+};
+
+export const examTechniques: Record<ExamFindingId, string> = {
+  appearance: "Compare both ankles before touching. Look from the front, side, and above for swelling, shortening, rotation, or deformity.",
+  skin: "Inspect completely around the joint for wounds, bruising, pallor, coolness, and skin tenting.",
+  "lateral-malleolus": "Palpate the posterior edge of the distal 6 cm and the tip of the lateral malleolus, not just the soft tissue in front of it.",
+  "medial-malleolus": "Palpate the posterior edge of the distal 6 cm and the tip of the medial malleolus.",
+  navicular: "Palpate the navicular on the medial midfoot and ask whether the tenderness is sharply focal over the bone.",
+  "fifth-metatarsal": "Follow the fifth metatarsal proximally and palpate its base on the lateral midfoot.",
+  atfl: "Palpate the soft tissue just anterior and inferior to the lateral malleolus to distinguish ligament pain from bony tenderness.",
+  "dorsalis-pedis": "Palpate the dorsalis pedis pulse and compare its strength with the uninjured foot.",
+  sensation: "Test light touch across the foot and toes, comparing sides and asking about numbness or tingling.",
+  motor: "Ask the patient to move the toes and gently dorsiflex and plantarflex only as the injury safely allows.",
+  "weight-bearing": "Ask about four steps immediately after the injury, then observe four steps now only when deformity and neurovascular compromise are absent.",
 };
 
 const NORMAL_FINDINGS: Record<ExamFindingId, string> = {
@@ -84,6 +99,7 @@ export const ankleExamCases: AnkleExamCase[] = [
       "motor",
       "weight-bearing",
     ],
+    decisionDrivers: ["lateral-malleolus", "medial-malleolus", "weight-bearing"],
     findings: NORMAL_FINDINGS,
     rationale:
       "There is malleolar-zone pain, but no qualifying posterior-edge or tip bony tenderness and the patient can take four steps. Ottawa ankle criteria are negative. Continue clinical judgment, supportive care, and appropriate follow-up rather than promising that fracture is impossible.",
@@ -109,6 +125,7 @@ export const ankleExamCases: AnkleExamCase[] = [
       "motor",
       "weight-bearing",
     ],
+    decisionDrivers: ["lateral-malleolus", "weight-bearing"],
     findings: {
       ...NORMAL_FINDINGS,
       appearance: "Moderate lateral swelling without gross deformity.",
@@ -140,6 +157,7 @@ export const ankleExamCases: AnkleExamCase[] = [
       "motor",
       "weight-bearing",
     ],
+    decisionDrivers: ["fifth-metatarsal", "weight-bearing"],
     findings: {
       ...NORMAL_FINDINGS,
       appearance: "Swelling is concentrated over the lateral midfoot. No gross deformity.",
@@ -161,6 +179,7 @@ export const ankleExamCases: AnkleExamCase[] = [
     canBearWeight: false,
     correctDecision: "rule-not-appropriate",
     requiredFindings: ["appearance", "skin", "dorsalis-pedis", "sensation", "motor"],
+    decisionDrivers: ["appearance", "skin", "dorsalis-pedis", "sensation"],
     findings: {
       ...NORMAL_FINDINGS,
       appearance: "Gross ankle deformity with abnormal alignment.",
@@ -243,4 +262,36 @@ export function scoreAnkleExam(examCase: AnkleExamCase, examined: ExamFindingId[
     decisionCorrect: decision === examCase.correctDecision,
     missed: examCase.requiredFindings.filter((id) => !examined.includes(id)),
   };
+}
+
+export function getDecisionFeedback(examCase: AnkleExamCase, decision: ImagingDecision) {
+  if (decision === examCase.correctDecision) return examCase.rationale;
+
+  if (examCase.immediateConcern) {
+    return "Gross deformity, pallor, coolness, an absent distal pulse, or sensory loss takes priority over completing an Ottawa screen. Manage the limb threat now.";
+  }
+
+  if (decision === "rule-not-appropriate") {
+    return "No immediate limb threat was identified. The Ottawa pathway remains appropriate after the focused examination is complete.";
+  }
+
+  if (decision === "no-radiographs") {
+    return examCase.painZone === "midfoot"
+      ? "This misses a qualifying midfoot finding. Recheck the navicular and base of the fifth metatarsal before ruling out foot radiographs."
+      : "This misses a qualifying ankle finding. Recheck malleolar tenderness and the four-step weight-bearing result.";
+  }
+
+  if (decision === "ankle-radiographs" && examCase.painZone === "midfoot") {
+    return "The pain and qualifying tenderness are in the midfoot, so the Ottawa foot pathway applies rather than the ankle pathway.";
+  }
+
+  if (decision === "foot-radiographs" && examCase.painZone === "malleolar") {
+    return "The pain zone is malleolar, and there is no qualifying navicular or fifth-metatarsal finding to support foot radiographs.";
+  }
+
+  if (decision === "ankle-and-foot-radiographs") {
+    return "Imaging both regions requires qualifying findings in both pathways. Match each study to the actual pain zone and examination findings.";
+  }
+
+  return "Match the pain zone with its qualifying bony landmarks and the four-step weight-bearing result before choosing the imaging pathway.";
 }
