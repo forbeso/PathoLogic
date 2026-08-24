@@ -41,7 +41,7 @@ const PHASE_MARKERS: Record<Exclude<ExamPhaseId, "decision">, MarkerConfig[]> = 
     { id: "motor", label: "Toe movement", position: [0.82, 0.23, 1.88] },
   ],
   function: [
-    { id: "weight-bearing", label: "Assess four steps", position: [0, 1.32, -0.18], tone: "amber" },
+    { id: "weight-bearing", label: "Assess four steps", position: [0, 0.2, 2.32], tone: "amber" },
   ],
 };
 
@@ -206,7 +206,7 @@ export default function FocusedAnkleExamScene(props: FocusedAnkleExamSceneProps)
     <div className="relative h-full min-h-[340px] w-full overflow-hidden bg-[#dceff0]">
       <Canvas
         dpr={[1, 1.6]}
-        camera={{ position: [4.5, 3.1, 5.8], fov: 37, near: 0.1, far: 40 }}
+        camera={{ position: [4.8, 3.2, 6.25], fov: 38, near: 0.1, far: 40 }}
         gl={{ antialias: true, alpha: false, powerPreference: "high-performance" }}
         shadows
       >

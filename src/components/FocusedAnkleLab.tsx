@@ -2,7 +2,6 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
 import {
-  Activity,
   ArrowLeft,
   ArrowRight,
   Bone,
@@ -13,6 +12,7 @@ import {
   Eye,
   Footprints,
   HeartPulse,
+  Lightbulb,
   LoaderCircle,
   RefreshCcw,
   RotateCcw,
@@ -70,26 +70,34 @@ const findingLabels: Record<ExamFindingId, string> = {
   "weight-bearing": "Four-step weight bearing",
 };
 
-const phasePrompts: Record<ExamPhaseId, { title: string; description: string }> = {
+const phasePrompts: Record<
+  ExamPhaseId,
+  { title: string; description: string; teaching: string }
+> = {
   inspection: {
     title: "Look before you touch",
     description: "Check alignment, swelling, skin integrity, color, and any finding that changes the urgency of the exam.",
+    teaching: "Inspection comes first because deformity, an open injury, pallor, or severe swelling can immediately change your priorities.",
   },
   palpation: {
     title: "Palpate the correct landmarks",
     description: "Use the pain zone and mechanism to choose the bony landmarks that matter for the Ottawa criteria.",
+    teaching: "For the ankle rule, palpate the posterior edge and tip of each malleolus. Soft-tissue tenderness in front of the lateral malleolus is not the same as bony tenderness.",
   },
   neurovascular: {
     title: "Check the foot beyond the injury",
     description: "Document distal circulation, sensation, and motor function before making a disposition decision.",
+    teaching: "A focused extremity exam is incomplete without circulation, sensation, and movement distal to the injury. Recheck these after splinting.",
   },
   function: {
     title: "Assess weight bearing safely",
     description: "Determine whether the patient could take four steps immediately after the injury and can do so now.",
+    teaching: "Four steps count even with a limp. Never force weight bearing when there is gross deformity or a neurovascular threat.",
   },
   decision: {
     title: "Choose the best next step",
     description: "Apply the findings to the appropriate Ottawa ankle or foot pathway without treating the rule as a diagnosis.",
+    teaching: "Match the pain zone to its qualifying landmarks, then include weight-bearing ability. A negative rule guides imaging decisions; it does not prove that no fracture exists.",
   },
 };
 
@@ -101,6 +109,7 @@ function phasesForCase(immediateConcern: boolean) {
 
 export default function FocusedAnkleLab() {
   const sceneSectionRef = useRef<HTMLElement>(null);
+  const debriefRef = useRef<HTMLElement>(null);
   const [caseId, setCaseId] = useState<AnkleCaseId>("lateral-sprain");
   const [started, setStarted] = useState(false);
   const [phaseIndex, setPhaseIndex] = useState(0);
@@ -147,6 +156,17 @@ export default function FocusedAnkleLab() {
     if (window.matchMedia("(max-width: 1023px)").matches) {
       window.requestAnimationFrame(() => {
         sceneSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
+  }
+
+  function chooseDecision(nextDecision: ImagingDecision) {
+    setDecision(nextDecision);
+    if (window.matchMedia("(max-width: 1023px)").matches) {
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          debriefRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
       });
     }
   }
@@ -206,8 +226,19 @@ export default function FocusedAnkleLab() {
           </div>
         </section>
 
-        <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(0,1fr)_390px]">
-          <section ref={sceneSectionRef} className="relative min-h-[46dvh] scroll-mt-24 overflow-hidden border-b border-white/10 lg:min-h-0 lg:border-b-0 lg:border-r">
+        <div
+          className={`grid min-h-0 flex-1 ${
+            decision ? "lg:grid-cols-[minmax(0,1fr)_390px]" : ""
+          }`}
+        >
+          <section
+            ref={sceneSectionRef}
+            className={`relative scroll-mt-24 overflow-hidden border-white/10 ${
+              decision
+                ? "min-h-[54dvh] border-b lg:min-h-0 lg:border-b-0 lg:border-r"
+                : "min-h-[calc(100dvh-220px)] sm:min-h-[calc(100dvh-188px)]"
+            }`}
+          >
             <AnkleScene
               caseId={caseId}
               phase={phase}
@@ -216,54 +247,132 @@ export default function FocusedAnkleLab() {
               onExamine={examine}
             />
 
-            <div className="pointer-events-none absolute left-3 top-3 max-w-[calc(100%-1.5rem)] rounded-lg border border-white/15 bg-slate-950/[0.9] px-3 py-2.5 shadow-2xl backdrop-blur-md sm:hidden">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-[9px] font-black uppercase tracking-[0.17em] text-teal-300">
-                  {latestFinding ? findingLabels[latestFinding] : "Active case"}
-                </p>
-                {!latestFinding ? (
-                  <span className={`rounded border px-2 py-0.5 text-[9px] font-bold ${
+            {!started ? (
+              <div className="pointer-events-none absolute left-3 top-3 max-w-[min(330px,calc(100%-1.5rem))] rounded-lg border border-white/15 bg-slate-950/[0.88] p-4 shadow-2xl backdrop-blur-md sm:left-5 sm:top-5">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-teal-300">Active case</p>
+                  <span className={`rounded border px-2 py-0.5 text-[10px] font-bold ${
                     examCase.immediateConcern
                       ? "border-rose-400/40 bg-rose-400/15 text-rose-200"
                       : "border-amber-400/40 bg-amber-400/15 text-amber-100"
                   }`}>
                     {examCase.immediateConcern ? "Limb threat" : "Stable"}
                   </span>
+                </div>
+                <h2 className="mt-2 text-base font-bold sm:text-lg">{examCase.title}</h2>
+                <p className="mt-2 text-xs leading-5 text-slate-300 sm:text-sm">{examCase.dispatch}</p>
+                <p className="mt-2 border-t border-white/10 pt-2 text-xs leading-5 text-slate-400">{examCase.mechanism}</p>
+              </div>
+            ) : null}
+
+            {started && !decision ? (
+              <>
+                <div
+                  data-testid="guided-exam-coach"
+                  className="absolute left-3 top-3 z-20 w-[min(350px,calc(100%-1.5rem))] rounded-xl border border-white/15 bg-[#071a20]/[0.93] p-3.5 shadow-2xl backdrop-blur-md sm:left-5 sm:top-5 sm:p-4"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-teal-300 text-slate-950">
+                      {(() => {
+                        const Icon = phaseIcons[phase];
+                        return <Icon size={16} />;
+                      })()}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="truncate text-[9px] font-black uppercase tracking-[0.16em] text-teal-300">
+                          Step {phaseIndex + 1} of {activePhases.length}
+                        </p>
+                        <span className="text-[10px] font-black tabular-nums text-teal-200">{progress}%</span>
+                      </div>
+                      <div className="mt-1 flex gap-1" aria-label={`Exam progress: step ${phaseIndex + 1} of ${activePhases.length}`}>
+                        {activePhases.map((item, index) => (
+                          <span
+                            key={item}
+                            className={`h-1 flex-1 rounded-full ${index <= phaseIndex ? "bg-teal-300" : "bg-white/15"}`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <p className="mt-3 text-[9px] font-black uppercase tracking-[0.16em] text-teal-300">
+                    {phase === "decision" ? "Put the exam together" : "Do this now"}
+                  </p>
+                  <h2 className="mt-1 text-base font-black leading-5 sm:text-lg">{phasePrompts[phase].title}</h2>
+                  <p className="mt-1.5 line-clamp-2 text-xs leading-4 text-slate-300 sm:leading-5">
+                    {phasePrompts[phase].description}
+                  </p>
+                  <div className="mt-2.5 flex items-start gap-2 border-t border-white/10 pt-2.5 text-[11px] leading-4 text-amber-50">
+                    <Lightbulb className="mt-0.5 shrink-0 text-amber-300" size={13} />
+                    <p className="line-clamp-2">{phasePrompts[phase].teaching}</p>
+                  </div>
+
+                  {phase !== "decision" ? (
+                    <div className="mt-2.5 flex flex-wrap gap-1.5" data-testid="phase-checklist">
+                      {requiredForPhase.map((id) => {
+                        const complete = examined.includes(id);
+                        return (
+                          <span
+                            key={id}
+                            className={`inline-flex min-h-7 items-center gap-1.5 rounded-full border px-2 py-1 text-[9px] font-bold leading-3 ${
+                              complete
+                                ? "border-emerald-300/40 bg-emerald-300/15 text-emerald-100"
+                                : "border-white/12 bg-white/[0.05] text-slate-200"
+                            }`}
+                          >
+                            {complete ? <Check size={10} /> : <CircleDot size={9} />}
+                            {findingLabels[id]}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                </div>
+
+                {phase !== "decision" && latestFinding ? (
+                  <div
+                    key={latestFinding}
+                    role="status"
+                    aria-live="polite"
+                    data-testid="exam-finding-message"
+                    className="pointer-events-none absolute bottom-[4.75rem] right-3 z-20 w-[min(320px,calc(100%-1.5rem))] rounded-xl border border-teal-200/30 bg-[#082129]/[0.94] px-4 py-3 shadow-2xl backdrop-blur-md sm:bottom-20 sm:right-5"
+                  >
+                    <p className="text-[9px] font-black uppercase tracking-[0.16em] text-teal-300">Finding · {findingLabels[latestFinding]}</p>
+                    <p className="mt-1 text-xs font-semibold leading-5 text-white">{latestMessage}</p>
+                  </div>
                 ) : null}
-              </div>
-              <p className="mt-1 line-clamp-2 text-xs font-bold leading-5 text-white">
-                {latestFinding ? examCase.findings[latestFinding] : examCase.title}
-              </p>
-            </div>
 
-            <div className="pointer-events-none absolute left-5 top-5 hidden max-w-[330px] rounded-lg border border-white/15 bg-slate-950/[0.88] p-4 shadow-2xl backdrop-blur-md sm:block">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-teal-300">Active case</p>
-                <span className={`rounded border px-2 py-0.5 text-[10px] font-bold ${
-                  examCase.immediateConcern
-                    ? "border-rose-400/40 bg-rose-400/15 text-rose-200"
-                    : "border-amber-400/40 bg-amber-400/15 text-amber-100"
-                }`}>
-                  {examCase.immediateConcern ? "Limb threat" : "Stable"}
-                </span>
-              </div>
-              <h2 className="mt-2 text-base font-bold sm:text-lg">{examCase.title}</h2>
-              <p className="mt-2 text-xs leading-5 text-slate-300 sm:text-sm">{examCase.dispatch}</p>
-              <p className="mt-2 border-t border-white/10 pt-2 text-xs leading-5 text-slate-400">{examCase.mechanism}</p>
-            </div>
-
-            {latestMessage ? (
-              <div
-                role="status"
-                aria-live="polite"
-                data-testid="exam-finding-message"
-                className="pointer-events-none absolute bottom-5 right-5 hidden max-w-[360px] rounded-lg border border-teal-200/25 bg-[#082129]/[0.92] px-4 py-3 shadow-2xl backdrop-blur-md sm:block"
-              >
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-teal-300">
-                  {latestFinding ? findingLabels[latestFinding] : "Patient"}
-                </p>
-                <p className="mt-1 text-sm font-medium leading-5 text-white">{latestMessage}</p>
-              </div>
+                {phase !== "decision" ? (
+                  <button
+                    type="button"
+                    data-testid="continue-exam"
+                    disabled={!phaseComplete}
+                    onClick={continueExam}
+                    className="absolute bottom-4 left-1/2 z-20 inline-flex min-h-10 max-w-[calc(100%-1.5rem)] -translate-x-1/2 items-center justify-center gap-2 whitespace-nowrap rounded-full border border-white/15 bg-[#071a20]/90 px-4 py-2 text-xs font-black text-white shadow-xl backdrop-blur-md transition hover:border-teal-200 hover:bg-[#0b2931] disabled:cursor-default disabled:text-slate-300"
+                  >
+                    {phaseComplete ? `Next: ${phasePrompts[activePhases[phaseIndex + 1]].title}` : `Find ${requiredForPhase.length - requiredForPhase.filter((id) => examined.includes(id)).length} glowing point${requiredForPhase.length - requiredForPhase.filter((id) => examined.includes(id)).length === 1 ? "" : "s"}`}
+                    {phaseComplete ? <ArrowRight size={15} /> : null}
+                  </button>
+                ) : (
+                  <div className="absolute bottom-3 left-3 right-3 z-20 rounded-xl border border-white/15 bg-[#071a20]/[0.94] p-3 shadow-2xl backdrop-blur-md sm:bottom-auto sm:left-auto sm:right-5 sm:top-5 sm:w-[390px] sm:p-4" data-testid="imaging-decisions">
+                    <p className="text-[9px] font-black uppercase tracking-[0.16em] text-teal-300">Choose one action</p>
+                    <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
+                      {decisionOptions.map((option) => (
+                        <button
+                          key={option.id}
+                          type="button"
+                          onClick={() => chooseDecision(option.id)}
+                          className="flex min-h-10 items-center gap-2 rounded-md border border-white/12 bg-white/[0.045] px-3 py-2 text-left text-[10px] font-bold leading-4 text-white transition hover:border-teal-300 hover:bg-teal-300/10 focus:border-teal-300 sm:text-xs"
+                        >
+                          <CircleDot className="shrink-0 text-teal-300" size={14} />
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
             ) : null}
 
             {!started ? (
@@ -274,7 +383,7 @@ export default function FocusedAnkleLab() {
                   </span>
                   <h2 className="mt-4 text-2xl font-black">Begin the focused exam</h2>
                   <p className="mt-3 text-sm leading-6 text-slate-300">
-                    Work from inspection to a defensible imaging decision. Findings appear only after you examine the patient.
+                    I’ll guide you through each part of the exam, explain why it matters, and help you connect the findings to the imaging decision.
                   </p>
                   <button
                     type="button"
@@ -290,127 +399,9 @@ export default function FocusedAnkleLab() {
             ) : null}
           </section>
 
-          <aside className="flex min-h-0 flex-col bg-[#081a20] lg:max-h-[calc(100dvh-130px)]">
-            <div className="border-b border-white/10 px-4 py-4">
-              <div className="flex items-center justify-between text-xs font-bold text-slate-300">
-                <span>Exam progress</span>
-                <span className="tabular-nums text-teal-300">{progress}%</span>
-              </div>
-              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
-                <div className="h-full rounded-full bg-teal-300 transition-[width] duration-500" style={{ width: `${progress}%` }} />
-              </div>
-              <div className="mt-4 grid grid-cols-5 gap-1">
-                {examPhases.map((item) => {
-                  const Icon = phaseIcons[item.id];
-                  const activeIndex = activePhases.indexOf(item.id);
-                  const skipped = activeIndex === -1;
-                  const complete = activeIndex >= 0 && activeIndex < phaseIndex;
-                  const active = item.id === phase;
-                  return (
-                    <div
-                      key={item.id}
-                      title={skipped ? `${item.label} is not appropriate in this case` : item.label}
-                      className={`grid min-h-[54px] place-items-center rounded-md border px-1 py-1.5 text-center ${
-                        active
-                          ? "border-teal-300 bg-teal-300/15 text-teal-200"
-                          : complete
-                            ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200"
-                            : "border-white/10 bg-white/[0.03] text-slate-500"
-                      } ${skipped ? "opacity-35" : ""}`}
-                    >
-                      {complete ? <Check size={15} /> : <Icon size={15} />}
-                      <span className="mt-1 text-[9px] font-bold leading-3">{item.shortLabel}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5">
-              {!decision ? (
-                <>
-                  <div className="flex items-start gap-3">
-                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-teal-300/12 text-teal-300">
-                      {(() => {
-                        const Icon = phaseIcons[phase];
-                        return <Icon size={19} />;
-                      })()}
-                    </span>
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-teal-300">Current step</p>
-                      <h2 className="mt-1 text-xl font-black">{phasePrompts[phase].title}</h2>
-                    </div>
-                  </div>
-                  <p className="mt-3 text-sm leading-6 text-slate-300">{phasePrompts[phase].description}</p>
-
-                  {phase !== "decision" ? (
-                    <div className="mt-5 space-y-2" data-testid="phase-checklist">
-                      {requiredForPhase.map((id) => {
-                        const complete = examined.includes(id);
-                        return (
-                          <div key={id} className="flex min-h-11 items-center gap-3 rounded-md border border-white/10 bg-white/[0.035] px-3 py-2.5">
-                            <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border ${
-                              complete ? "border-emerald-300 bg-emerald-300 text-slate-950" : "border-slate-500 text-transparent"
-                            }`}>
-                              <Check size={13} />
-                            </span>
-                            <span className={`text-sm font-semibold ${complete ? "text-slate-300" : "text-white"}`}>{findingLabels[id]}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="mt-5 space-y-2" data-testid="imaging-decisions">
-                      {decisionOptions.map((option) => (
-                        <button
-                          key={option.id}
-                          type="button"
-                          onClick={() => setDecision(option.id)}
-                          className="flex min-h-12 w-full items-center gap-3 rounded-md border border-white/12 bg-white/[0.045] px-3 py-3 text-left text-sm font-bold text-white transition hover:border-teal-300 hover:bg-teal-300/10 focus:border-teal-300"
-                        >
-                          <CircleDot className="shrink-0 text-teal-300" size={17} />
-                          {option.label}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                  {phase !== "decision" ? (
-                    <button
-                      type="button"
-                      data-testid="continue-exam"
-                      disabled={!phaseComplete}
-                      onClick={continueExam}
-                      className="mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-teal-300 px-4 py-2.5 text-sm font-black text-slate-950 transition hover:bg-teal-200 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-slate-500"
-                    >
-                      {phaseComplete ? `Continue to ${phasePrompts[activePhases[phaseIndex + 1]].title}` : "Complete the checks on the model"}
-                      {phaseComplete ? <ArrowRight size={17} /> : null}
-                    </button>
-                  ) : null}
-
-                  <div className="mt-6 border-t border-white/10 pt-4">
-                    <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.17em] text-slate-400">
-                      <Activity size={14} /> Exam findings
-                    </p>
-                    {examined.length ? (
-                      <div className="mt-3 space-y-2">
-                        {examined.slice().reverse().map((id) => (
-                          <button
-                            type="button"
-                            key={id}
-                            onClick={() => setLatestFinding(id)}
-                            className="w-full rounded-md border border-white/8 bg-white/[0.025] px-3 py-2 text-left text-xs leading-5 text-slate-300 transition hover:bg-white/[0.06]"
-                          >
-                            <span className="font-bold text-white">{findingLabels[id]}:</span> {examCase.findings[id]}
-                          </button>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="mt-2 text-sm text-slate-500">No findings documented yet.</p>
-                    )}
-                  </div>
-                </>
-              ) : score ? (
+          {decision && score ? (
+            <aside ref={debriefRef} className="flex min-h-0 scroll-mt-4 flex-col bg-[#081a20] lg:max-h-[calc(100dvh-130px)]">
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5">
                 <div data-testid="exam-debrief">
                   <div className={`grid h-12 w-12 place-items-center rounded-md ${
                     score.decisionCorrect ? "bg-emerald-300 text-slate-950" : "bg-rose-400 text-white"
@@ -458,9 +449,9 @@ export default function FocusedAnkleLab() {
                     Educational practice only. Follow your approved curriculum, local protocols, scope of practice, and medical direction.
                   </p>
                 </div>
-              ) : null}
-            </div>
-          </aside>
+              </div>
+            </aside>
+          ) : null}
         </div>
       </main>
     </div>
