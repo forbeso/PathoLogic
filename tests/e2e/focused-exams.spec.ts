@@ -8,6 +8,18 @@ async function expectNoHorizontalOverflow(page: Page) {
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth + 1);
 }
 
+async function expectCoachTextFullyVisible(page: Page) {
+  const clippedParagraphs = await page.getByTestId("guided-exam-coach").locator("p").evaluateAll((paragraphs) =>
+    paragraphs
+      .filter((paragraph) =>
+        paragraph.scrollHeight > paragraph.clientHeight + 1
+        || paragraph.scrollWidth > paragraph.clientWidth + 1
+      )
+      .map((paragraph) => paragraph.textContent?.trim())
+  );
+  expect(clippedParagraphs).toEqual([]);
+}
+
 async function clickMarker(page: Page, id: string) {
   const marker = page.getByTestId(`exam-marker-${id}`);
   await expect(marker).toBeVisible();
@@ -22,6 +34,7 @@ test("ankle lab completes the likely sprain pathway", async ({ page }) => {
 
   await page.getByTestId("begin-ankle-exam").click();
   await expect(page.locator("aside")).toHaveCount(0);
+  await expectCoachTextFullyVisible(page);
 
   const firstMarker = page.getByTestId("exam-marker-appearance");
   const box = await firstMarker.boundingBox();
@@ -35,19 +48,23 @@ test("ankle lab completes the likely sprain pathway", async ({ page }) => {
   await expect(page.getByTestId("exam-finding-message")).toHaveCount(0);
   await clickMarker(page, "skin");
   await page.getByTestId("continue-exam").click();
+  await expectCoachTextFullyVisible(page);
 
   await clickMarker(page, "lateral-malleolus");
   await clickMarker(page, "medial-malleolus");
   await clickMarker(page, "atfl");
   await page.getByTestId("continue-exam").click();
+  await expectCoachTextFullyVisible(page);
 
   await clickMarker(page, "dorsalis-pedis");
   await clickMarker(page, "sensation");
   await clickMarker(page, "motor");
   await page.getByTestId("continue-exam").click();
+  await expectCoachTextFullyVisible(page);
 
   await clickMarker(page, "weight-bearing");
   await page.getByTestId("continue-exam").click();
+  await expectCoachTextFullyVisible(page);
 
   await page.getByRole("button", {
     name: "Ottawa criteria do not indicate radiographs",

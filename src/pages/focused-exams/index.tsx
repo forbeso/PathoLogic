@@ -13,9 +13,9 @@ import Header from "@/components/Header";
 import Seo from "@/components/Seo";
 
 const plannedLabs = [
-  { title: "Knee exam", detail: "Ottawa Knee Rule and focused stability checks", icon: PersonStanding },
-  { title: "Wrist and hand", detail: "Snuffbox, circulation, sensation, and function", icon: Hand },
-  { title: "Focused neuro", detail: "Stroke findings, pupils, strength, and sensation", icon: Brain },
+  { title: "Knee exam", detail: "Ottawa Knee Rule and focused stability checks", icon: PersonStanding, href: "/focused-exams/knee" },
+  { title: "Wrist and hand", detail: "Snuffbox, circulation, sensation, and function", icon: Hand, href: null },
+  { title: "Focused neuro", detail: "Stroke findings, pupils, strength, and sensation", icon: Brain, href: null },
 ];
 
 export default function FocusedExamLabsPage() {
@@ -84,15 +84,30 @@ export default function FocusedExamLabsPage() {
               <div className="mt-4 divide-y divide-[#dce9e5] dark:divide-slate-700">
                 {plannedLabs.map((lab) => {
                   const Icon = lab.icon;
-                  return (
-                    <div key={lab.title} className="flex items-start gap-3 py-4 first:pt-0 last:pb-0">
+                  const content = (
+                    <>
                       <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
                         <Icon size={18} />
                       </span>
-                      <div>
+                      <div className="min-w-0 flex-1">
                         <h3 className="font-bold text-slate-950 dark:text-white">{lab.title}</h3>
                         <p className="mt-1 text-sm leading-5 text-slate-600 dark:text-slate-300">{lab.detail}</p>
                       </div>
+                      {lab.href ? <ArrowRight className="mt-2 shrink-0 text-teal-600 dark:text-teal-300" size={17} /> : null}
+                    </>
+                  );
+                  return lab.href ? (
+                    <Link
+                      key={lab.title}
+                      href={lab.href}
+                      aria-label="Start knee lab"
+                      className="flex items-start gap-3 py-4 first:pt-0 last:pb-0 transition hover:translate-x-0.5"
+                    >
+                      {content}
+                    </Link>
+                  ) : (
+                    <div key={lab.title} className="flex items-start gap-3 py-4 first:pt-0 last:pb-0">
+                      {content}
                     </div>
                   );
                 })}
