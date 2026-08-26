@@ -1007,6 +1007,28 @@ test("keyboard users can reach the main content skip target", async ({ page }) =
   ).toHaveAttribute("aria-current", "page");
 });
 
+test("homepage presents every interactive lab without horizontal overflow", async ({
+  page,
+}) => {
+  await page.goto("/");
+
+  await expect(
+    page.getByRole("heading", { name: "Practice the hands-on decisions too." })
+  ).toBeVisible();
+  await expect(page.getByRole("link", { name: "Enter EMT Scene" })).toHaveAttribute(
+    "href",
+    "/emtscene"
+  );
+  await expect(
+    page.getByRole("link", { name: "Run a triage incident" })
+  ).toHaveAttribute("href", "/triage");
+  await expect(page.getByRole("link", { name: "Open exam labs" })).toHaveAttribute(
+    "href",
+    "/focused-exams"
+  );
+  await expectNoHorizontalOverflow(page);
+});
+
 test("flashcards reveal answers and advance cleanly", async ({ page }) => {
   await page.goto("/flashcards");
 

@@ -103,6 +103,8 @@ type ScenarioScoreKey =
   | "communication"
   | "efficiency";
 
+type HistoryView = "exams" | "simulations" | "triage" | "topics";
+
 const SCENARIO_TITLES: Record<ScenarioAttemptRow["scenario_id"], string> = {
   anaphylaxis: "Teen With Shortness of Breath",
   "car-accident": "Driver Trapped After Collision",
@@ -190,6 +192,7 @@ export default function ProgressPage() {
     useState(true);
   const [triageRows, setTriageRows] = useState<TriageAttemptRow[]>([]);
   const [triageHistoryAvailable, setTriageHistoryAvailable] = useState(true);
+  const [historyView, setHistoryView] = useState<HistoryView>("exams");
   const [sortKey, setSortKey] = useState<"topic" | "accuracy" | "attempts" | "last_practiced">("accuracy");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
@@ -368,6 +371,33 @@ export default function ProgressPage() {
       best: accuracies.length ? Math.max(...accuracies) : 0,
     };
   }, [triageRows]);
+
+  useEffect(() => {
+    if (loading) return;
+
+    const selectedHistoryIsUnavailable =
+      (historyView === "exams" && !examHistoryAvailable) ||
+      (historyView === "simulations" && !scenarioHistoryAvailable) ||
+      (historyView === "triage" && !triageHistoryAvailable);
+
+    if (!selectedHistoryIsUnavailable) return;
+
+    if (examHistoryAvailable) {
+      setHistoryView("exams");
+    } else if (scenarioHistoryAvailable) {
+      setHistoryView("simulations");
+    } else if (triageHistoryAvailable) {
+      setHistoryView("triage");
+    } else {
+      setHistoryView("topics");
+    }
+  }, [
+    examHistoryAvailable,
+    historyView,
+    loading,
+    scenarioHistoryAvailable,
+    triageHistoryAvailable,
+  ]);
 
   const recommendation = useMemo<StudyRecommendation>(() => {
     if (!rows.length) {
@@ -670,8 +700,69 @@ export default function ProgressPage() {
           />
         </section>
 
-        {examHistoryAvailable && (
-          <section className={`${cardClass} p-4 sm:p-5`}>
+        <section className={`${cardClass} p-2 sm:p-3`} aria-labelledby="history-switcher-title">
+          <div className="px-2 pb-2 pt-1 sm:flex sm:items-center sm:justify-between">
+            <div>
+              <h2 id="history-switcher-title" className="font-semibold text-slate-950 dark:text-white">
+                Training history
+              </h2>
+              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                Choose one activity to review.
+              </p>
+            </div>
+          </div>
+          <div
+            role="tablist"
+            aria-label="Training history"
+            data-testid="progress-history-tabs"
+            className="grid grid-cols-2 gap-1.5 sm:grid-cols-4"
+          >
+            {[
+              { id: "exams" as const, label: "Exams", icon: Award, count: examRows.length, available: examHistoryAvailable },
+              { id: "simulations" as const, label: "Simulations", icon: Target, count: scenarioRows.length, available: scenarioHistoryAvailable },
+              { id: "triage" as const, label: "Triage", icon: Siren, count: triageRows.length, available: triageHistoryAvailable },
+              { id: "topics" as const, label: "Question topics", icon: BarChart2, count: rows.length, available: true },
+            ].map((option) => {
+              const Icon = option.icon;
+              const active = historyView === option.id;
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  role="tab"
+                  id={`history-tab-${option.id}`}
+                  aria-controls={`history-panel-${option.id}`}
+                  aria-selected={active}
+                  disabled={!option.available}
+                  onClick={() => setHistoryView(option.id)}
+                  className={`flex min-h-12 items-center gap-2 rounded-md border px-3 text-left text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-teal-500 disabled:cursor-not-allowed disabled:opacity-40 ${
+                    active
+                      ? "border-teal-500 bg-teal-50 text-teal-900 shadow-sm dark:border-teal-300 dark:bg-teal-300/10 dark:text-teal-100"
+                      : "border-transparent bg-slate-50 text-slate-600 hover:border-slate-300 hover:bg-white dark:bg-white/5 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-white/10"
+                  }`}
+                >
+                  <Icon size={16} className={active ? "text-teal-700 dark:text-teal-300" : "text-slate-400"} />
+                  <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                  <span className={`grid min-w-6 place-items-center rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                    active
+                      ? "bg-teal-700 text-white dark:bg-teal-300 dark:text-slate-950"
+                      : "bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-200"
+                  }`}>
+                    {option.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        {examHistoryAvailable && historyView === "exams" && (
+          <section
+            id="history-panel-exams"
+            role="tabpanel"
+            aria-labelledby="history-tab-exams"
+            className={`${cardClass} p-4 sm:p-5`}
+          >
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <div className="flex items-center gap-2 text-teal-700">
@@ -750,8 +841,13 @@ export default function ProgressPage() {
           </section>
         )}
 
-        {scenarioHistoryAvailable && (
-          <section className={`${cardClass} p-4 sm:p-5`}>
+        {scenarioHistoryAvailable && historyView === "simulations" && (
+          <section
+            id="history-panel-simulations"
+            role="tabpanel"
+            aria-labelledby="history-tab-simulations"
+            className={`${cardClass} p-4 sm:p-5`}
+          >
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <div className="flex items-center gap-2 text-teal-700">
@@ -874,8 +970,13 @@ export default function ProgressPage() {
           </section>
         )}
 
-        {triageHistoryAvailable && (
-          <section className={`${cardClass} p-4 sm:p-5`}>
+        {triageHistoryAvailable && historyView === "triage" && (
+          <section
+            id="history-panel-triage"
+            role="tabpanel"
+            aria-labelledby="history-tab-triage"
+            className={`${cardClass} p-4 sm:p-5`}
+          >
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <div className="flex items-center gap-2 text-teal-700 dark:text-teal-300">
@@ -969,7 +1070,13 @@ export default function ProgressPage() {
         )}
 
         {/* Topic performance */}
-        <section className={`${cardClass} p-4`}>
+        {historyView === "topics" ? (
+          <section
+            id="history-panel-topics"
+            role="tabpanel"
+            aria-labelledby="history-tab-topics"
+            className={`${cardClass} p-4`}
+          >
           <div className="mb-3 sm:hidden">
             <h2 className="font-semibold text-slate-950 dark:text-white">
               Topic performance
@@ -1105,7 +1212,8 @@ export default function ProgressPage() {
               </tbody>
             </table>
           </div>
-        </section>
+          </section>
+        ) : null}
 
         {/* Footer hint */}
         <p className="text-xs text-slate-500">

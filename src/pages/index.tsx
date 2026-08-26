@@ -4,7 +4,7 @@ import { AppShell } from "@/components/AppShell";
 import Seo, { SITE_URL } from "@/components/Seo";
 
 const homeDescription =
-  "Practice EMT clinical judgment with interactive scenarios, NREMT-style exam questions, flashcards, and guided patient assessments.";
+  "Practice EMT clinical judgment with interactive patient simulations, MCI triage, focused exam labs, NREMT-style questions, and guided scenarios.";
 
 export default function Home() {
   return (

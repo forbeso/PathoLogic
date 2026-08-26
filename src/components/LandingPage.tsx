@@ -18,6 +18,9 @@ import {
   Stethoscope,
   Timer,
   Gamepad,
+  Ambulance,
+  ScanSearch,
+  Siren,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import HeroScreenshot from "@/components/HeroScreenshot";
@@ -116,6 +119,39 @@ const practicePaths = [
   },
 ];
 
+const interactiveLabs = [
+  {
+    icon: Ambulance,
+    eyebrow: "Patient care",
+    title: "EMT Scene",
+    description:
+      "Enter a 3D call, assess the patient, and choose interventions as the scene changes around you.",
+    href: "/emtscene",
+    cta: "Enter EMT Scene",
+    accent: "border-teal-300 bg-teal-300/10 text-teal-200",
+  },
+  {
+    icon: Siren,
+    eyebrow: "Mass casualty",
+    title: "MCI Triage",
+    description:
+      "Move through a collision scene, perform rapid lifesaving actions, and assign SALT/MUCC tags under pressure.",
+    href: "/triage",
+    cta: "Run a triage incident",
+    accent: "border-rose-300 bg-rose-300/10 text-rose-200",
+  },
+  {
+    icon: ScanSearch,
+    eyebrow: "Hands-on assessment",
+    title: "Focused Exam Labs",
+    description:
+      "Learn landmark-based ankle and knee exams through guided, interactive examination steps.",
+    href: "/focused-exams",
+    cta: "Open exam labs",
+    accent: "border-amber-200 bg-amber-200/10 text-amber-100",
+  },
+];
+
 const capabilities = [
   {
     icon: Stethoscope,
@@ -157,7 +193,7 @@ const faqs = [
   },
   {
     q: "Can I practice specific EMT domains?",
-    a: "Yes. You can move between scenario practice, timed exam sets, flashcards, and progress review depending on what needs the most reps.",
+    a: "Yes. You can move between scenarios, timed exams, flashcards, 3D patient simulations, MCI triage, and focused exam labs depending on what needs the most reps.",
   },
   {
     q: "What is the difference between learning and exam practice?",
@@ -249,8 +285,8 @@ export default function LandingPage() {
 
             <div className="mt-8 grid max-w-xl grid-cols-3 gap-3 border-t border-white/25 pt-5 text-xs text-slate-200 sm:gap-4 sm:text-sm">
               <div>
-                <div className="text-xl font-bold text-white sm:text-2xl">3 modes</div>
-                <p className="mt-1">Scenario, exam, and review practice.</p>
+                <div className="text-xl font-bold text-white sm:text-2xl">6 training paths</div>
+                <p className="mt-1">Scenarios, exams, flashcards, scenes, triage, and labs.</p>
               </div>
               <div>
                 <div className="text-xl font-bold text-white sm:text-2xl">Cue first</div>
@@ -289,6 +325,60 @@ export default function LandingPage() {
             {practicePaths.map((path) => (
               <PracticeCard key={path.title} {...path} />
             ))}
+          </div>
+        </Container>
+      </section>
+
+      <section className="border-y border-slate-800 bg-[#081820] py-16 text-white sm:py-20">
+        <Container>
+          <div className="grid gap-10 lg:grid-cols-[0.78fr_1.22fr] lg:items-start">
+            <div className="lg:sticky lg:top-24">
+              <SectionIntro
+                eyebrow="Interactive labs"
+                title="Practice the hands-on decisions too."
+                subtitle="Move beyond answer choices with interactive scenes built around patient care, rapid triage, and focused physical exams."
+                tone="dark"
+              />
+              <p className="mt-6 max-w-md text-sm leading-6 text-slate-400">
+                Each lab uses the same PathoLogix account, progress system, and clinical reasoning approach.
+              </p>
+            </div>
+
+            <div className="divide-y divide-white/10 border-y border-white/10">
+              {interactiveLabs.map((lab, index) => {
+                const Icon = lab.icon;
+                return (
+                  <motion.article
+                    key={lab.title}
+                    initial={{ opacity: 0, x: 14 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.4, delay: index * 0.06 }}
+                    className="group grid gap-4 py-6 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center"
+                  >
+                    <div className={`grid h-12 w-12 place-items-center rounded-md border ${lab.accent}`}>
+                      <Icon size={23} strokeWidth={2} />
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
+                        {lab.eyebrow}
+                      </p>
+                      <h3 className="mt-1 text-xl font-bold text-white">{lab.title}</h3>
+                      <p className="mt-2 max-w-xl text-sm leading-6 text-slate-300">
+                        {lab.description}
+                      </p>
+                    </div>
+                    <Link
+                      href={lab.href}
+                      className="inline-flex min-h-11 w-fit items-center gap-2 rounded-md border border-white/20 px-4 text-sm font-bold text-white transition hover:border-teal-300 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-teal-300"
+                    >
+                      {lab.cta}
+                      <ArrowRight size={16} />
+                    </Link>
+                  </motion.article>
+                );
+              })}
+            </div>
           </div>
         </Container>
       </section>
