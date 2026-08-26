@@ -23,6 +23,8 @@ export interface TriageSimulationState {
   elapsedSeconds: number;
   remainingSeconds: number;
   lastFeedback: string | null;
+  feedbackTone: "correct" | "incorrect" | "warning" | "info" | null;
+  feedbackCategory: TriageCategory | null;
   announcement: string;
 }
 
@@ -76,6 +78,8 @@ export function createTriageSimulationState(
     elapsedSeconds: 0,
     remainingSeconds: scenario.durationSeconds,
     lastFeedback: null,
+    feedbackTone: null,
+    feedbackCategory: null,
     announcement: "Triage briefing ready.",
   };
 }
@@ -138,6 +142,8 @@ export function triageSimulationReducer(
         selectedPatientId: action.patientId,
         hoveredPatientId: null,
         lastFeedback: null,
+        feedbackTone: null,
+        feedbackCategory: null,
       };
     case "HOVER_PATIENT":
       if (state.status !== "active") return state;
@@ -173,6 +179,8 @@ export function triageSimulationReducer(
           },
         },
         lastFeedback: intervention.resultSummary,
+        feedbackTone: intervention.isCorrect ? "info" : "warning",
+        feedbackCategory: null,
         announcement: `${intervention.label} applied to ${patient.displayName}. ${intervention.resultSummary}`,
       };
     }
@@ -192,37 +200,47 @@ export function triageSimulationReducer(
         (group) => !group.some((id) => runtime.actionsTaken.includes(id))
       );
       const assignedLabel = formatCategory(action.category);
-      const learnFeedback =
+      const tagFeedback =
         difference === "correct"
           ? missedRapidIntervention
-            ? `${assignedLabel} is the best category, but a required rapid lifesaving intervention was missed. Reassess this patient to correct the sequence.`
-            : `${assignedLabel} is correct. ${patient.explanation}`
-          : `${assignedLabel} is not the best tag. ${patient.explanation}`;
+            ? `${assignedLabel} is the right tag, but complete the rapid lifesaving intervention before moving on.`
+            : `${assignedLabel} is correct.`
+          : `${assignedLabel} is not the best tag. Try again using ${formatCategory(patient.correctCategory)}.`;
+      const assignmentComplete =
+        difference === "correct" && !missedRapidIntervention;
       const patients = {
         ...state.patients,
         [patient.id]: {
           ...runtime,
           assignedCategory: action.category,
-          locked: true,
+          locked: assignmentComplete,
         },
       };
       const completed = Object.values(patients).every(
-        (item) => item.assignedCategory !== null
+        (item) => item.locked
       );
 
       return {
         ...state,
         patients,
         status: completed ? "completed" : state.status,
-        selectedPatientId: null,
+        selectedPatientId: assignmentComplete ? null : patient.id,
         hoveredPatientId: null,
-        lastFeedback:
-          state.mode === "learn"
-            ? learnFeedback
-            : `${patient.displayName} tagged ${assignedLabel}.`,
-        announcement: `${patient.displayName} tagged ${assignedLabel}. ${
-          completed ? "All patients have been triaged." : "Select the next patient."
-        }`,
+        lastFeedback: tagFeedback,
+        feedbackTone:
+          difference !== "correct"
+            ? "incorrect"
+            : missedRapidIntervention
+              ? "warning"
+              : "correct",
+        feedbackCategory: patient.correctCategory,
+        announcement: assignmentComplete
+          ? `${patient.displayName} tagged ${assignedLabel}. ${
+              completed ? "All patients have been triaged." : "Select the next patient."
+            }`
+          : difference !== "correct"
+            ? `${assignedLabel} is not the best tag for ${patient.displayName}. Choose another tag.`
+            : `${assignedLabel} is the right tag, but the required rapid intervention is still needed.`,
       };
     }
     case "REASSESS": {
@@ -241,13 +259,20 @@ export function triageSimulationReducer(
         },
         selectedPatientId: action.patientId,
         lastFeedback: "Reassessment opened. Assign a new tag when ready.",
+        feedbackTone: "info",
+        feedbackCategory: null,
         announcement: "Patient reassessment opened.",
       };
     }
     case "RESTART":
       return createTriageSimulationState(state.scenario, state.mode);
     case "CLEAR_FEEDBACK":
-      return { ...state, lastFeedback: null };
+      return {
+        ...state,
+        lastFeedback: null,
+        feedbackTone: null,
+        feedbackCategory: null,
+      };
     default:
       return state;
   }

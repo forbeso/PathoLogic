@@ -181,9 +181,10 @@ body {
   }
 
   .triage-assessment-panel {
-    inset: 3.25rem 0.375rem 0.375rem auto;
-    width: min(22rem, 46vw);
-    max-height: none;
+    inset: auto 0.375rem 0.375rem;
+    width: auto;
+    max-height: calc(100dvh - 4rem);
+    transform: none;
   }
 }
 

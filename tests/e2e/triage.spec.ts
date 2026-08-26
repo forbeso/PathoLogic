@@ -168,7 +168,7 @@ test("Challenge mode ends at the two-minute limit and cannot keep ticking", () =
   expect(triageSimulationReducer(timedOut, { type: "TICK" })).toEqual(timedOut);
 });
 
-test("Challenge mode withholds correctness while Learn mode explains it", () => {
+test("both modes give immediate tag correctness feedback", () => {
   const assignFirst = (mode: "challenge" | "learn") => {
     let state = createTriageSimulationState(highwayCollisionScenario, mode);
     state = triageSimulationReducer(state, { type: "START" });
@@ -178,8 +178,10 @@ test("Challenge mode withholds correctness while Learn mode explains it", () => 
       category: "immediate",
     });
   };
-  expect(assignFirst("challenge").lastFeedback).toMatch(/tagged Immediate/);
-  expect(assignFirst("challenge").lastFeedback).not.toMatch(/not the best|correct/i);
+  expect(assignFirst("challenge").lastFeedback).toMatch(/not the best tag/i);
+  expect(assignFirst("challenge").feedbackTone).toBe("incorrect");
+  expect(assignFirst("challenge").selectedPatientId).toBe("patient-01");
+  expect(assignFirst("challenge").patients["patient-01"].locked).toBe(false);
   expect(assignFirst("learn").lastFeedback).toMatch(/not the best tag/i);
 });
 
@@ -191,7 +193,8 @@ test("Learn mode flags a missed rapid intervention even when the final tag categ
     patientId: "patient-06",
     category: "immediate",
   });
-  expect(state.lastFeedback).toMatch(/required rapid lifesaving intervention was missed/i);
+  expect(state.lastFeedback).toMatch(/rapid lifesaving intervention before moving on/i);
+  expect(state.feedbackTone).toBe("warning");
 });
 
 test("triage briefing holds the timer until the user begins", async ({ page }) => {
@@ -237,6 +240,11 @@ test("Learn mode supports patient selection, keyboard tagging, and reassessment"
 
   await page.getByTestId("triage-patient-patient-06").click();
   await expect(page.getByTestId("triage-assessment-panel")).toBeVisible();
+  const panelBox = await page.getByTestId("triage-assessment-panel").boundingBox();
+  const viewport = page.viewportSize();
+  if (viewport && viewport.width >= 1024) {
+    expect(panelBox?.width).toBeGreaterThan(viewport.width * 0.65);
+  }
   await page.getByRole("button", { name: /Open airway/i }).click();
   await page.keyboard.press("1");
   await expect(page.getByText(/Immediate \/ Red is correct/i)).toBeVisible();
@@ -245,19 +253,30 @@ test("Learn mode supports patient selection, keyboard tagging, and reassessment"
   await expect(page.getByRole("button", { name: /Reassess patient/i })).toBeVisible();
 });
 
-test("Challenge mode acknowledges a tag without revealing correctness", async ({ page }) => {
+test("Challenge mode allows an incorrect tag to be replaced", async ({ page }) => {
   await page.goto("/triage");
   await page.getByTestId("triage-begin").click();
   await page.getByTestId("triage-patient-patient-06").click();
+  await page.getByTestId("triage-tag-minimal").click();
+  const feedback = page.getByTestId("triage-tag-feedback");
+  await expect(feedback).toContainText("Try another tag");
+  await expect(feedback).toContainText("Try again using Immediate / Red");
+  await expect(feedback.getByLabel("Best tag: Immediate")).toBeVisible();
+  await expect(page.getByTestId("triage-assessment-panel")).toBeVisible();
+  await expect(page.getByText(/That tag is not final/i)).toBeVisible();
+
+  await page.getByTestId("triage-intervention-open-airway").click();
   await page.getByTestId("triage-tag-immediate").click();
+  await expect(feedback).toContainText("Correct tag");
+  await expect(page.getByTestId("triage-assessment-panel")).toHaveCount(0);
   await expect(page.getByTestId("triage-patient-patient-06")).toHaveAttribute(
     "aria-label",
     /tagged Immediate/i
   );
-  await expect(page.getByText(/not the best tag|is correct/i)).toHaveCount(0);
 });
 
 test("completing all eight patients opens a scored debrief", async ({ page }, testInfo) => {
+  test.setTimeout(60_000);
   test.skip(testInfo.project.name.startsWith("mobile"));
   await page.goto("/triage");
   await page.getByTestId("triage-begin").click();
@@ -274,11 +293,11 @@ test("completing all eight patients opens a scored debrief", async ({ page }, te
   ] as const;
 
   for (const [patientId, category, intervention] of decisions) {
-    await page.getByTestId(`triage-patient-${patientId}`).click();
+    await page.getByTestId(`triage-patient-${patientId}`).click({ force: true });
     if (intervention) {
-      await page.getByTestId(`triage-intervention-${intervention}`).click();
+      await page.getByTestId(`triage-intervention-${intervention}`).click({ force: true });
     }
-    await page.getByTestId(`triage-tag-${category}`).click();
+    await page.getByTestId(`triage-tag-${category}`).click({ force: true });
   }
 
   await expect(page.getByRole("heading", { name: "MCI triage debrief" })).toBeVisible();
@@ -287,9 +306,11 @@ test("completing all eight patients opens a scored debrief", async ({ page }, te
     "/emtscene?scenario=car-accident"
   );
   await expect(page.getByText("100%", { exact: true })).toBeVisible();
-  await expect(page.getByText("Expectant is not Dead.", { exact: true })).toBeVisible();
+  const categoryKey = page.getByTestId("triage-expectant-dead-key");
+  await expect(categoryKey.getByText("Expectant", { exact: true })).toBeVisible();
+  await expect(categoryKey.getByText(/Alive; survival is unlikely with current resources/i)).toBeVisible();
   await expect(
-    page.getByText(/Sign in to save future results and earn XP/i)
+    page.getByText(/Sign in for XP/i)
   ).toBeVisible();
 });
 

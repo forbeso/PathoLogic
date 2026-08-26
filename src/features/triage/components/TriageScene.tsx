@@ -264,7 +264,13 @@ function PatientFigure({
         <button
           type="button"
           data-testid={`triage-patient-${patient.id}`}
-          aria-label={`${patient.displayName}, ${runtime.locked ? `tagged ${assignedMeta?.name}` : "not yet tagged"}`}
+          aria-label={`${patient.displayName}, ${
+            runtime.locked
+              ? `tagged ${assignedMeta?.name}`
+              : assignedMeta
+                ? `${assignedMeta.name} attempted, choose again`
+                : "not yet tagged"
+          }`}
           disabled={!interactionEnabled}
           onClick={(event) => {
             event.stopPropagation();
@@ -274,7 +280,7 @@ function PatientFigure({
           onBlur={() => onHoverPatient(null)}
           className={`group grid min-h-10 min-w-10 place-items-center border-2 px-2 py-1 text-[11px] font-black shadow-xl transition focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-slate-950 ${
             assignedMeta
-              ? "rounded-sm text-white"
+              ? `rounded-sm text-white ${runtime.locked ? "" : "border-dashed animate-pulse motion-reduce:animate-none"}`
               : "rounded-full border-white/80 bg-slate-950/88 text-white hover:scale-105 hover:border-teal-300"
           }`}
           style={

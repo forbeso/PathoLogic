@@ -37,7 +37,7 @@ export function TriageCategoryTag({
           {meta.name}
         </span>
       </span>
-      {shortcut ? (
+      {shortcut && !compact ? (
         <kbd className="ml-auto hidden rounded border border-current/35 px-1.5 py-0.5 text-[10px] font-bold sm:inline">
           {shortcut}
         </kbd>

@@ -1,6 +1,17 @@
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { Clock3, LoaderCircle, MousePointer2, Pause, RotateCcw, X } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Clock3,
+  Info,
+  LoaderCircle,
+  MousePointer2,
+  Pause,
+  RotateCcw,
+  X,
+  XCircle,
+} from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { buildTriageDebrief, scorePatient, TRIAGE_CATEGORY_META } from "../engine";
 import { highwayCollisionScenario } from "../scenario";
@@ -104,10 +115,7 @@ export default function MciTriageSimulation() {
 
   useEffect(() => {
     if (!state.lastFeedback) return;
-    const timeout = window.setTimeout(
-      () => dispatch({ type: "CLEAR_FEEDBACK" }),
-      state.mode === "learn" ? 8000 : 3500
-    );
+    const timeout = window.setTimeout(() => dispatch({ type: "CLEAR_FEEDBACK" }), 5000);
     return () => window.clearTimeout(timeout);
   }, [state.lastFeedback, state.mode]);
 
@@ -185,18 +193,18 @@ export default function MciTriageSimulation() {
     ? state.patients[selectedPatient.id]
     : null;
   const triagedCount = Object.values(state.patients).filter(
-    (runtime) => runtime.assignedCategory !== null
+    (runtime) => runtime.locked
   ).length;
   const correctTagged = state.scenario.patients.filter((patient) => {
     const runtime = state.patients[patient.id];
-    return runtime.assignedCategory === patient.correctCategory;
+    return runtime.locked && runtime.assignedCategory === patient.correctCategory;
   }).length;
   const liveAccuracy = triagedCount
     ? Math.round((correctTagged / triagedCount) * 100)
     : 0;
   const liveScore = state.scenario.patients.reduce((total, patient) => {
     const runtime = state.patients[patient.id];
-    return runtime.assignedCategory ? total + scorePatient(patient, runtime).score : total;
+    return runtime.locked ? total + scorePatient(patient, runtime).score : total;
   }, 0);
 
   const selectPatient = useCallback((patientId: string) => {
@@ -265,6 +273,33 @@ export default function MciTriageSimulation() {
   };
 
   const showDebrief = state.status === "completed" || state.status === "timed-out";
+  const feedbackVisual = state.feedbackTone === "correct"
+    ? {
+        title: "Correct tag",
+        Icon: CheckCircle2,
+        shell: "border-emerald-300/45 bg-emerald-950/95",
+        icon: "bg-emerald-300 text-emerald-950",
+      }
+    : state.feedbackTone === "incorrect"
+      ? {
+          title: "Try another tag",
+          Icon: XCircle,
+          shell: "border-rose-300/45 bg-rose-950/95",
+          icon: "bg-rose-300 text-rose-950",
+        }
+      : state.feedbackTone === "warning"
+        ? {
+            title: "Right tag, missed step",
+            Icon: AlertTriangle,
+            shell: "border-amber-300/45 bg-amber-950/95",
+            icon: "bg-amber-300 text-amber-950",
+          }
+        : {
+            title: "Action complete",
+            Icon: Info,
+            shell: "border-teal-300/40 bg-[#071820]/95",
+            icon: "bg-teal-300 text-slate-950",
+          };
 
   return (
     <div className="triage-simulation-shell theme-locked-dark relative h-full min-h-0 overflow-hidden bg-[#31533f] text-white">
@@ -376,9 +411,25 @@ export default function MciTriageSimulation() {
       {state.lastFeedback && state.status === "active" ? (
         <div
           role="status"
-          className="pointer-events-none absolute left-1/2 top-[9.5rem] z-30 w-[min(92vw,560px)] -translate-x-1/2 rounded-md border border-teal-300/35 bg-[#071820] px-4 py-3 text-center text-sm leading-5 shadow-2xl lg:top-28"
+          data-testid="triage-tag-feedback"
+          className={`pointer-events-none absolute left-1/2 top-[9.5rem] z-50 flex w-[min(92vw,520px)] -translate-x-1/2 items-center gap-3 rounded-lg border px-3 py-3 text-left shadow-2xl backdrop-blur-md lg:top-28 ${feedbackVisual.shell}`}
         >
-          {state.lastFeedback}
+          <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-full ${feedbackVisual.icon}`}>
+            <feedbackVisual.Icon size={20} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-xs font-black uppercase tracking-[0.12em] text-white">{feedbackVisual.title}</span>
+            <span className="mt-0.5 block text-xs leading-4 text-slate-200 sm:text-sm">{state.lastFeedback}</span>
+          </span>
+          {state.feedbackCategory ? (
+            <span
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-md border-2 border-white/70 text-xs font-black text-white shadow-lg"
+              style={{ backgroundColor: TRIAGE_CATEGORY_META[state.feedbackCategory].color }}
+              aria-label={`Best tag: ${TRIAGE_CATEGORY_META[state.feedbackCategory].name}`}
+            >
+              {TRIAGE_CATEGORY_META[state.feedbackCategory].icon}
+            </span>
+          ) : null}
         </div>
       ) : null}
 
