@@ -200,7 +200,7 @@ export default function FocusedAnkleLab() {
         description="Practice ankle inspection, palpation, neurovascular assessment, weight-bearing evaluation, and Ottawa imaging decisions in an interactive focused exam lab."
         path="/focused-exams/ankle"
       />
-      <Header compactOnLandscape />
+      <Header compactOnLandscape darkSurface />
 
       <main id="main-content" tabIndex={-1} className="mx-auto flex min-h-[calc(100dvh-65px)] max-w-[1680px] flex-col">
         <section className="border-b border-white/10 bg-[#0a2027] px-4 py-3 sm:px-6">

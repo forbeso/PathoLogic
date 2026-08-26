@@ -17,8 +17,10 @@ const navItems = [
 
 export default function Header({
   compactOnLandscape = false,
+  darkSurface = false,
 }: {
   compactOnLandscape?: boolean;
+  darkSurface?: boolean;
 }) {
   const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -57,14 +59,18 @@ export default function Header({
       : router.pathname === href || router.pathname.startsWith(`${href}/`);
 
   return (
-    <header className={`${compactOnLandscape ? "compact-landscape-header" : ""} sticky top-0 z-30 border-b border-[#c8dcd6] bg-white/88 px-4 text-slate-950 shadow-[0_10px_28px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:border-slate-700 dark:bg-[#0b1c22]/95 dark:text-slate-50 dark:shadow-black/30`}>
+    <header className={`${compactOnLandscape ? "compact-landscape-header" : ""} sticky top-0 z-30 border-b px-4 backdrop-blur-xl ${
+      darkSurface
+        ? "border-slate-700 bg-[#0b1c22]/95 text-slate-50 shadow-[0_10px_28px_rgba(0,0,0,0.3)]"
+        : "border-[#c8dcd6] bg-white/88 text-slate-950 shadow-[0_10px_28px_rgba(15,23,42,0.08)] dark:border-slate-700 dark:bg-[#0b1c22]/95 dark:text-slate-50 dark:shadow-black/30"
+    }`}>
       <div className="site-header-inner mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 py-3">
         <div className="flex items-center gap-7">
           <Link href="/" className="flex items-center gap-2">
             <span className="site-header-logo grid h-10 w-10 place-items-center rounded-lg border border-teal-200 bg-teal-50 text-teal-700 shadow-sm">
               <Ambulance size={20} />
             </span>
-            <span className="site-header-name text-xl font-black text-slate-950 dark:text-slate-50">PathoLogix</span>
+            <span className={`site-header-name text-xl font-black ${darkSurface ? "text-slate-50" : "text-slate-950 dark:text-slate-50"}`}>PathoLogix</span>
           </Link>
 
           <nav className="site-header-nav hidden items-center gap-1 text-sm md:flex">
@@ -75,8 +81,12 @@ export default function Header({
                 aria-current={isCurrentPage(item.href) ? "page" : undefined}
                 className={`inline-flex min-h-11 items-center rounded-md px-3 py-2 font-medium transition ${
                   isCurrentPage(item.href)
-                    ? "bg-teal-50 text-teal-900 dark:bg-teal-400/15 dark:text-teal-200"
-                    : "text-slate-600 hover:bg-teal-50 hover:text-teal-800 dark:text-slate-300 dark:hover:bg-teal-400/10 dark:hover:text-teal-200"
+                    ? darkSurface
+                      ? "bg-teal-400/15 text-teal-200"
+                      : "bg-teal-50 text-teal-900 dark:bg-teal-400/15 dark:text-teal-200"
+                    : darkSurface
+                      ? "text-slate-300 hover:bg-teal-400/10 hover:text-teal-200"
+                      : "text-slate-600 hover:bg-teal-50 hover:text-teal-800 dark:text-slate-300 dark:hover:bg-teal-400/10 dark:hover:text-teal-200"
                 }`}
               >
                 {item.label}
@@ -85,7 +95,7 @@ export default function Header({
           </nav>
         </div>
 
-        <div className="site-header-actions flex items-center gap-2 text-sm text-slate-700">
+        <div className={`site-header-actions flex items-center gap-2 text-sm ${darkSurface ? "text-slate-300" : "text-slate-700"}`}>
           <ThemeToggle />
           <Link
             href="/emtrainer"
@@ -97,7 +107,11 @@ export default function Header({
           {!session ? (
             <Link
               href="/login"
-              className="inline-flex rounded-md border border-[#b7ccc5] bg-white px-3 py-2 font-semibold text-slate-800 shadow-sm transition hover:border-teal-500 hover:bg-teal-50 dark:border-slate-700 dark:bg-[#102329] dark:text-slate-200 dark:hover:border-teal-500 dark:hover:bg-[#16333a]"
+              className={`inline-flex rounded-md border px-3 py-2 font-semibold shadow-sm transition ${
+                darkSurface
+                  ? "border-slate-700 bg-[#102329] text-slate-200 hover:border-teal-500 hover:bg-[#16333a]"
+                  : "border-[#b7ccc5] bg-white text-slate-800 hover:border-teal-500 hover:bg-teal-50 dark:border-slate-700 dark:bg-[#102329] dark:text-slate-200 dark:hover:border-teal-500 dark:hover:bg-[#16333a]"
+              }`}
             >
               Sign in
             </Link>
@@ -124,7 +138,11 @@ export default function Header({
             aria-expanded={mobileMenuOpen}
             aria-controls="mobile-navigation"
             onClick={() => setMobileMenuOpen((open) => !open)}
-            className="site-header-menu grid h-11 w-11 place-items-center rounded-md border border-[#b7ccc5] bg-white text-slate-800 shadow-sm transition hover:border-teal-500 hover:bg-teal-50 dark:border-slate-700 dark:bg-[#102329] dark:text-slate-200 dark:hover:border-teal-500 dark:hover:bg-[#16333a] md:hidden"
+            className={`site-header-menu grid h-11 w-11 place-items-center rounded-md border shadow-sm transition md:hidden ${
+              darkSurface
+                ? "border-slate-700 bg-[#102329] text-slate-200 hover:border-teal-500 hover:bg-[#16333a]"
+                : "border-[#b7ccc5] bg-white text-slate-800 hover:border-teal-500 hover:bg-teal-50 dark:border-slate-700 dark:bg-[#102329] dark:text-slate-200 dark:hover:border-teal-500 dark:hover:bg-[#16333a]"
+            }`}
           >
             {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
@@ -134,7 +152,7 @@ export default function Header({
       {mobileMenuOpen ? (
         <nav
           id="mobile-navigation"
-          className="site-header-mobile-nav mx-auto grid max-w-6xl grid-cols-2 gap-2 border-t border-[#d8e7e2] py-3 dark:border-slate-700 md:hidden"
+          className={`site-header-mobile-nav mx-auto grid max-w-6xl grid-cols-2 gap-2 border-t py-3 md:hidden ${darkSurface ? "border-slate-700" : "border-[#d8e7e2] dark:border-slate-700"}`}
         >
           {navItems.map((item) => (
             <Link
@@ -144,8 +162,12 @@ export default function Header({
               onClick={() => setMobileMenuOpen(false)}
               className={`flex min-h-11 items-center rounded-md border px-3 py-2.5 text-sm font-semibold shadow-sm transition ${
                 isCurrentPage(item.href)
-                  ? "border-teal-500 bg-teal-50 text-teal-900 dark:bg-teal-400/15 dark:text-teal-200"
-                  : "border-[#c8dcd6] bg-white/80 text-slate-700 hover:border-teal-400 hover:bg-teal-50 dark:border-slate-700 dark:bg-[#102329] dark:text-slate-300 dark:hover:border-teal-500 dark:hover:bg-[#16333a]"
+                  ? darkSurface
+                    ? "border-teal-500 bg-teal-400/15 text-teal-200"
+                    : "border-teal-500 bg-teal-50 text-teal-900 dark:bg-teal-400/15 dark:text-teal-200"
+                  : darkSurface
+                    ? "border-slate-700 bg-[#102329] text-slate-300 hover:border-teal-500 hover:bg-[#16333a]"
+                    : "border-[#c8dcd6] bg-white/80 text-slate-700 hover:border-teal-400 hover:bg-teal-50 dark:border-slate-700 dark:bg-[#102329] dark:text-slate-300 dark:hover:border-teal-500 dark:hover:bg-[#16333a]"
               }`}
             >
               {item.label}
