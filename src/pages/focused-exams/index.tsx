@@ -13,9 +13,9 @@ import Header from "@/components/Header";
 import Seo from "@/components/Seo";
 
 const plannedLabs = [
-  { title: "Knee exam", detail: "Ottawa Knee Rule and focused stability checks", icon: PersonStanding, href: "/focused-exams/knee" },
-  { title: "Wrist and hand", detail: "Snuffbox, circulation, sensation, and function", icon: Hand, href: null },
-  { title: "Focused neuro", detail: "Stroke findings, pupils, strength, and sensation", icon: Brain, href: null },
+  { title: "Knee exam", detail: "Ottawa Knee Rule and focused stability checks", icon: PersonStanding, href: "/focused-exams/knee", actionLabel: "Start knee lab" },
+  { title: "Wrist and hand", detail: "Scaphoid landmarks, circulation, sensation, and function", icon: Hand, href: "/focused-exams/wrist-hand", actionLabel: "Start wrist and hand lab" },
+  { title: "Focused neuro", detail: "Stroke findings, pupils, strength, glucose, and timing", icon: Brain, href: "/focused-exams/neuro", actionLabel: "Start focused neuro lab" },
 ];
 
 export default function FocusedExamLabsPage() {
@@ -96,19 +96,15 @@ export default function FocusedExamLabsPage() {
                       {lab.href ? <ArrowRight className="mt-2 shrink-0 text-teal-600 dark:text-teal-300" size={17} /> : null}
                     </>
                   );
-                  return lab.href ? (
+                  return (
                     <Link
                       key={lab.title}
                       href={lab.href}
-                      aria-label="Start knee lab"
+                      aria-label={lab.actionLabel}
                       className="flex items-start gap-3 py-4 first:pt-0 last:pb-0 transition hover:translate-x-0.5"
                     >
                       {content}
                     </Link>
-                  ) : (
-                    <div key={lab.title} className="flex items-start gap-3 py-4 first:pt-0 last:pb-0">
-                      {content}
-                    </div>
                   );
                 })}
               </div>

@@ -1,17 +1,17 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Activity,
   ArrowLeft,
   ArrowRight,
-  Bone,
+  Brain,
   Check,
   CheckCircle2,
   CircleDot,
   ClipboardCheck,
   Eye,
-  Footprints,
+  Hand,
   HeartPulse,
   Lightbulb,
   LoaderCircle,
@@ -22,115 +22,78 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-import Header from "@/components/Header";
 import FocusedLabSwitcher from "@/components/FocusedLabSwitcher";
+import Header from "@/components/Header";
 import Seo from "@/components/Seo";
 import {
-  getKneeCase,
-  getKneeDecisionFeedback,
-  getKneePhaseFindings,
-  kneeDecisionOptions,
-  kneeExamCases,
-  kneeExamPhases,
-  kneeExamTechniques,
-  kneeFindingLabels,
-  kneePhasesForCase,
-  scoreKneeExam,
-  type KneeCaseId,
-  type KneeDecision,
-  type KneeExamPhaseId,
-  type KneeFindingId,
-} from "@/lib/focusedKneeExam";
+  getFocusedClinicalCase,
+  getFocusedClinicalLab,
+  getFocusedDecisionFeedback,
+  getFocusedPhase,
+  getPhaseFindings,
+  scoreFocusedClinicalExam,
+  type FocusedClinicalLabId,
+} from "@/lib/focusedClinicalExams";
 
-const KneeScene = dynamic(() => import("@/components/FocusedKneeExamScene"), {
+const ClinicalScene = dynamic(() => import("@/components/FocusedClinicalExamScene"), {
   ssr: false,
   loading: () => (
     <div className="grid h-full min-h-[340px] place-items-center bg-[#dceff0] text-slate-800" role="status">
       <div className="text-center">
         <LoaderCircle className="mx-auto animate-spin text-teal-700" size={28} />
-        <p className="mt-3 text-sm font-bold">Preparing the knee model</p>
+        <p className="mt-3 text-sm font-bold">Preparing the exam model</p>
       </div>
     </div>
   ),
 });
 
-const phaseIcons: Record<KneeExamPhaseId, typeof Eye> = {
-  inspection: Eye,
-  palpation: Bone,
-  neurovascular: HeartPulse,
-  stability: Activity,
-  function: Footprints,
-  decision: ClipboardCheck,
-};
+function getPhaseIcon(phaseId: string) {
+  if (phaseId.includes("inspection") || phaseId.includes("face")) return Eye;
+  if (phaseId.includes("neurovascular")) return HeartPulse;
+  if (phaseId.includes("mental")) return Brain;
+  if (phaseId.includes("motor") || phaseId.includes("function")) return Activity;
+  if (phaseId.includes("context")) return ClipboardCheck;
+  if (phaseId === "decision") return ClipboardCheck;
+  return Hand;
+}
 
-const phasePrompts: Record<
-  KneeExamPhaseId,
-  { title: string; description: string; teaching: string }
-> = {
-  inspection: {
-    title: "Look before you touch",
-    description: "Compare alignment, patellar position, swelling, skin, and any sign that makes further testing unsafe.",
-    teaching: "Gross deformity, skin tenting, pallor, or a cool limb changes the priority from a routine knee screen to immediate limb assessment.",
-  },
-  palpation: {
-    title: "Find the Ottawa landmarks",
-    description: "Palpate the patella and fibular head, then localize any additional soft-tissue pain.",
-    teaching: "The Ottawa Knee Rule specifically includes isolated patellar tenderness and fibular-head tenderness. Joint-line pain alone is not one of its five criteria.",
-  },
-  neurovascular: {
-    title: "Check beyond the knee",
-    description: "Assess distal circulation, sensation, and motor function before stress testing or disposition.",
-    teaching: "Knee trauma can threaten the popliteal artery or peroneal nerve. An abnormal distal exam requires urgent action and reassessment.",
-  },
-  stability: {
-    title: "Screen stability gently",
-    description: "Only after excluding fracture concern and limb threat, compare gentle collateral and anterior stability checks.",
-    teaching: "Provocative maneuvers should never be forced in an acutely painful or unstable knee. Stop if there is severe pain, marked laxity, or guarding.",
-  },
-  function: {
-    title: "Assess motion and gait",
-    description: "Check active flexion toward 90 degrees and determine whether four weight-bearing steps are possible.",
-    teaching: "Inability to flex to 90 degrees or take four steps are Ottawa Knee Rule criteria. Do not test either when gross deformity or neurovascular compromise is present.",
-  },
-  decision: {
-    title: "Choose the best next step",
-    description: "Apply age, bony landmarks, flexion, and four-step weight bearing without using the rule as a diagnosis.",
-    teaching: "Any one of the five Ottawa Knee Rule criteria supports radiographs. A negative rule guides imaging decisions but does not exclude every significant injury.",
-  },
-};
-
-export default function FocusedKneeLab() {
+export default function FocusedClinicalLab({ labId }: { labId: FocusedClinicalLabId }) {
+  const config = getFocusedClinicalLab(labId);
   const sceneSectionRef = useRef<HTMLElement>(null);
   const debriefRef = useRef<HTMLElement>(null);
-  const [caseId, setCaseId] = useState<KneeCaseId>("medial-sprain");
+  const [caseId, setCaseId] = useState(config.cases[0].id);
   const [started, setStarted] = useState(false);
   const [phaseIndex, setPhaseIndex] = useState(0);
-  const [examined, setExamined] = useState<KneeFindingId[]>([]);
-  const [latestFinding, setLatestFinding] = useState<KneeFindingId | null>(null);
-  const [decision, setDecision] = useState<KneeDecision | null>(null);
+  const [examined, setExamined] = useState<string[]>([]);
+  const [latestFinding, setLatestFinding] = useState<string | null>(null);
+  const [decision, setDecision] = useState<string | null>(null);
 
-  const examCase = getKneeCase(caseId);
-  const activePhases = useMemo(() => kneePhasesForCase(examCase), [examCase]);
-  const phase = activePhases[phaseIndex] ?? activePhases[0];
-  const requiredForPhase = useMemo(
-    () => getKneePhaseFindings(examCase, phase),
-    [examCase, phase]
-  );
-  const phaseComplete = requiredForPhase.every((id) => examined.includes(id));
-  const availableFindings = useMemo(
-    () => kneeExamPhases.find((item) => item.id === phase)?.findingIds ?? [],
-    [phase]
-  );
-  const score = decision ? scoreKneeExam(examCase, examined, decision) : null;
-  const decisionFeedback = decision ? getKneeDecisionFeedback(examCase, decision) : null;
+  const examCase = getFocusedClinicalCase(config, caseId);
+  const activePhaseIds = examCase.phaseIds;
+  const phaseId = activePhaseIds[phaseIndex] ?? activePhaseIds[0];
+  const phase = getFocusedPhase(config, phaseId);
+  const requiredForPhase = getPhaseFindings(config, examCase, phaseId);
+  const phaseComplete = requiredForPhase.every((findingId) => examined.includes(findingId));
+  const availableFindings = phase.findingIds.filter((findingId) => examCase.requiredFindings.includes(findingId));
+  const score = decision ? scoreFocusedClinicalExam(examCase, examined, decision) : null;
+  const decisionFeedback = decision
+    ? getFocusedDecisionFeedback(config, examCase, decision)
+    : null;
   const progress = decision
     ? 100
-    : Math.round(((phaseIndex + (phaseComplete ? 1 : 0)) / activePhases.length) * 100);
-  const remainingFindings = requiredForPhase.filter((id) => !examined.includes(id)).length;
-  const nextPhase = activePhases[phaseIndex + 1];
+    : Math.round(((phaseIndex + (phaseComplete ? 1 : 0)) / activePhaseIds.length) * 100);
+  const remainingFindings = requiredForPhase.filter((findingId) => !examined.includes(findingId)).length;
+  const nextPhaseId = activePhaseIds[phaseIndex + 1];
+  const nextPhase = nextPhaseId ? getFocusedPhase(config, nextPhaseId) : null;
   const continueLabel = phaseComplete && nextPhase
-    ? `Next: ${phasePrompts[nextPhase].title}`
+    ? `Next: ${nextPhase.title}`
     : `Find ${remainingFindings} glowing point${remainingFindings === 1 ? "" : "s"}`;
+  const findingLabels = Object.fromEntries(
+    config.findings.map((finding) => [finding.id, finding.label])
+  );
+  const findingDetails = Object.fromEntries(
+    config.findings.map((finding) => [finding.id, finding])
+  );
 
   useEffect(() => {
     if (!latestFinding) return;
@@ -147,14 +110,14 @@ export default function FocusedKneeLab() {
     setDecision(null);
   }
 
-  function examine(findingId: KneeFindingId) {
+  function examine(findingId: string) {
     if (!started || decision) return;
     setExamined((current) => (current.includes(findingId) ? current : [...current, findingId]));
     setLatestFinding(findingId);
   }
 
   function continueExam() {
-    if (!phaseComplete || phaseIndex >= activePhases.length - 1) return;
+    if (!phaseComplete || phaseIndex >= activePhaseIds.length - 1) return;
     setLatestFinding(null);
     setPhaseIndex((current) => current + 1);
     if (window.matchMedia("(max-width: 1023px)").matches) {
@@ -164,7 +127,7 @@ export default function FocusedKneeLab() {
     }
   }
 
-  function chooseDecision(nextDecision: KneeDecision) {
+  function chooseDecision(nextDecision: string) {
     setDecision(nextDecision);
     if (window.matchMedia("(max-width: 1023px)").matches) {
       window.requestAnimationFrame(() => {
@@ -175,13 +138,12 @@ export default function FocusedKneeLab() {
     }
   }
 
+  const latestFindingDetail = latestFinding ? findingDetails[latestFinding] : null;
+  const PhaseIcon = getPhaseIcon(phaseId);
+
   return (
     <div className="app-theme-surface min-h-screen bg-[#071a20] text-white">
-      <Seo
-        title="Focused Knee Exam Lab"
-        description="Practice knee inspection, Ottawa Knee Rule landmarks, neurovascular assessment, stability checks, motion, and imaging decisions."
-        path="/focused-exams/knee"
-      />
+      <Seo title={config.seoTitle} description={config.seoDescription} path={config.path} />
       <Header compactOnLandscape />
 
       <main id="main-content" tabIndex={-1} className="mx-auto flex min-h-[calc(100dvh-65px)] max-w-[1680px] flex-col">
@@ -197,32 +159,32 @@ export default function FocusedKneeLab() {
               </Link>
               <div className="min-w-0">
                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-teal-300">Focused Exam Lab</p>
-                <h1 className="truncate text-lg font-black sm:text-xl">Knee assessment</h1>
+                <h1 className="truncate text-lg font-black sm:text-xl">{config.title}</h1>
               </div>
             </div>
             <div className="flex min-w-0 items-center gap-2">
-              <label htmlFor="knee-case" className="sr-only">Choose knee case</label>
+              <label htmlFor={`${labId}-case`} className="sr-only">Choose case</label>
               <select
-                id="knee-case"
+                id={`${labId}-case`}
                 value={caseId}
-                onChange={(event) => reset(event.target.value as KneeCaseId)}
+                onChange={(event) => reset(event.target.value)}
                 className="min-h-10 max-w-[210px] rounded-md border border-white/15 bg-[#102b33] px-3 text-sm font-semibold text-white outline-none focus:border-teal-300 sm:max-w-none"
               >
-                {kneeExamCases.map((item) => (
+                {config.cases.map((item) => (
                   <option key={item.id} value={item.id}>{item.shortTitle}</option>
                 ))}
               </select>
               <button
                 type="button"
                 onClick={() => reset()}
-                aria-label="Reset knee exam"
+                aria-label={`Reset ${config.shortTitle} exam`}
                 className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-white/15 bg-white/5 text-slate-200 transition hover:bg-white/10"
               >
                 <RefreshCcw size={17} />
               </button>
             </div>
           </div>
-          <FocusedLabSwitcher activeLab="knee" />
+          <FocusedLabSwitcher activeLab={labId} />
         </section>
 
         <div className={`grid min-h-0 flex-1 ${decision ? "lg:grid-cols-[minmax(0,1fr)_390px]" : ""}`}>
@@ -234,24 +196,26 @@ export default function FocusedKneeLab() {
                 : "min-h-[650px] sm:min-h-[calc(100dvh-236px)]"
             }`}
           >
-            <KneeScene
+            <ClinicalScene
+              labId={labId}
               caseId={caseId}
-              phase={phase}
+              modelLabel={config.modelLabel}
               availableFindings={started ? availableFindings : []}
               examinedFindings={examined}
+              findingLabels={findingLabels}
               onExamine={examine}
             />
 
             {!started ? (
-              <div className="pointer-events-none absolute left-3 top-3 max-w-[min(340px,calc(100%-1.5rem))] rounded-lg border border-white/15 bg-slate-950/[0.88] p-4 shadow-2xl backdrop-blur-md sm:left-5 sm:top-5">
+              <div className="pointer-events-none absolute left-3 top-3 max-w-[min(350px,calc(100%-1.5rem))] rounded-lg border border-white/15 bg-slate-950/[0.9] p-4 shadow-2xl backdrop-blur-md sm:left-5 sm:top-5">
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-[10px] font-black uppercase tracking-[0.18em] text-teal-300">Active case</p>
                   <span className={`rounded border px-2 py-0.5 text-[10px] font-bold ${
-                    examCase.immediateConcern
+                    examCase.statusTone === "urgent"
                       ? "border-rose-400/40 bg-rose-400/15 text-rose-200"
                       : "border-amber-400/40 bg-amber-400/15 text-amber-100"
                   }`}>
-                    {examCase.immediateConcern ? "Limb threat" : `Age ${examCase.age}`}
+                    {examCase.statusLabel}
                   </span>
                 </div>
                 <h2 className="mt-2 text-base font-bold sm:text-lg">{examCase.title}</h2>
@@ -266,25 +230,22 @@ export default function FocusedKneeLab() {
             {started && !decision ? (
               <>
                 <div
-                  data-testid="knee-exam-coach"
-                  className="pointer-events-none absolute left-3 top-3 z-20 w-[min(360px,calc(100%-1.5rem))] rounded-xl border border-white/15 bg-[#071a20]/[0.93] p-3.5 shadow-2xl backdrop-blur-md sm:left-5 sm:top-5 sm:p-4"
+                  data-testid="clinical-exam-coach"
+                  className="pointer-events-none absolute left-3 top-3 z-20 w-[min(365px,calc(100%-1.5rem))] rounded-xl border border-white/15 bg-[#071a20]/[0.94] p-3.5 shadow-2xl backdrop-blur-md sm:left-5 sm:top-5 sm:p-4"
                 >
                   <div className="flex items-center gap-2.5">
                     <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-teal-300 text-slate-950">
-                      {(() => {
-                        const Icon = phaseIcons[phase];
-                        return <Icon size={16} />;
-                      })()}
+                      <PhaseIcon size={16} />
                     </span>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
                         <p className="truncate text-[9px] font-black uppercase tracking-[0.16em] text-teal-300">
-                          Step {phaseIndex + 1} of {activePhases.length}
+                          Step {phaseIndex + 1} of {activePhaseIds.length}
                         </p>
                         <span className="text-[10px] font-black tabular-nums text-teal-200">{progress}%</span>
                       </div>
-                      <div className="mt-1 flex gap-1" aria-label={`Knee exam progress: step ${phaseIndex + 1} of ${activePhases.length}`}>
-                        {activePhases.map((item, index) => (
+                      <div className="mt-1 flex gap-1" aria-label={`${config.shortTitle} progress: step ${phaseIndex + 1} of ${activePhaseIds.length}`}>
+                        {activePhaseIds.map((item, index) => (
                           <span key={item} className={`h-1 flex-1 rounded-full ${index <= phaseIndex ? "bg-teal-300" : "bg-white/15"}`} />
                         ))}
                       </div>
@@ -292,23 +253,23 @@ export default function FocusedKneeLab() {
                   </div>
 
                   <p className="mt-3 text-[9px] font-black uppercase tracking-[0.16em] text-teal-300">
-                    {phase === "decision" ? "Put the exam together" : "Do this now"}
+                    {phaseId === "decision" ? "Put the exam together" : "Do this now"}
                   </p>
-                  <h2 className="mt-1 text-base font-black leading-5 sm:text-lg">{phasePrompts[phase].title}</h2>
-                  <p className="mt-1.5 text-xs leading-4 text-slate-300 sm:leading-5">{phasePrompts[phase].description}</p>
+                  <h2 className="mt-1 text-base font-black leading-5 sm:text-lg">{phase.title}</h2>
+                  <p className="mt-1.5 text-xs leading-4 text-slate-300 sm:leading-5">{phase.description}</p>
                   <div className="mt-2.5 flex items-start gap-2 border-t border-white/10 pt-2.5 text-[11px] leading-4 text-amber-50">
                     <Lightbulb className="mt-0.5 shrink-0 text-amber-300" size={13} />
-                    <p>{phasePrompts[phase].teaching}</p>
+                    <p>{phase.teaching}</p>
                   </div>
 
-                  {phase !== "decision" ? (
+                  {phaseId !== "decision" ? (
                     <>
-                      <div className="mt-2.5 flex flex-wrap gap-1.5" data-testid="knee-phase-checklist">
-                        {requiredForPhase.map((id) => {
-                          const complete = examined.includes(id);
+                      <div className="mt-2.5 flex flex-wrap gap-1.5" data-testid="clinical-phase-checklist">
+                        {requiredForPhase.map((findingId) => {
+                          const complete = examined.includes(findingId);
                           return (
                             <span
-                              key={id}
+                              key={findingId}
                               className={`inline-flex min-h-7 items-center gap-1.5 rounded-full border px-2 py-1 text-[9px] font-bold leading-3 ${
                                 complete
                                   ? "border-emerald-300/40 bg-emerald-300/15 text-emerald-100"
@@ -316,14 +277,14 @@ export default function FocusedKneeLab() {
                               }`}
                             >
                               {complete ? <Check size={10} /> : <CircleDot size={9} />}
-                              {kneeFindingLabels[id]}
+                              {findingLabels[findingId]}
                             </span>
                           );
                         })}
                       </div>
                       <button
                         type="button"
-                        data-testid="continue-knee-exam"
+                        data-testid="continue-clinical-exam"
                         disabled={!phaseComplete}
                         onClick={continueExam}
                         className="pointer-events-auto mt-2.5 inline-flex min-h-9 w-full items-center justify-center gap-2 rounded-full border border-white/15 bg-white/[0.06] px-3 py-2 text-[11px] font-black text-white transition hover:border-teal-200 hover:bg-white/10 disabled:pointer-events-none disabled:cursor-default disabled:text-slate-400"
@@ -335,40 +296,39 @@ export default function FocusedKneeLab() {
                   ) : null}
                 </div>
 
-                {phase !== "decision" && latestFinding ? (
+                {phaseId !== "decision" && latestFinding && latestFindingDetail ? (
                   <div
                     key={latestFinding}
                     role="status"
                     aria-live="polite"
-                    data-testid="knee-finding-message"
-                    className="pointer-events-none absolute bottom-20 left-3 right-3 z-20 rounded-xl border border-teal-200/30 bg-[#082129]/[0.95] px-4 py-3 shadow-2xl backdrop-blur-md sm:left-auto sm:right-5 sm:w-[370px]"
+                    data-testid="clinical-finding-message"
+                    className="pointer-events-none absolute bottom-20 left-3 right-3 z-20 rounded-xl border border-teal-200/30 bg-[#082129]/[0.96] px-4 py-3 shadow-2xl backdrop-blur-md sm:left-auto sm:right-5 sm:w-[380px]"
                   >
                     <button
                       type="button"
-                      aria-label="Dismiss knee finding"
-                      title="Dismiss knee finding"
+                      aria-label="Dismiss finding"
                       onClick={() => setLatestFinding(null)}
                       className="pointer-events-auto absolute right-2 top-2 grid h-7 w-7 place-items-center rounded-full border border-white/10 bg-white/5 text-slate-300 transition hover:bg-white/10 hover:text-white focus:ring-2 focus:ring-teal-200"
                     >
                       <X size={13} />
                     </button>
                     <p className="text-[9px] font-black uppercase tracking-[0.16em] text-amber-300">How to check it</p>
-                    <p className="mt-1 pr-6 text-[11px] leading-4 text-slate-200">{kneeExamTechniques[latestFinding]}</p>
+                    <p className="mt-1 pr-6 text-[11px] leading-4 text-slate-200">{latestFindingDetail.technique}</p>
                     <div className="mt-2.5 border-t border-white/10 pt-2.5">
-                      <p className="text-[9px] font-black uppercase tracking-[0.16em] text-teal-300">Finding · {kneeFindingLabels[latestFinding]}</p>
+                      <p className="text-[9px] font-black uppercase tracking-[0.16em] text-teal-300">Finding · {latestFindingDetail.label}</p>
                       <p className="mt-1 text-xs font-semibold leading-5 text-white">{examCase.findings[latestFinding]}</p>
                     </div>
                   </div>
                 ) : null}
 
-                {phase === "decision" ? (
+                {phaseId === "decision" ? (
                   <div
-                    className="absolute bottom-20 left-3 right-3 z-20 rounded-xl border border-white/15 bg-[#071a20]/[0.94] p-3 shadow-2xl backdrop-blur-md sm:bottom-auto sm:left-auto sm:right-5 sm:top-5 sm:w-[400px] sm:p-4"
-                    data-testid="knee-decisions"
+                    className="absolute bottom-20 left-3 right-3 z-20 rounded-xl border border-white/15 bg-[#071a20]/[0.95] p-3 shadow-2xl backdrop-blur-md sm:bottom-auto sm:left-auto sm:right-5 sm:top-5 sm:w-[410px] sm:p-4"
+                    data-testid="clinical-decisions"
                   >
                     <p className="text-[9px] font-black uppercase tracking-[0.16em] text-teal-300">Choose one action</p>
                     <div className="mt-2 grid gap-1.5">
-                      {kneeDecisionOptions.map((option) => (
+                      {config.decisions.map((option) => (
                         <button
                           key={option.id}
                           type="button"
@@ -388,7 +348,7 @@ export default function FocusedKneeLab() {
             {!started ? (
               <button
                 type="button"
-                data-testid="begin-knee-exam"
+                data-testid={`begin-${labId}-exam`}
                 onClick={() => setStarted(true)}
                 className="absolute bottom-4 left-1/2 z-20 inline-flex min-h-11 -translate-x-1/2 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-teal-300 px-5 py-2.5 text-sm font-black text-slate-950 shadow-2xl transition hover:bg-teal-200 focus:ring-4 focus:ring-white/80"
               >
@@ -398,46 +358,51 @@ export default function FocusedKneeLab() {
           </section>
 
           {decision && score && decisionFeedback ? (
-            <aside ref={debriefRef} data-testid="knee-debrief" className="scroll-mt-24 overflow-y-auto bg-[#071a20] lg:max-h-[calc(100dvh-130px)]">
+            <aside ref={debriefRef} data-testid="clinical-debrief" className="scroll-mt-24 overflow-y-auto bg-[#071a20] lg:max-h-[calc(100dvh-178px)]">
               <div className="p-5 sm:p-6">
                 <span className={`grid h-12 w-12 place-items-center rounded-md ${score.decisionCorrect ? "bg-emerald-300 text-emerald-950" : "bg-rose-300 text-rose-950"}`}>
                   {score.decisionCorrect ? <CheckCircle2 size={24} /> : <XCircle size={24} />}
                 </span>
                 <p className="mt-5 text-[10px] font-black uppercase tracking-[0.18em] text-teal-300">Case debrief</p>
-                <h2 className="mt-2 text-2xl font-black">{score.decisionCorrect ? "Good clinical decision" : "Revisit the decision"}</h2>
+                <h2 className="mt-1 text-2xl font-black">
+                  {score.decisionCorrect ? "Good clinical decision" : "Reconsider the priority"}
+                </h2>
                 <div className="mt-4 flex items-end gap-2">
-                  <span className="text-5xl font-black tabular-nums">{score.score}</span>
+                  <span className="text-5xl font-black tabular-nums text-white">{score.score}</span>
                   <span className="pb-1 text-sm font-bold text-slate-400">/ 100</span>
                 </div>
                 <p className="mt-4 text-sm leading-6 text-slate-300">{decisionFeedback}</p>
 
                 <div className="mt-5 grid grid-cols-2 gap-2">
                   <div className="rounded-md border border-white/10 bg-white/[0.035] p-3">
-                    <p className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400">Exam sequence</p>
-                    <p className="mt-1 text-lg font-black">{score.assessmentPoints} / 70</p>
+                    <p className="text-[9px] font-black uppercase tracking-[0.14em] text-slate-400">Exam sequence</p>
+                    <p className="mt-1 text-lg font-black text-white">{score.assessmentPoints} / 70</p>
                   </div>
                   <div className="rounded-md border border-white/10 bg-white/[0.035] p-3">
-                    <p className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400">Clinical decision</p>
-                    <p className={`mt-1 text-lg font-black ${score.decisionCorrect ? "text-emerald-300" : "text-rose-300"}`}>
+                    <p className="text-[9px] font-black uppercase tracking-[0.14em] text-slate-400">Clinical decision</p>
+                    <p className={`mt-1 text-lg font-black ${score.decisionCorrect ? "text-emerald-200" : "text-rose-200"}`}>
                       {score.decisionCorrect ? "30 / 30" : "0 / 30"}
                     </p>
                   </div>
                 </div>
 
-                <div className="mt-5 rounded-md border border-white/10 bg-white/[0.025] p-4">
-                  <p className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400">Your decision</p>
-                  <p className="mt-2 text-sm font-bold text-white">
-                    {kneeDecisionOptions.find((option) => option.id === decision)?.label}
-                  </p>
+                <div className="mt-5 rounded-md border border-white/10 bg-white/[0.035] p-4">
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Your decision</p>
+                  <p className="mt-2 text-sm font-bold text-white">{config.decisions.find((option) => option.id === decision)?.label}</p>
+                  {!score.decisionCorrect ? (
+                    <p className="mt-3 text-sm leading-5 text-emerald-200">
+                      Best next step: {config.decisions.find((option) => option.id === examCase.correctDecision)?.label}
+                    </p>
+                  ) : null}
                 </div>
 
                 <div className="mt-5">
-                  <p className="text-[10px] font-black uppercase tracking-[0.17em] text-teal-300">Findings that drove the decision</p>
-                  <div className="mt-3 space-y-2">
-                    {examCase.decisionDrivers.map((id) => (
-                      <div key={id} className="rounded-md border border-white/10 bg-white/[0.025] px-3 py-2.5">
-                        <p className="text-xs font-bold text-white">{kneeFindingLabels[id]}</p>
-                        <p className="mt-1 text-xs leading-5 text-slate-300">{examCase.findings[id]}</p>
+                  <p className="text-[10px] font-black uppercase tracking-[0.16em] text-teal-300">Findings that drove the decision</p>
+                  <div className="mt-2 space-y-2">
+                    {examCase.decisionDrivers.map((findingId) => (
+                      <div key={findingId} className="rounded-md border border-white/10 bg-white/[0.025] px-3 py-2.5">
+                        <p className="text-xs font-bold text-white">{findingLabels[findingId]}</p>
+                        <p className="mt-1 text-xs leading-5 text-slate-300">{examCase.findings[findingId]}</p>
                       </div>
                     ))}
                   </div>

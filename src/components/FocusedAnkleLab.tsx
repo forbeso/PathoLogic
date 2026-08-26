@@ -22,6 +22,7 @@ import {
   XCircle,
 } from "lucide-react";
 import Header from "@/components/Header";
+import FocusedLabSwitcher from "@/components/FocusedLabSwitcher";
 import Seo from "@/components/Seo";
 import {
   ankleExamCases,
@@ -239,6 +240,7 @@ export default function FocusedAnkleLab() {
               </button>
             </div>
           </div>
+          <FocusedLabSwitcher activeLab="ankle" />
         </section>
 
         <div
@@ -251,7 +253,7 @@ export default function FocusedAnkleLab() {
             className={`relative scroll-mt-24 overflow-hidden border-white/10 ${
               decision
                 ? "min-h-[54dvh] border-b lg:min-h-0 lg:border-b-0 lg:border-r"
-                : "min-h-[650px] sm:min-h-[calc(100dvh-188px)]"
+                : "min-h-[650px] sm:min-h-[calc(100dvh-236px)]"
             }`}
           >
             <AnkleScene
