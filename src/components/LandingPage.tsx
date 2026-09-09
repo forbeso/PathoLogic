@@ -17,7 +17,6 @@ import {
   Sparkles,
   Stethoscope,
   Timer,
-  Gamepad,
   Ambulance,
   ScanSearch,
   Siren,
@@ -241,62 +240,42 @@ export default function LandingPage() {
       className="relative isolate overflow-hidden text-slate-900"
     >
       <section className="relative isolate overflow-hidden bg-slate-950 text-white">
-        <img
-          src="/emt.png"
-          alt="EMT assisting a patient beside an ambulance"
-          className="absolute inset-0 -z-20 h-full w-full object-cover object-[66%_center] sm:object-[58%_center]"
-        />
-        <div className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(6,16,24,0.97)_0%,rgba(6,16,24,0.90)_46%,rgba(6,16,24,0.38)_100%)]" />
-        <div className="absolute inset-x-0 bottom-0 -z-10 h-32 bg-[linear-gradient(0deg,rgba(15,23,42,0.80)_0%,rgba(15,23,42,0)_100%)]" />
-
         <Container>
-          <div className="flex min-h-[calc(100svh-73px)] max-w-2xl flex-col justify-center py-10 sm:min-h-[64svh] sm:py-16">
-            <div className="inline-flex w-fit items-center gap-2 rounded-md border border-white/25 bg-slate-950/35 px-3 py-1 text-sm font-semibold text-cyan-100 backdrop-blur">
-              <HeartPulse size={16} />
-              NREMT-style EMT practice
-            </div>
-
-            <h1 className="mt-5 text-5xl font-black sm:text-6xl lg:text-7xl">
-              PathoLogix
-            </h1>
-
-            <p className="mt-5 max-w-xl text-lg leading-8 text-slate-100 sm:text-xl">
-              Train the judgment behind the answer with realistic EMS calls,
-              cue-focused review, and timed exam practice built for EMT
-              students.
-            </p>
-
-            <div className="mt-8 grid max-w-md grid-cols-1 gap-3 min-[420px]:grid-cols-2">
+          <div className="grid gap-10 py-12 sm:py-16 lg:grid-cols-[1.05fr_1fr] lg:items-center lg:gap-12">
+            <div>
+              <div className="inline-flex items-center gap-2 text-sm font-semibold text-teal-300">
+                <HeartPulse size={16} /> NREMT-style EMT practice
+              </div>
+              <h1 className="mt-5 text-4xl font-black leading-tight tracking-tight sm:text-5xl lg:text-6xl">
+                Practice the decisions that matter on your next EMS call.
+              </h1>
+              <p className="mt-5 max-w-xl text-lg leading-8 text-slate-300">
+                Read the patient story, make your call, and learn why the key
+                details matter. Build clinical judgment one scenario at a time.
+              </p>
               <Link
                 href="/emtrainer"
-                className="inline-flex items-center gap-2 rounded-md bg-teal-400 px-5 py-3 text-sm font-bold text-slate-950 shadow-lg shadow-teal-950/20 transition hover:bg-teal-300 focus:outline-none focus:ring-2 focus:ring-white"
+                className="mt-7 inline-flex min-h-12 items-center gap-2 rounded-md bg-teal-400 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-teal-300 focus:outline-none focus:ring-2 focus:ring-white"
               >
-                Start practicing
-                <ArrowRight size={17} />
+                Start your first scenario <ArrowRight size={17} />
               </Link>
-              <Link
-                href="/emtscene"
-                className="inline-flex items-center gap-2 rounded-md border border-white/35 bg-slate-950/35 px-5 py-3 text-sm font-bold text-white backdrop-blur transition hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-white"
-              >
-                Enter simulator
-                <Gamepad size={17} />
+              <p className="mt-3 text-sm text-slate-400">No sign-up needed to try a scenario.</p>
+              <Link href="#practice" className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-teal-200 underline underline-offset-4">
+                Explore all training paths <ArrowRight size={15} />
               </Link>
             </div>
-
-            <div className="mt-8 grid max-w-xl grid-cols-3 gap-3 border-t border-white/25 pt-5 text-xs text-slate-200 sm:gap-4 sm:text-sm">
-              <div>
-                <div className="text-xl font-bold text-white sm:text-2xl">6 training paths</div>
-                <p className="mt-1">Scenarios, exams, flashcards, scenes, triage, and labs.</p>
+            <figure className="min-w-0">
+              <div className="mb-3 flex items-center justify-between text-xs font-semibold uppercase tracking-widest text-slate-400">
+                <span>Inside the scenario trainer</span>
+                <Brain size={18} className="text-teal-300" />
               </div>
-              <div>
-                <div className="text-xl font-bold text-white sm:text-2xl">Cue first</div>
-                <p className="mt-1">Learn what details should change care.</p>
-              </div>
-              <div>
-                <div className="text-xl font-bold text-white sm:text-2xl">Adaptive</div>
-                <p className="mt-1">Return to the domains that need reps.</p>
-              </div>
-            </div>
+              <HeroScreenshot />
+              <figcaption className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-300">
+                <span>01 Read the call</span>
+                <span>02 Make a decision</span>
+                <span>03 Review the reasoning</span>
+              </figcaption>
+            </figure>
           </div>
         </Container>
       </section>
@@ -309,8 +288,8 @@ export default function LandingPage() {
           <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
             <SectionIntro
               eyebrow="Practice paths"
-              title="Pick the kind of pressure you need today."
-              subtitle="Start with open reasoning, tighten pacing in exam mode, then reinforce the facts and patterns that keep showing up."
+              title="Start with a scenario. Build from there."
+              subtitle="The Scenario Trainer is a good first step. Add timed exams for pacing and flashcards for focused recall when you’re ready."
             />
             <Link
               href="/progress"

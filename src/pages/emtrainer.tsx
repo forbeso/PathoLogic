@@ -1,7 +1,7 @@
 import Header from "@/components/Header";
 import EMTScenarioTrainer from "@/components/EmtScenarioTrainer";
-import { AppShell, PageContainer, PageIntro } from "@/components/AppShell";
-import { Brain, Siren, Timer } from "lucide-react";
+import { AppShell, PageContainer } from "@/components/AppShell";
+import { Timer } from "lucide-react";
 import Seo from "@/components/Seo";
 import Link from "next/link";
 
@@ -14,31 +14,18 @@ export default function EMTTrainerPage() {
         path="/emtrainer"
       />
       <Header />
-      <PageContainer size="normal" className="space-y-6">
-        <PageIntro
-          eyebrow="Scenario Trainer"
-          title="Practice the call before exam day."
-          description="Read the scene, commit to the best next step, then review the cues and rationale that should drive your decision."
-          icon={Brain}
-          actions={
-            <>
-              <Link
-                href="/triage"
-                className="inline-flex items-center gap-2 whitespace-nowrap rounded-md bg-teal-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-600"
-              >
-                MCI triage simulation
-                <Siren size={16} />
-              </Link>
-              <Link
-                href="/exam/nremt"
-                className="inline-flex items-center gap-2 whitespace-nowrap rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-slate-400 hover:bg-slate-50"
-              >
-                Timed exam mode
-                <Timer size={16} />
-              </Link>
-            </>
-          }
-        />
+      <PageContainer size="wide" className="space-y-4 !py-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Scenario Trainer</h1>
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+              Read the call, choose an answer, then review the reasoning.
+            </p>
+          </div>
+          <Link href="/exam/nremt" className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-teal-700 dark:text-teal-300">
+            <Timer size={16} /> Timed exam mode
+          </Link>
+        </div>
         <EMTScenarioTrainer />
       </PageContainer>
     </AppShell>

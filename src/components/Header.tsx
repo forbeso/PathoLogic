@@ -7,6 +7,7 @@ import UserMenu from "@/components/UserMenu";
 import ThemeToggle from "@/components/ThemeToggle";
 
 const navItems = [
+  { href: "/sickcity", label: "SickCity" },
   { href: "/emtrainer", label: "Scenarios" },
   { href: "/focused-exams", label: "Exam Labs" },
   { href: "/exam/nremt", label: "Exam Mode" },

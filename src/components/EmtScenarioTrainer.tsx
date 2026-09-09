@@ -340,7 +340,6 @@ export default function EMTScenarioTrainer() {
         return next;
       });
       setSelected(null);
-      setShowCues(true);
       setShowElims(false);
       setSavingAnswer(false);
       setAnswerSaveError(null);
@@ -379,7 +378,6 @@ export default function EMTScenarioTrainer() {
 
   const goto = (i: number) => {
     setSelected(null);
-    setShowCues(true);
     setShowElims(false);
     setSavingAnswer(false);
     setAnswerSaveError(null);
@@ -476,7 +474,7 @@ export default function EMTScenarioTrainer() {
 
   return (
     <div
-      className="relative mx-auto max-w-3xl rounded-lg border border-[#c8dcd6] bg-white/58 p-4 shadow-[0_18px_42px_rgba(45,86,89,0.12)] backdrop-blur"
+      className="relative mx-auto w-full rounded-lg border border-[#c8dcd6] bg-white/58 p-4 shadow-[0_18px_42px_rgba(45,86,89,0.12)] backdrop-blur"
       aria-busy={adaptiveLoading}
     >
       <AnimatePresence>
@@ -545,7 +543,7 @@ export default function EMTScenarioTrainer() {
 
       <motion.fieldset
         disabled={adaptiveLoading}
-        className="min-w-0 space-y-6 border-0 p-0"
+        className="min-w-0 space-y-4 border-0 p-0"
         animate={
           adaptiveLoading
             ? { opacity: reduceMotion ? 0.45 : [0.38, 0.55, 0.38] }
@@ -602,34 +600,31 @@ export default function EMTScenarioTrainer() {
         <ProgressBar value={index + 1} max={items.length} />
       </div>
 
+      <div className="flex flex-wrap items-center gap-3">
+        <div role="group" aria-label="Practice mode" className="inline-flex flex-wrap gap-1 rounded-lg border border-slate-300 p-1 dark:border-slate-600">
+          {[{ label: "Guided", cues: true }, { label: "Independent", cues: false }].map((mode) => (
+            <button key={mode.label} type="button" aria-pressed={showCues === mode.cues}
+              onClick={() => setShowCues(mode.cues)}
+              className={`min-h-11 rounded-md px-4 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal-500 ${showCues === mode.cues ? "bg-teal-700 text-white" : "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"}`}>
+              {mode.label}
+            </button>
+          ))}
+        </div>
+        <p className="text-sm text-slate-600 dark:text-slate-300">
+          {showCues ? "Key cues are highlighted as you read." : "Find the cues yourself. Highlights appear after you answer."}
+        </p>
+      </div>
+
+      <div className="grid items-start gap-4 lg:grid-cols-2">
       {/* Vignette */}
       <section className={`${cardClass} p-4`}>
         <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-teal-800">
           <Brain size={16} /> Scenario
         </div>
         <p className="text-lg leading-relaxed text-slate-950">
-          {renderHighlighted(item.vignette, item.cues, showCues)}
+          {renderHighlighted(item.vignette, item.cues, showCues || selected !== null)}
         </p>
 
-        <div className="mt-4 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setShowCues((s) => !s)}
-            className={secondaryButtonClass}
-          >
-            {showCues ? "Hide" : "Show"} cues
-          </button>
-          {/* Adaptive */}
-          <button
-            onClick={() => void startAdaptive(item.topic)}
-            disabled={adaptiveLoading}
-            className={primaryButtonClass}
-            title="Serve a scenario targeting your weakest topic"
-          >
-            <Sparkles size={16} />
-            {adaptiveLoading ? "Finding scenario..." : "Train on similar questions"}
-          </button>
-        </div>
       </section>
 
       {/* Question & Choices */}
@@ -793,6 +788,19 @@ export default function EMTScenarioTrainer() {
         )}
       </section>
 
+      </div>
+
+      {selected !== null ? (
+        <div className="flex flex-wrap items-center gap-3">
+          <button type="button" onClick={nextItem} disabled={savingAnswer} className={primaryButtonClass}>
+            Next scenario <ChevronRight size={16} />
+          </button>
+          <button type="button" onClick={() => void startAdaptive(item.topic)} disabled={savingAnswer || adaptiveLoading} className={secondaryButtonClass}>
+            <Sparkles size={16} /> Practice this topic
+          </button>
+        </div>
+      ) : null}
+
       {/* Reasoning Panels */}
       {selected !== null ? (
         <section className="space-y-3">
@@ -821,7 +829,7 @@ export default function EMTScenarioTrainer() {
 
       {/* Footer */}
       <footer className="pt-2 text-xs text-slate-400 mb-4">
-        PathoLogix 2025 &copy; - Practice scenarios for EMTs. Not a substitute for formal training or protocols.
+        PathoLogix {new Date().getFullYear()} &copy; - Practice scenarios for EMTs. Not a substitute for formal training or protocols.
       </footer>
       </motion.fieldset>
     </div>
