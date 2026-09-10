@@ -1,54 +1,28 @@
-import { ArrowRight, Check, MapPin, Radio, X } from "lucide-react";
-import { SICK_CITY_CALLS, type SickCityCallId } from "@/lib/sickCity";
-import styles from "./SickCityGame.module.css";
+import { ArrowRight, MapPin, Radio, X } from 'lucide-react';
+import { SICK_CITY_CALLS } from '@/lib/sickCity';
+import { CAREER_CALLS, type ShiftMode } from '@/lib/sickCityShift';
+import styles from './SickCityGame.module.css';
 
 type Props = {
-  selectedIndex: number;
-  activeIndex: number | null;
-  completed: SickCityCallId[];
-  providingCare: boolean;
-  onSelect: (index: number) => void;
-  onAccept: (index: number) => void;
-  onClose?: () => void;
+  selectedIndex: number; activeIndex: number | null; mode: ShiftMode; level: number;
+  onMode: (mode: ShiftMode) => void; onSelect: (index: number) => void;
+  onAccept: (index: number) => void; onClose?: () => void;
 };
-
-export default function SickCityDispatch({ selectedIndex, activeIndex, completed, providingCare, onSelect, onAccept, onClose }: Props) {
+export default function SickCityDispatch({ selectedIndex, activeIndex, mode, level, onMode, onSelect, onAccept, onClose }: Props) {
   const call = SICK_CITY_CALLS[selectedIndex];
-  const isActive = selectedIndex === activeIndex;
-  const switching = activeIndex !== null && !isActive;
+  const assignment = CAREER_CALLS[selectedIndex];
   return <section className={styles.dispatchBoard} aria-label="Patient dispatch board">
-    <div className={styles.cardTop}>
-      <span><Radio size={17} /> DISPATCH · {SICK_CITY_CALLS.length} CALLS</span>
-      {onClose && <button onClick={onClose} aria-label="Close dispatch board"><X size={20} /></button>}
-    </div>
+    <div className={styles.cardTop}><span><Radio size={17}/> {activeIndex !== null ? 'DISPATCH NOTES' : 'INCOMING DISPATCH'}</span>{onClose && <button onClick={onClose} aria-label="Close dispatch board"><X size={20}/></button>}</div>
     <div className={styles.dispatchColumns}>
-      <div className={styles.dispatchPicker}>
-        <label htmlFor="patient-dispatch-select">Patient call</label>
-        <select id="patient-dispatch-select" value={selectedIndex} onChange={event => onSelect(Number(event.target.value))}>
-          {SICK_CITY_CALLS.map((item, index) => <option key={item.id} value={index}>
-            {item.code} · {item.title}{index === activeIndex ? " · Active" : completed.includes(item.id) ? " · Completed" : ""}
-          </option>)}
-        </select>
-      </div>
+      {activeIndex === null && <div className={styles.modeSwitch} aria-label="Shift mode"><button aria-pressed={mode === 'career'} onClick={() => onMode('career')}>CAREER SHIFT</button><button aria-pressed={mode === 'training'} onClick={() => onMode('training')}>TRAINING MODE</button></div>}
+      {mode === 'training' && activeIndex === null && <div className={styles.dispatchPicker}><label htmlFor="patient-dispatch-select">AVAILABLE CALLS</label><select id="patient-dispatch-select" value={selectedIndex} onChange={event => onSelect(Number(event.target.value))}>{[true,false].map(full => <optgroup key={String(full)} label={full ? 'Full clinical calls' : 'Quick response calls'}>{SICK_CITY_CALLS.map((item,index) => Boolean(item.clinicalScenarioId) === full && <option key={item.id} value={index}>{item.code} · {CAREER_CALLS[index].dispatchReport.title}</option>)}</optgroup>)}</select></div>}
       <article className={styles.callBriefing} aria-label={`Dispatch details ${call.code}`}>
-        <div className={styles.caseMeta}><span>{call.code}</span><span data-priority={call.priority}>{call.priority}</span></div>
-        <h2>{call.title}</h2>
-        <p className={styles.eyebrow}>CALLER REPORT</p>
-        <p className={styles.callerReport}>{call.summary}</p>
-        <div className={styles.location}><MapPin size={20} /><div><strong>{call.district}</strong><span>{call.location}</span></div></div>
-        <details className={styles.dispatchMore}>
-          <summary>Patient & training details</summary>
-          <dl className={styles.dispatchPatient}><dt>Patient to locate</dt><dd>{call.patientLabel}</dd></dl>
-          <div className={styles.dispatchStats}><span><strong>{call.steps.length}</strong> care decisions</span><span><strong>+{call.rewardXp}</strong> completion XP</span></div>
-        </details>
-        {isActive ? <button className={styles.primary} onClick={onClose}><Check size={18} /> Return to active call</button>
-          : <button className={styles.primary} disabled={providingCare} onClick={() => onAccept(selectedIndex)}>
-            {switching ? "Switch to call" : completed.includes(call.id) ? "Accept call again" : "Accept call"} · {call.code}<ArrowRight size={18} />
-          </button>}
-        <p className={styles.note}>{providingCare && !isActive ? "Finish your current patient’s care before accepting another call."
-          : switching ? "Accepting this call replaces your current assignment. Unit 07 stays where you parked it."
-          : isActive ? "Assigned to Unit 07. These dispatch details remain available throughout the call."
-          : "Review the report, accept this patient’s call, then follow the dispatch waypoint."}</p>
+        <div className={styles.caseMeta}><span>{call.code} · UNIT 07</span><span data-priority={call.priority}>PRIORITY {assignment.priority}</span></div>
+        <h2>{assignment.dispatchReport.title}</h2>
+        {assignment.dispatchReport.lines.map(line => <p key={line} className={styles.callerReport}>{line}</p>)}
+        <div className={styles.location}><MapPin size={20}/><div><strong>{call.district}</strong><span>{call.location}</span></div></div>
+        <details className={styles.dispatchMore}><summary>DISPATCH NOTES</summary><p className={styles.callerReport}>Unit 07, respond priority {assignment.priority}. {assignment.dispatchReport.reliability === 'limited' ? 'Information limited to caller report. Confirm findings on arrival.' : 'Confirm scene conditions and patient status on arrival.'}</p>{mode === 'training' && <p className={styles.note}>{call.clinicalScenarioId ? 'Interactive clinical care' : 'Quick response'} · Career access at level {assignment.minimumLevel}{level < assignment.minimumLevel ? ' · Available now in Training' : ''}</p>}</details>
+        <button className={styles.primary} onClick={() => activeIndex !== null ? onClose?.() : onAccept(selectedIndex)}>{activeIndex !== null ? 'RETURN TO CALL' : `ACCEPT CALL · ${call.code}`}<ArrowRight size={18}/></button>
       </article>
     </div>
   </section>;

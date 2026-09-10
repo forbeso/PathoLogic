@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "check:budgets": "node scripts/check-performance-budgets.mjs",
     "test:e2e": "playwright test",
-    "test:e2e:headed": "playwright test --headed"
+    "test:e2e:headed": "playwright test --headed",
+    "test:unit": "node --test tests/unit/*.test.cjs"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.0",

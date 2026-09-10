@@ -1,4 +1,7 @@
+import { getCityLocation } from './sickCityLocations';
+import { CLINICAL_SCENARIOS, type ClinicalScenarioId } from "./clinicalScenarios";
 export type SickCityCallId =
+  | `clinical-${ClinicalScenarioId}`
   | "park-fall"
   | "market-breathing"
   | "plaza-diabetic"
@@ -22,6 +25,7 @@ export type SickCityAssessmentStep = {
 export type SickCityCall = {
   id: SickCityCallId;
   code: string;
+  locationId: string;
   title: string;
   summary: string;
   district: "Maple Market" | "Civic Center" | "Riverside Park" | "Station Quarter";
@@ -38,11 +42,13 @@ export type SickCityCall = {
   learningPearl: string;
   rewardXp: number;
   steps: SickCityAssessmentStep[];
+  clinicalScenarioId?: ClinicalScenarioId;
 };
 
 export const SICK_CITY_CALLS: SickCityCall[] = [
   {
     id: "park-fall",
+    locationId: "park-east",
     code: "MED-21",
     title: "Fall near Riverside Park",
     summary: "Adult with ankle pain after stepping off a curb. Patient is conscious and breathing normally.",
@@ -50,7 +56,7 @@ export const SICK_CITY_CALLS: SickCityCall[] = [
     location: "Maple Street and 4th Avenue",
     distanceLabel: "0.8 mi",
     priority: "Routine",
-    position: [53, 0, 13],
+    position: getCityLocation("park-east").position,
     pose: "supine",
     shirtColor: "#334155",
     patientLabel: "Injured person on the grass",
@@ -104,6 +110,7 @@ export const SICK_CITY_CALLS: SickCityCall[] = [
   },
   {
     id: "market-breathing",
+    locationId: "market-corner",
     code: "RESP-08",
     title: "Breathing problem outside Corner Market",
     summary: "Adult with worsening shortness of breath. Caller reports the patient can speak only a few words at a time.",
@@ -111,7 +118,7 @@ export const SICK_CITY_CALLS: SickCityCall[] = [
     location: "Corner Market, Grant Avenue",
     distanceLabel: "0.5 mi",
     priority: "High priority",
-    position: [-29, 0, -6.2],
+    position: getCityLocation("market-corner").position,
     pose: "standing",
     shirtColor: "#7c3aed",
     patientLabel: "Person struggling to breathe",
@@ -165,6 +172,7 @@ export const SICK_CITY_CALLS: SickCityCall[] = [
   },
   {
     id: "plaza-diabetic",
+    locationId: "civic-plaza",
     code: "MED-14",
     title: "Altered person near City Plaza",
     summary: "Bystander reports a person became confused and sat down suddenly. No trauma was witnessed.",
@@ -172,7 +180,7 @@ export const SICK_CITY_CALLS: SickCityCall[] = [
     location: "City Plaza transit stop",
     distanceLabel: "0.9 mi",
     priority: "Urgent",
-    position: [30, 0, -28],
+    position: getCityLocation("civic-plaza").position,
     pose: "supine",
     shirtColor: "#0f766e",
     patientLabel: "Confused person",
@@ -226,6 +234,7 @@ export const SICK_CITY_CALLS: SickCityCall[] = [
   },
   {
     id: "cyclist-trauma",
+    locationId: "cycle-crossing",
     code: "TRAUMA-32",
     title: "Cyclist struck near the river trail",
     summary: "A cyclist was clipped by a slow-moving vehicle. The patient is awake with shoulder pain and road rash.",
@@ -233,7 +242,7 @@ export const SICK_CITY_CALLS: SickCityCall[] = [
     location: "River Trail at East 4th Street",
     distanceLabel: "1.0 mi",
     priority: "Urgent",
-    position: [36, 0, 5.8],
+    position: getCityLocation("cycle-crossing").position,
     pose: "seated",
     shirtColor: "#b45309",
     patientLabel: "Cyclist seated beside the trail",
@@ -287,6 +296,7 @@ export const SICK_CITY_CALLS: SickCityCall[] = [
   },
   {
     id: "station-chest-pain",
+    locationId: "transit-shelter",
     code: "CARD-11",
     title: "Chest pressure at Station Quarter",
     summary: "A commuter reports central chest pressure with sweating and nausea. The patient is sitting near the bus stop.",
@@ -294,7 +304,7 @@ export const SICK_CITY_CALLS: SickCityCall[] = [
     location: "Station 68 transit shelter",
     distanceLabel: "0.3 mi",
     priority: "High priority",
-    position: [-23, 0, 28.5],
+    position: getCityLocation("transit-shelter").position,
     pose: "seated",
     shirtColor: "#1d4ed8",
     patientLabel: "Sweating commuter holding chest",
@@ -347,6 +357,29 @@ export const SICK_CITY_CALLS: SickCityCall[] = [
     ],
   },
 ];
+
+const clinicalLocations: Record<ClinicalScenarioId, string> = {
+  anaphylaxis: 'park-east', 'car-accident': 'cycle-crossing', hypoglycemia: 'civic-plaza',
+  'opioid-overdose': 'market-corner', 'chest-pain': 'transit-shelter',
+};
+// Full clinical calls use the same case metadata and care engine as the skills lab.
+
+for (const [index, scenario] of CLINICAL_SCENARIOS.entries()) {
+  const clinicalScenarioId = scenario.id as ClinicalScenarioId;
+  SICK_CITY_CALLS.push({
+    id: `clinical-${clinicalScenarioId}`, clinicalScenarioId, locationId: clinicalLocations[clinicalScenarioId],
+    code: `CLIN-${String(index + 1).padStart(2, "0")}`,
+    title: scenario.title, summary: scenario.dispatch,
+    district: index === 1 ? "Station Quarter" : "Riverside Park",
+    location: scenario.location, distanceLabel: "", position: getCityLocation(clinicalLocations[clinicalScenarioId]).position,
+    priority: scenario.priority === "Unstable" ? "High priority" : "Urgent",
+    pose: clinicalScenarioId === "car-accident" ? "seated" : "supine", shirtColor: "#334155", patientLabel: clinicalScenarioId === "car-accident" ? "Injured driver" : "Patient",
+    initialPatientLine: scenario.patient, completionTitle: "Clinical care complete",
+    completionCopy: "Scene safety, assessment, treatment, transport planning, and reassessment completed.",
+    learningPearl: "Review the clinical debrief before returning to dispatch.", rewardXp: 40, steps: [],
+  });
+}
+export const DEFAULT_SICK_CITY_CALL_INDEX = SICK_CITY_CALLS.findIndex(call => Boolean(call.clinicalScenarioId));
 
 export function getSickCityCall(index: number) {
   return SICK_CITY_CALLS[index % SICK_CITY_CALLS.length];

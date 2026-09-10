@@ -4,6 +4,7 @@ import {
   requireApiUser,
 } from "@/lib/server/apiSecurity";
 import { getSupabaseAdmin } from "@/lib/server/supabaseAdmin";
+import { progressionAwardXp } from "@/lib/progressionAwards";
 
 type ProgressRow = {
   total_xp: number;
@@ -12,11 +13,6 @@ type ProgressRow = {
   last_active_date: string | null;
   legacy_imported_at?: string | null;
 };
-
-const XP_BY_EVENT = {
-  scenario_objective: 10,
-  scenario_complete: 40,
-} as const;
 
 function toClientProgress(row?: ProgressRow | null) {
   return {
@@ -147,17 +143,12 @@ export default async function handler(
 
   if (action === "award") {
     const { awardId, eventType, metadata } = req.body ?? {};
-    const xp =
-      typeof eventType === "string" &&
-      eventType in XP_BY_EVENT
-        ? XP_BY_EVENT[eventType as keyof typeof XP_BY_EVENT]
-        : null;
+    const xp = progressionAwardXp(awardId, eventType, metadata);
 
     if (
       typeof awardId !== "string" ||
       awardId.length < 3 ||
       awardId.length > 180 ||
-      !awardId.startsWith("emt-scene:") ||
       xp === null
     ) {
       return res.status(400).json({ error: "Invalid progression award." });

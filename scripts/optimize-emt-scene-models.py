@@ -32,7 +32,7 @@ def clear_scene():
 
 def optimize_model(source_name, output_name, target_triangles):
     clear_scene()
-    source = MODEL_DIR / source_name
+    source = PROJECT_ROOT / "artifacts" / "emt-scene-source-assets" / source_name
     output = MODEL_DIR / output_name
     bpy.ops.import_scene.gltf(filepath=str(source))
 

@@ -12,7 +12,7 @@ import { AppShell } from "@/components/AppShell";
 import Header from "@/components/Header";
 import Seo from "@/components/Seo";
 
-const plannedLabs = [
+const additionalLabs = [
   { title: "Knee exam", detail: "Ottawa Knee Rule and focused stability checks", icon: PersonStanding, href: "/focused-exams/knee", actionLabel: "Start knee lab" },
   { title: "Wrist and hand", detail: "Scaphoid landmarks, circulation, sensation, and function", icon: Hand, href: "/focused-exams/wrist-hand", actionLabel: "Start wrist and hand lab" },
   { title: "Focused neuro", detail: "Stroke findings, pupils, strength, glucose, and timing", icon: Brain, href: "/focused-exams/neuro", actionLabel: "Start focused neuro lab" },
@@ -80,9 +80,9 @@ export default function FocusedExamLabsPage() {
             </article>
 
             <section className="rounded-lg border border-[#c8dcd6] bg-white/90 p-5 shadow-sm dark:border-slate-700 dark:bg-[#102329]">
-              <p className="text-xs font-black uppercase tracking-[0.17em] text-teal-700 dark:text-teal-300">Next in the lab</p>
+              <p className="text-xs font-black uppercase tracking-[0.17em] text-teal-700 dark:text-teal-300">More available labs</p>
               <div className="mt-4 divide-y divide-[#dce9e5] dark:divide-slate-700">
-                {plannedLabs.map((lab) => {
+                {additionalLabs.map((lab) => {
                   const Icon = lab.icon;
                   const content = (
                     <>

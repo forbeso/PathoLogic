@@ -14,6 +14,9 @@ const eslintConfig = defineConfig([
   },
   globalIgnores([
     "node_modules/**",
+    "public/draco/**",
+    "playwright-report/**",
+    "test-results/**",
     ".next/**",
     "out/**",
     "build/**",

@@ -9,7 +9,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 const navItems = [
   { href: "/sickcity", label: "SickCity" },
   { href: "/emtrainer", label: "Scenarios" },
-  { href: "/focused-exams", label: "Exam Labs" },
+  { href: "/training", label: "All training" },
   { href: "/exam/nremt", label: "Exam Mode" },
   { href: "/flashcards", label: "Flashcards" },
   { href: "/learn", label: "Learn" },
@@ -74,7 +74,7 @@ export default function Header({
             <span className={`site-header-name text-xl font-black ${darkSurface ? "text-slate-50" : "text-slate-950 dark:text-slate-50"}`}>PathoLogix</span>
           </Link>
 
-          <nav className="site-header-nav hidden items-center gap-1 text-sm md:flex">
+          <nav className="site-header-nav hidden items-center gap-1 text-sm xl:flex">
             {navItems.map((item) => (
               <Link
                 key={item.href}
@@ -139,7 +139,7 @@ export default function Header({
             aria-expanded={mobileMenuOpen}
             aria-controls="mobile-navigation"
             onClick={() => setMobileMenuOpen((open) => !open)}
-            className={`site-header-menu grid h-11 w-11 place-items-center rounded-md border shadow-sm transition md:hidden ${
+            className={`site-header-menu grid h-11 w-11 place-items-center rounded-md border shadow-sm transition xl:hidden ${
               darkSurface
                 ? "border-slate-700 bg-[#102329] text-slate-200 hover:border-teal-500 hover:bg-[#16333a]"
                 : "border-[#b7ccc5] bg-white text-slate-800 hover:border-teal-500 hover:bg-teal-50 dark:border-slate-700 dark:bg-[#102329] dark:text-slate-200 dark:hover:border-teal-500 dark:hover:bg-[#16333a]"
@@ -153,7 +153,7 @@ export default function Header({
       {mobileMenuOpen ? (
         <nav
           id="mobile-navigation"
-          className={`site-header-mobile-nav mx-auto grid max-w-6xl grid-cols-2 gap-2 border-t py-3 md:hidden ${darkSurface ? "border-slate-700" : "border-[#d8e7e2] dark:border-slate-700"}`}
+          className={`site-header-mobile-nav mx-auto grid max-w-6xl grid-cols-2 gap-2 border-t py-3 xl:hidden ${darkSurface ? "border-slate-700" : "border-[#d8e7e2] dark:border-slate-700"}`}
         >
           {navItems.map((item) => (
             <Link

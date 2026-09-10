@@ -11,7 +11,7 @@ export function CityKitModel({ asset, position, rotation = 0 }: {
   position: Point;
   rotation?: number;
 }) {
-  const { scene } = useGLTF(`/models/sickcity/designed/${asset}.glb`);
+  const { scene } = useGLTF(`/models/sickcity/designed/${asset}.glb`, "/draco/");
   const model = useMemo(() => scene.clone(true), [scene]);
   useLayoutEffect(() => {
     model.traverse((object) => {

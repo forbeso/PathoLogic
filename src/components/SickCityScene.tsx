@@ -1,3 +1,4 @@
+import { patientCareCamera } from '@/lib/sickCityCareCamera';
 import SickCityStreets from "@/components/SickCityStreets";
 import { isCityBuilding } from "@/lib/sickCityWorld";
 import SickCityAmbulance from "@/components/SickCityAmbulance";
@@ -31,6 +32,7 @@ function isBuildingCollision(x: number, z: number) {
 }
 
 type SceneProps = {
+  careFocus?: Point;
   inAmbulance: boolean;
   ambulancePose: VehiclePose;
   vehicleResetToken: number;
@@ -194,7 +196,7 @@ function Patient({ pose, color }: { pose: SickCityPose; color: string }) {
 }
 
 function LayingMoaningPatient() {
-  const source = useGLTF(LAYING_PATIENT_URL);
+  const source = useGLTF(LAYING_PATIENT_URL, "/draco/");
   const model = useMemo(() => clone(source.scene), [source.scene]);
   const animations = useMemo(
     () =>
@@ -278,6 +280,7 @@ function DestinationBeacon({ position, label }: { position: Point; label: string
 }
 
 function Player({
+  careFocus,
   spawnFacing,
   ambulancePose,
   active,
@@ -287,6 +290,7 @@ function Player({
   resetToken,
   onPlayerMove,
 }: {
+  careFocus?: Point;
   spawnFacing: number;
   ambulancePose: VehiclePose;
   active: boolean;
@@ -390,6 +394,11 @@ function Player({
     cameraGoal.current.y = player.position.y + 2.9;
     lookGoal.current.copy(player.position).addScaledVector(forward.current, 4.6);
     lookGoal.current.y = player.position.y + 1.45;
+    if (careFocus) {
+      const point = patientCareCamera(careFocus, [player.position.x,0,player.position.z], camera instanceof THREE.PerspectiveCamera ? camera.aspect : 1);
+      cameraGoal.current.set(...point);
+      lookGoal.current.set(...careFocus);
+    }
     camera.position.lerp(cameraGoal.current, 1 - Math.exp(-delta * 5.2));
     camera.lookAt(lookGoal.current);
 
@@ -547,11 +556,12 @@ function World(props: SceneProps) {
         animate
       />
 
-      <SickCityAmbulance occupied={props.inAmbulance} inputEnabled={props.movementEnabled}
+      <SickCityAmbulance initialPose={props.ambulancePose} occupied={props.inAmbulance} inputEnabled={props.movementEnabled}
         movementRef={props.movementRef} resetToken={props.vehicleResetToken}
         showMarker={!props.inAmbulance && props.movementEnabled}
         onEnter={props.onAmbulanceEnter} onMove={props.onAmbulanceMove} />
       <Player
+        careFocus={props.careFocus}
         ambulancePose={props.ambulancePose}
         active={!props.inAmbulance}
         movementEnabled={props.movementEnabled}
@@ -565,7 +575,7 @@ function World(props: SceneProps) {
   );
 }
 
-useGLTF.preload(LAYING_PATIENT_URL);
+useGLTF.preload(LAYING_PATIENT_URL, "/draco/");
 
 function SceneLoading() {
   return (

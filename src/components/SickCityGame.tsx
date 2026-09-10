@@ -1,25 +1,34 @@
+import SickCityCareChoices from './SickCityCareChoices';
+import { patientCareTarget } from '@/lib/sickCityCareCamera';
+import SickCityXPDisplay from '@/components/SickCityXPDisplay';
+import SickCityShiftSummary, { SkillPerformance } from '@/components/SickCityShiftSummary';
+import { useDispatchRadio } from '@/hooks/useDispatchRadio';
+import { SHIFT_CALL_LIMIT, assignCall, careerRank, unitStatus, quickCategory, quickScores, type ShiftMode, type ShiftCallResult, type ClinicalDecision } from '@/lib/sickCityShift';
+import type { ClinicalCallResult } from "@/lib/clinicalScenarios";
 import SickCityDispatch from "@/components/SickCityDispatch";
 import { mapCoordinate, mapMarker, mapHeadingDegrees } from "@/lib/sickCityMap";
 import { streetCoordinates, streetWidth } from "@/lib/sickCityWorld";
-import { AMBULANCE_START_YAW, HOSPITAL_AMBULANCE_START, ambulanceExitPosition, type VehiclePose } from "@/lib/sickCityVehicle";
+import { AMBULANCE_START_YAW, HOSPITAL_MEDIC_START, HOSPITAL_AMBULANCE_START, ambulanceExitPosition, type VehiclePose } from "@/lib/sickCityVehicle";
 import styles from "./SickCityGame.module.css";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { Ambulance, Activity, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Check, GraduationCap, Map, Navigation, Radio, RotateCcw, X } from "lucide-react";
+import { Ambulance, Activity, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Check, GraduationCap, Map, Navigation, Radio, Volume2, VolumeX, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useModalFocus } from "@/hooks/useModalFocus";
 import { useLearnerProgress } from "@/hooks/useLearnerProgress";
+import { shuffled } from "@/lib/shuffle";
 import { awardProgress } from "@/lib/progression";
-import { getSickCityCall, SICK_CITY_CALLS, type SickCityCallId } from "@/lib/sickCity";
-import {
-  SICK_CITY_START_POSITION,
-  type SickCityMovement,
-} from "@/components/SickCityScene";
+import { getSickCityCall, type SickCityAssessmentStep } from "@/lib/sickCity";
+import type { SickCityMovement } from "@/components/SickCityScene";
+const SICK_CITY_START_POSITION = HOSPITAL_MEDIC_START;
 
 const SickCityScene = dynamic(() => import("@/components/SickCityScene"), {
   ssr: false,
 });
 
-type GamePhase = "dispatch" | "locate" | "assessment" | "complete";
+const ClinicalSceneSession = dynamic(() => import("@/components/ClinicalSceneSession"), { ssr: false, loading: () => <div role="status" className="absolute bottom-8 left-1/2 -translate-x-1/2 rounded bg-slate-950 px-5 py-3 text-white">Preparing care controls…</div> });
+
+type GamePhase = "starting" | "available" | "shiftComplete" | "clinical" | "dispatch" | "locate" | "assessment" | "complete";
 type Point = [number, number, number];
 
 const EMPTY_MOVEMENT: SickCityMovement = {
@@ -112,7 +121,7 @@ export default function SickCityGame() {
   const canMoveRef = useRef(false);
   const interactRef = useRef<() => void>(() => undefined);
   const [callIndex, setCallIndex] = useState(0);
-  const [phase, setPhase] = useState<GamePhase>("dispatch");
+  const [phase, setPhase] = useState<GamePhase>("starting");
   const [playerPosition, setPlayerPosition] = useState<Point>(SICK_CITY_START_POSITION);
   const [playerSpawn, setPlayerSpawn] = useState<Point>(SICK_CITY_START_POSITION);
   const [playerFacing, setPlayerFacing] = useState(Math.PI / 2);
@@ -122,19 +131,34 @@ export default function SickCityGame() {
   const [vehiclePose, setVehiclePose] = useState<VehiclePose>({ position: HOSPITAL_AMBULANCE_START, yaw: AMBULANCE_START_YAW, speed: 0 });
   const vehiclePoseRef = useRef(vehiclePose);
   const [stepIndex, setStepIndex] = useState(0);
+  const [callOptions, setCallOptions] = useState<Record<string, SickCityAssessmentStep["options"]>>({});
+
+  const [mode, setMode] = useState<ShiftMode>('career');
+  const [shiftNumber, setShiftNumber] = useState(1);
+  const [shiftCalls, setShiftCalls] = useState<ShiftCallResult[]>([]);
+  const [decisions, setDecisions] = useState<ClinicalDecision[]>([]);
+  const [callXp, setCallXp] = useState(0);
+  const completedRef = useRef(false);
+  const radio = useDispatchRadio();
+  const playRadio = radio.play;
+  const [clinicalResult, setClinicalResult] = useState<ClinicalCallResult | null>(null);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [answerCorrect, setAnswerCorrect] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [dispatchBoardOpen, setDispatchBoardOpen] = useState(false);
   const [previewCallIndex, setPreviewCallIndex] = useState(0);
-  const [completedCallIds, setCompletedCallIds] = useState<SickCityCallId[]>([]);
+
   const [mapOpen, setMapOpen] = useState(false);
   const [mistakes, setMistakes] = useState(0);
   const [paused, setPaused] = useState(false);
+  const mapRef = useRef<HTMLElement>(null);
+  const menuRef = useRef<HTMLElement>(null);
+  useModalFocus({ active: mapOpen, containerRef: mapRef, onEscape: () => setMapOpen(false) });
+  useModalFocus({ active: paused && !mapOpen, containerRef: menuRef, onEscape: () => setPaused(false) });
   const [shiftXp, setShiftXp] = useState(0);
   const [callsCompleted, setCallsCompleted] = useState(0);
-  const { level } = useLearnerProgress();
+  const { level, progress } = useLearnerProgress();
   const activeCall = getSickCityCall(callIndex);
   const activeStep = activeCall.steps[stepIndex];
   const navigationPosition = inAmbulance ? vehiclePose.position : playerPosition;
@@ -146,6 +170,19 @@ export default function SickCityGame() {
   const waypointDirection = Math.abs(deltaX) > Math.abs(deltaZ)
     ? deltaX > 0 ? "east" : "west"
     : deltaZ > 0 ? "south" : "north";
+
+  const status = unitStatus(phase, waypointDistance, inAmbulance);
+  useEffect(() => {
+    if (phase !== 'starting' && phase !== 'available') return;
+    const timer = window.setTimeout(() => {
+      if (mode === 'career') {
+        const next = assignCall(level.level, shiftCalls.map(call => call.callId));
+        setCallIndex(next); setPreviewCallIndex(next);
+      }
+      setPhase('dispatch'); playRadio('dispatch');
+    }, phase === 'starting' ? 1400 : 900);
+    return () => window.clearTimeout(timer);
+  }, [phase, mode, level.level, shiftCalls, playRadio]);
 
   const progressPercent = (() => {
     if (phase === "complete") return 100;
@@ -180,9 +217,15 @@ export default function SickCityGame() {
   };
 
   const acceptDispatch = (index: number) => {
-    if (phase === "assessment") return;
+    if (phase !== "dispatch" || completedRef.current || callsCompleted >= SHIFT_CALL_LIMIT) return;
     clearMovement();
     setCallIndex(index);
+    completedRef.current = false;
+    setDecisions([]); setCallXp(0);
+    radio.play('acknowledge');
+    setCallOptions(Object.fromEntries(getSickCityCall(index).steps.map(step => [step.id, shuffled(step.options)])));
+
+    setClinicalResult(null);
     setPhase("locate");
     setStepIndex(0);
     setSelectedOption(null);
@@ -202,7 +245,9 @@ export default function SickCityGame() {
       return;
     }
     clearMovement();
-    setPhase("assessment");
+    setPlayerSpawn(playerPosition);
+    setPlayerFacing(Math.atan2(activeCall.position[0] - playerPosition[0], -(activeCall.position[2] - playerPosition[2])));
+    setPhase(activeCall.clinicalScenarioId ? "clinical" : "assessment");
     setSelectedOption(null);
     setFeedback(activeCall.initialPatientLine);
     setAnswerCorrect(false);
@@ -284,23 +329,25 @@ export default function SickCityGame() {
   const chooseOption = (optionId: string) => {
     const option = activeStep.options.find((candidate) => candidate.id === optionId);
     if (!option || answerCorrect) return;
+    const category = quickCategory(activeStep.id);
+    setDecisions(items => [...items, { objectiveId: activeStep.id, category, choice: option.label, correct: option.correct, rationale: option.feedback }]);
     if (!option.correct) setMistakes((count) => count + 1);
     setSelectedOption(option.id);
     setFeedback(option.correct ? `${option.feedback} ${activeStep.patientReply}` : option.feedback);
     setAnswerCorrect(option.correct);
     if (option.correct) {
-      setShiftXp((xp) => xp + 10);
-      awardProgress({
+      const award = awardProgress({
         id: `sickcity:${activeCall.id}:${activeStep.id}:v2`,
         xp: 10,
         eventType: "scenario_objective",
         metadata: { scenarioId: activeCall.id, objectiveId: activeStep.id },
       });
+      if (award.awarded) { setShiftXp(xp => xp + 10); setCallXp(xp => xp + 10); }
     }
   };
 
   const continueAssessment = () => {
-    if (!answerCorrect) return;
+    if (!answerCorrect || completedRef.current) return;
     if (stepIndex < activeCall.steps.length - 1) {
       setStepIndex((current) => current + 1);
       setSelectedOption(null);
@@ -308,27 +355,36 @@ export default function SickCityGame() {
       setAnswerCorrect(false);
       return;
     }
+    completedRef.current = true;
+    setToast(null);
+    radio.play("complete");
     setPhase("complete");
     setSelectedOption(null);
     setFeedback(null);
     setAnswerCorrect(false);
-    setShiftXp((xp) => xp + activeCall.rewardXp);
     setCallsCompleted((count) => count + 1);
-    setCompletedCallIds(ids => ids.includes(activeCall.id) ? ids : [...ids, activeCall.id]);
-    awardProgress({
+
+    const award = awardProgress({
       id: `sickcity:${activeCall.id}:complete:v2`,
       xp: activeCall.rewardXp,
       eventType: "scenario_complete",
       metadata: { scenarioId: activeCall.id, objectiveId: "complete" },
     });
+    const earned = callXp + (award.awarded ? activeCall.rewardXp : 0);
+    setCallXp(earned);
+    setShiftCalls(calls => [...calls, { callId: activeCall.id, scores: quickScores(decisions), xp: earned, review: activeCall.learningPearl, decisions }]);
+
+    if (award.awarded) setShiftXp(xp => xp + activeCall.rewardXp);
   };
 
   const prepareNextCall = (nextIndex: number) => {
     clearMovement();
     setInAmbulance(false);
+    setVehiclePose({ position: HOSPITAL_AMBULANCE_START, yaw: AMBULANCE_START_YAW, speed: 0 });
     setVehicleResetToken(token => token + 1);
     setCallIndex(nextIndex);
-    setPhase("dispatch");
+    setPhase("available");
+    completedRef.current = false;
     setPlayerFacing(Math.PI / 2);
     setPlayerSpawn(SICK_CITY_START_POSITION);
     setPlayerPosition(SICK_CITY_START_POSITION);
@@ -343,10 +399,37 @@ export default function SickCityGame() {
     setMistakes(0);
   };
 
+  const clearCall = () => {
+    clearMovement(); setDispatchBoardOpen(false); setClinicalResult(null); setToast(null);
+    completedRef.current = false;
+    setPhase(callsCompleted >= SHIFT_CALL_LIMIT ? 'shiftComplete' : 'available');
+  };
+  const startShift = () => {
+    setShiftCalls([]); setCallsCompleted(0); setShiftXp(0); setShiftNumber(n => n + 1);
+    prepareNextCall(0); setPhase('starting');
+  };
+
+  const clinicalCare = phase === "clinical" && activeCall.clinicalScenarioId ? <ClinicalSceneSession key={activeCall.id} initialScenarioId={activeCall.clinicalScenarioId} sickCity={{
+      code: activeCall.code, shiftNumber, callsCompleted,
+      onLeave: xp => { setShiftXp(value => value + xp); clearMovement(); setPhase("locate"); showToast("Care attempt ended. Return to the scene when ready."); },
+      onComplete: result => {
+        if (completedRef.current) return;
+        completedRef.current = true;
+        radio.play('complete');
+        setShiftCalls(calls => [...calls, { callId: activeCall.id, scores: result.score, xp: result.xp, review: result.takeaway, decisions: [] }]);
+        setClinicalResult(result);
+        setShiftXp(xp => xp + result.xp);
+        setCallsCompleted(count => count + 1);
+
+        setPhase("complete");
+      },
+    }} /> : null;
+
   return (
-    <div className={styles.game}>
-      <div className={styles.world}>
-        <SickCityScene activeCall={activeCall} movementRef={movementRef} movementEnabled={canMove}
+    <main id="main-content" tabIndex={-1} className={styles.game}>
+      {phase !== "complete" && phase !== "shiftComplete" && <h1 className="sr-only">SickCity EMT training shift</h1>}
+      <div className={styles.world} inert={mapOpen || paused}>
+        <SickCityScene careFocus={phase === "clinical" || phase === "assessment" ? patientCareTarget(activeCall) : undefined} activeCall={activeCall} movementRef={movementRef} movementEnabled={canMove}
           inAmbulance={inAmbulance} ambulancePose={vehiclePose} vehicleResetToken={vehicleResetToken}
           onAmbulanceEnter={enterAmbulance} onAmbulanceMove={reportAmbulance}
           playerSpawn={playerSpawn} playerFacing={playerFacing} playerResetToken={playerResetToken}
@@ -355,25 +438,27 @@ export default function SickCityGame() {
           onPlayerMove={setPlayerPosition} onPatientSelect={selectPatient} />
       </div>
       <div className={styles.vignette} />
-      <header className={styles.header}>
-        <Link href="/" className={styles.brand} aria-label="PathoLogix home"><span className={styles.brandIcon}><Activity size={24} /></span><span>SICK<span className={styles.accent}>CITY</span><small>PATHOLOGIX · FIELD OPERATIONS</small></span></Link>
-        <div className={styles.shiftStatus}><span className={styles.liveDot} /> UNIT 07 <span className={styles.divider}>/</span> {phase === "assessment" ? "ON SCENE" : phase === "locate" ? "RESPONDING" : "AVAILABLE"}</div>
-        <div className={styles.headerActions}><span className={styles.level}>LVL {level.level} <span> · {shiftXp} XP</span></span><button onClick={openDispatchBoard} aria-label="Open patient dispatch board" aria-expanded={dispatchBoardOpen || phase === "dispatch"}><Radio size={19} /></button><button onClick={() => { clearMovement(); setDispatchBoardOpen(false); setMapOpen(!mapOpen); }} aria-label="Toggle city map" aria-expanded={mapOpen}><Map size={19} /></button><button onClick={() => { clearMovement(); setDispatchBoardOpen(false); setPaused(!paused); }} aria-label="Shift menu" aria-expanded={paused}><span>•••</span></button></div>
+      {clinicalCare && <div className={styles.clinicalOverlay} data-testid="sickcity-patient-care">{clinicalCare}</div>}
+      <header className={styles.header} hidden={phase === "clinical"} inert={mapOpen || paused || phase === "clinical"}>
+        <Link href="/" className={styles.brand} aria-label="PathoLogix home"><span className={styles.brandIcon}><Activity size={24} /></span><span>SICK<span className={styles.accent}>CITY</span><small>SHIFT {String(shiftNumber).padStart(2, '0')} · {callsCompleted} / 5 CALLS</small></span></Link>
+        <div className={styles.shiftStatus}>{phase === 'locate' ? waypointDistance <= 10 ? 'LOCATE PATIENT' : 'RESPOND TO CALL' : phase === 'assessment' ? 'ASSESS & TREAT' : phase === 'complete' ? 'REVIEW & CLEAR CALL' : phase === 'dispatch' ? 'DISPATCH IS CALLING' : phase === 'shiftComplete' ? 'SHIFT COMPLETE' : phase === 'available' ? 'STANDING BY' : 'YOUR SHIFT STARTS NOW'}</div>
+        <div className={styles.headerActions}><div className={styles.unitReadout}><strong>UNIT 07 <span key={status} role="status">{status}</span></strong><small>LVL {level.level} · {progress.totalXp} XP</small></div><button onClick={radio.toggle} aria-label={radio.muted ? 'Enable radio audio' : 'Mute radio audio'} aria-pressed={!radio.muted}>{radio.muted ? <VolumeX size={18}/> : <Volume2 size={18}/>}</button><button onClick={openDispatchBoard} disabled={phase !== 'locate' && phase !== 'dispatch'} aria-label="Open patient dispatch board" aria-expanded={dispatchBoardOpen || phase === 'dispatch'}><Radio size={19}/></button><button onClick={() => { clearMovement(); setDispatchBoardOpen(false); setMapOpen(!mapOpen); }} aria-label="Toggle city map" aria-expanded={mapOpen}><Map size={19}/></button><button onClick={() => { clearMovement(); setDispatchBoardOpen(false); setPaused(!paused); }} aria-label="Shift menu" aria-expanded={paused}>•••</button></div>
       </header>
 
-      {(phase === "dispatch" || dispatchBoardOpen) && !paused && !mapOpen && <div className={styles.dispatchHub}>
-        {phase === "dispatch" && <p className={styles.dispatchWelcome}>Select a patient call to begin your shift.</p>}
-        <SickCityDispatch selectedIndex={previewCallIndex} activeIndex={phase === "locate" || phase === "assessment" ? callIndex : null}
-          completed={completedCallIds} providingCare={phase === "assessment"} onSelect={setPreviewCallIndex} onAccept={acceptDispatch}
-          onClose={phase === "dispatch" ? undefined : () => setDispatchBoardOpen(false)} />
+      {(phase === 'starting' || phase === 'available') && !paused && !mapOpen && <section className={styles.clockIn} aria-label="Starting shift"><p className={styles.eyebrow}>UNIT 07 · {careerRank(level.level)}</p><h2>{phase === 'starting' ? 'YOUR SHIFT\nSTARTS NOW.' : 'UNIT 07.\nAVAILABLE.'}</h2><p>{phase === 'starting' ? 'Hospital garage · Bay 07' : 'Standing by for your next assignment.'}</p><span>{callsCompleted} / 5 CALLS · LVL {level.level} · {progress.totalXp} XP</span></section>}
+      {(phase === 'dispatch' || dispatchBoardOpen) && !paused && !mapOpen && <div className={styles.dispatchHub}>
+        <SickCityDispatch selectedIndex={previewCallIndex} activeIndex={phase === 'locate' ? callIndex : null} mode={mode} level={level.level}
+          onMode={next => { setMode(next); if (next === 'career') { const assigned = assignCall(level.level, shiftCalls.map(call => call.callId)); setCallIndex(assigned); setPreviewCallIndex(assigned); } }}
+          onSelect={setPreviewCallIndex} onAccept={acceptDispatch} onClose={phase === 'dispatch' ? undefined : () => setDispatchBoardOpen(false)}/>
       </div>}
+      {phase === 'shiftComplete' && !paused && !mapOpen && <SickCityShiftSummary calls={shiftCalls} xp={shiftXp} number={shiftNumber} onStart={startShift} onPractice={() => { setMode('training'); startShift(); }}/>}
 
       {phase === "locate" && !paused && !mapOpen && !dispatchBoardOpen && <>
-        <section className={styles.objective}><div className={styles.eyebrow}><Navigation size={14} /> RESPOND TO CALL <span>{activeCall.code}</span></div><h2>{activeCall.district}</h2><p>{activeCall.location}</p><div className={styles.distance}><strong>{Math.round(waypointDistance * 12)}<small> m</small></strong><span>HEAD {waypointDirection.toUpperCase()}</span></div><button className={styles.textButton} onClick={openDispatchBoard}><Radio size={14} /> Dispatch details & patient calls</button></section>
+        <section className={styles.objective}><div className={styles.eyebrow}><Navigation size={14} /> RESPOND TO CALL <span>{activeCall.code}</span></div><h2>{activeCall.district}</h2><p>{activeCall.location}</p><div className={styles.distance}><strong>{Math.round(waypointDistance * 12)}<small> m</small></strong><span>HEAD {waypointDirection.toUpperCase()}</span></div><button className={styles.textButton} onClick={openDispatchBoard}><Radio size={14} /> DISPATCH NOTES</button></section>
         <div className={styles.miniMap}><div className={styles.eyebrow}><Map size={13} /> DISPATCH GRID</div><CityMap playerPosition={navigationPosition} callPosition={activeCall.position} vehicleHeading={inAmbulance ? vehiclePose.yaw : undefined} /></div>
         <div className={styles.interact}>
-          <span>{inAmbulance ? `${Math.round(Math.abs(vehiclePose.speed) * 3.6)} KM/H · ${vehiclePose.speed < -.1 ? "REVERSE" : "UNIT 07"}` : waypointDistance <= 4.2 ? "PATIENT WITHIN REACH" : ambulanceDistance <= 5 ? "UNIT 07 · READY TO BOARD" : "WALK TO YOUR AMBULANCE"}</span>
-          <button className={styles.primary} onClick={interact}><Ambulance size={19} />{inAmbulance ? "Park & exit ambulance" : waypointDistance <= 4.2 ? "Begin patient care" : "Enter ambulance"}<kbd>E</kbd></button>
+          <span>{inAmbulance ? `${Math.round(Math.abs(vehiclePose.speed) * 3.6)} KM/H · ${vehiclePose.speed < -.1 ? "REVERSE" : "UNIT 07"}` : waypointDistance <= 4.2 ? "PATIENT WITHIN REACH" : ambulanceDistance <= 5 ? "UNIT 07 · READY TO BOARD" : "FOLLOW THE PATIENT WAYPOINT"}</span>
+          <button className={styles.primary} onClick={interact}><Ambulance size={19} />{inAmbulance ? "Park & exit ambulance" : waypointDistance <= 4.2 ? "BEGIN ASSESSMENT" : "Enter ambulance"}<kbd>E</kbd></button>
           {!inAmbulance && ambulanceDistance <= 5 && waypointDistance <= 4.2 && <button className={styles.secondary} onClick={enterAmbulance}>Re-enter ambulance</button>}
           {inAmbulance && <div className={styles.brakeControl}><ControlButton label="Brake" direction="brake" movementRef={movementRef} icon={<span className="text-xs font-bold">Brake</span>} /></div>}
         </div>
@@ -383,15 +468,15 @@ export default function SickCityGame() {
 
       {phase === "assessment" && activeStep && !paused && !mapOpen && !dispatchBoardOpen && <section className={styles.careLayout}>
         <aside className={styles.patientCard}><p className={styles.eyebrow}><Activity size={15} /> PATIENT CONTACT</p><h2>{activeCall.title}</h2><p>{activeCall.location}</p><blockquote>“{activeCall.initialPatientLine}”</blockquote><ol className={styles.stepList}>{activeCall.steps.map((step, index) => <li key={step.id} data-current={index === stepIndex} data-done={index < stepIndex}><span>{index < stepIndex ? <Check size={13} /> : String(index + 1).padStart(2, "0")}</span>{index < stepIndex ? "Assessment complete" : index === stepIndex ? "Current decision" : "Upcoming assessment"}</li>)}</ol></aside>
-        <div className={styles.careCard}><div className={styles.cardTop}><span>ASSESSMENT & CARE</span><span>{String(stepIndex + 1).padStart(2, "0")} / {String(activeCall.steps.length).padStart(2, "0")}</span></div><div className={styles.cardBody}><div className={styles.progressTrack}><div style={{ width: `${progressPercent}%` }} /></div><h2>{activeStep.prompt}</h2><p className={styles.note}>Choose the best next action.</p><div className={styles.options}>{activeStep.options.map((option, index) => <button key={option.id} onClick={() => chooseOption(option.id)} disabled={answerCorrect} data-result={selectedOption === option.id ? option.correct ? "correct" : "incorrect" : ""}><span>{String.fromCharCode(65 + index)}</span><strong>{option.label}</strong>{selectedOption === option.id && (option.correct ? <Check size={18} /> : <X size={18} />)}</button>)}</div>{feedback && <div role="status" className={styles.feedback} data-correct={answerCorrect}><p className={styles.eyebrow}>{answerCorrect ? "CLINICAL REASONING" : selectedOption ? "RECONSIDER YOUR APPROACH" : "PATIENT REPORT"}</p><p>{feedback}</p></div>}{answerCorrect && <button className={styles.primary} onClick={continueAssessment}>{stepIndex === activeCall.steps.length - 1 ? "Complete call & debrief" : "Continue assessment"}<ArrowRight size={18} /></button>}</div></div>
+        <div className={styles.careCard}><div className={styles.cardTop}><span>ASSESSMENT & CARE</span><span>{String(stepIndex + 1).padStart(2, "0")} / {String(activeCall.steps.length).padStart(2, "0")}</span></div><div className={styles.cardBody}><div className={styles.progressTrack}><div style={{ width: `${progressPercent}%` }} /></div><h2>{activeStep.prompt}</h2><p className={styles.note}>Choose the best next action.</p><SickCityCareChoices choices={(callOptions[activeStep.id] ?? activeStep.options).map(option => ({ id:option.id, label:option.label, disabled:answerCorrect, result:selectedOption === option.id ? option.correct ? 'correct' : 'incorrect' : undefined }))} onChoose={chooseOption}/>{feedback && (mode === "training" || !selectedOption) && <div role="status" className={styles.feedback} data-correct={answerCorrect}><p className={styles.eyebrow}>{answerCorrect ? "CLINICAL REASONING" : selectedOption ? "RECONSIDER YOUR APPROACH" : "PATIENT REPORT"}</p><p>{feedback}</p></div>}{selectedOption && !answerCorrect && mode === "career" && <p role="status" className={styles.note}>Reconsider this action before continuing.</p>}{answerCorrect && <button className={styles.primary} onClick={continueAssessment}>{stepIndex === activeCall.steps.length - 1 ? "Complete call & debrief" : "Continue assessment"}<ArrowRight size={18} /></button>}</div></div>
       </section>}
 
-      {phase === "complete" && !paused && !mapOpen && !dispatchBoardOpen && <section className={styles.debrief}><span className={styles.debriefIcon}><Check size={32} /></span><p className={styles.eyebrow}>UNIT 07 · CALL CLOSED</p><h1>{activeCall.completionTitle}</h1><p>{activeCall.completionCopy}</p><div className={styles.debriefStats}><div><strong>{activeCall.steps.length}</strong><span>DECISIONS COMPLETED</span></div><div><strong>{mistakes}</strong><span>ANSWERS REVISITED</span></div><div><strong>+{activeCall.rewardXp}</strong><span>COMPLETION XP</span></div></div><div className={styles.pearl}><GraduationCap size={23} /><div><p className={styles.eyebrow}>TAKE THIS INTO YOUR NEXT CALL</p><p>{activeCall.learningPearl}</p></div></div><button className={styles.primary} onClick={() => prepareNextCall((callIndex + 1) % SICK_CITY_CALLS.length)}>Return to dispatch <ArrowRight size={18} /></button><button className={styles.textButton} onClick={() => prepareNextCall(callIndex)}><RotateCcw size={14} /> Replay this call</button></section>}
+      {phase === "complete" && !paused && !mapOpen && !dispatchBoardOpen && <section className={styles.debrief}><span className={styles.debriefIcon}><Check size={32} /></span><p className={styles.eyebrow}>UNIT 07 · CALL CLOSED</p><h1>{activeCall.completionTitle}</h1><SkillPerformance scores={clinicalResult?.score ?? quickScores(decisions)}/><p>{clinicalResult?.summary ?? activeCall.completionCopy}</p><div className={styles.debriefStats}><div><strong>{clinicalResult?.objectives ?? activeCall.steps.length}</strong><span>OBJECTIVES COMPLETED</span></div><div><strong>{clinicalResult?.mistakes ?? mistakes}</strong><span>{clinicalResult ? "UNSAFE ACTIONS REVIEWED" : "ANSWERS REVISITED"}</span></div><div><strong><SickCityXPDisplay value={clinicalResult?.xp ?? callXp}/></strong><span>{clinicalResult ? "CLINICAL CALL XP" : callXp ? "CALL XP" : "REPLAY · XP ALREADY EARNED"}</span></div></div><div className={styles.pearl}><GraduationCap size={23} /><div><p className={styles.eyebrow}>TAKE THIS INTO YOUR NEXT CALL</p><p>{clinicalResult?.takeaway ?? activeCall.learningPearl}</p></div></div>{decisions.length > 0 && <details className={styles.decisionReview}><summary>DECISION REVIEW</summary>{decisions.map((decision,index) => <div key={index}><strong>{decision.correct ? 'CORRECT' : 'REVISITED'} · {decision.choice}</strong><p>{decision.rationale}</p></div>)}</details>}<button className={styles.primary} onClick={clearCall}>{callsCompleted >= SHIFT_CALL_LIMIT ? 'CLEAR CALL & REVIEW SHIFT' : 'CLEAR CALL'} <ArrowRight size={18}/></button></section>}
 
-      {mapOpen && <section className={styles.modal}><div className={styles.cardTop}><span><Map size={16} /> CITY OPERATIONS MAP</span><button onClick={() => setMapOpen(false)} aria-label="Close map"><X size={20} /></button></div><div className={styles.cardBody}><h2>{activeCall.district}</h2><p>{activeCall.location}</p><CityMap playerPosition={navigationPosition} callPosition={activeCall.position} vehicleHeading={inAmbulance ? vehiclePose.yaw : undefined} /><button className={styles.primary} onClick={() => setMapOpen(false)}>Return to shift <ArrowRight size={18} /></button></div></section>}
-      {paused && !mapOpen && <section className={styles.modal}><div className={styles.cardBody}><p className={styles.eyebrow}>SHIFT MENU</p><h2>Take a breath.</h2><p>{callsCompleted} calls completed · {shiftXp} XP earned this shift.</p><button className={styles.primary} onClick={() => setPaused(false)}>Resume shift <ArrowRight size={18} /></button><button className={styles.secondary} onClick={() => { prepareNextCall(callIndex); setPaused(false); }}>Restart current call</button><Link className={styles.textButton} href="/">Return to PathoLogix</Link></div></section>}
+      {mapOpen && <section ref={mapRef} role="dialog" aria-modal="true" aria-label="City operations map" tabIndex={-1} className={styles.modal}><div className={styles.cardTop}><span><Map size={16} /> CITY OPERATIONS MAP</span><button onClick={() => setMapOpen(false)} aria-label="Close map"><X size={20} /></button></div><div className={styles.cardBody}><h2>{activeCall.district}</h2><p>{activeCall.location}</p><CityMap playerPosition={navigationPosition} callPosition={activeCall.position} vehicleHeading={inAmbulance ? vehiclePose.yaw : undefined} /><button className={styles.primary} onClick={() => setMapOpen(false)}>Return to shift <ArrowRight size={18} /></button></div></section>}
+      {paused && !mapOpen && <section ref={menuRef} role="dialog" aria-modal="true" aria-label="Shift menu" tabIndex={-1} className={styles.modal}><div className={styles.cardBody}><p className={styles.eyebrow}>SHIFT MENU</p><h2>Take a breath.</h2><p>{callsCompleted} calls completed · {shiftXp} XP earned this shift.</p><button className={styles.primary} onClick={() => setPaused(false)}>Resume shift <ArrowRight size={18} /></button>{phase !== "complete" && phase !== "shiftComplete" && <button className={styles.secondary} onClick={() => { prepareNextCall(callIndex); setPaused(false); }}>Restart current call</button>}<Link className={styles.textButton} href="/">Return to PathoLogix</Link></div></section>}
       {toast && <div role="status" className={styles.toast}><Radio size={16} /> {toast}</div>}
-      <div className={styles.trainingLabel}>SIMULATED CITY · EMT TRAINING</div>
-    </div>
+      <div className={styles.trainingLabel}>{mode === "career" ? "CAREER SHIFT" : "TRAINING MODE"} · +{shiftXp} SHIFT XP</div>
+    </main>
   );
 }

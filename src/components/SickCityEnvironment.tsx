@@ -86,7 +86,7 @@ function Tree({ position, scale = 1 }: { position: Point; scale?: number }) {
 }
 
 function GrassSlammer({ position, rotation = 0 }: { position: Point; rotation?: number }) {
-  const source = useGLTF(HELL_SLAMMER_URL);
+  const source = useGLTF(HELL_SLAMMER_URL, "/draco/");
   const model = useMemo(() => clone(source.scene), [source.scene]);
   const animations = useMemo(
     () =>
@@ -427,4 +427,4 @@ export default function SickCityEnvironment() {
   );
 }
 
-useGLTF.preload(HELL_SLAMMER_URL);
+useGLTF.preload(HELL_SLAMMER_URL, "/draco/");

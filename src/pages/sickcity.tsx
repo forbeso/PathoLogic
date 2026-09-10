@@ -9,9 +9,9 @@ export default function SickCityPage() {
         description="Take dispatches, move through the city, find patients, and practice EMT decision-making in a playable training shift."
         path="/sickcity"
       />
-      <main id="main-content" tabIndex={-1} className="h-full">
+      <div className="h-full">
         <SickCityGame />
-      </main>
+      </div>
     </div>
   );
 }

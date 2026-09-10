@@ -1,7 +1,5 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element */
-
 import React from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -23,6 +21,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import HeroScreenshot from "@/components/HeroScreenshot";
+import SickCityShowcase from "@/components/SickCityShowcase";
 import { learnArticles } from "@/lib/learnArticles";
 
 type IconComponent = LucideIcon;
@@ -144,7 +143,7 @@ const interactiveLabs = [
     eyebrow: "Hands-on assessment",
     title: "Focused Exam Labs",
     description:
-      "Learn landmark-based ankle and knee exams through guided, interactive examination steps.",
+      "Learn landmark-based ankle, knee, wrist and hand, and focused neurologic exams through guided, interactive examination steps.",
     href: "/focused-exams",
     cta: "Open exam labs",
     accent: "border-amber-200 bg-amber-200/10 text-amber-100",
@@ -259,8 +258,11 @@ export default function LandingPage() {
               >
                 Start your first scenario <ArrowRight size={17} />
               </Link>
+              <Link href="/sickcity" className="ml-0 mt-3 inline-flex min-h-12 items-center gap-2 rounded-md border border-white/25 px-5 py-3 text-sm font-bold text-white transition hover:border-[#b6f582] hover:text-[#b6f582] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#b6f582] sm:ml-3 sm:mt-7">
+                <Ambulance size={17} /> Play SickCity
+              </Link>
               <p className="mt-3 text-sm text-slate-400">No sign-up needed to try a scenario.</p>
-              <Link href="#practice" className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-teal-200 underline underline-offset-4">
+              <Link href="/training" className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-teal-200 underline underline-offset-4">
                 Explore all training paths <ArrowRight size={15} />
               </Link>
             </div>
@@ -279,6 +281,8 @@ export default function LandingPage() {
           </div>
         </Container>
       </section>
+
+      <SickCityShowcase />
 
       <section
         id="practice"
@@ -319,7 +323,7 @@ export default function LandingPage() {
                 tone="dark"
               />
               <p className="mt-6 max-w-md text-sm leading-6 text-slate-400">
-                Each lab uses the same PathoLogix account, progress system, and clinical reasoning approach.
+                Try the labs without an account. Focused exam results last for the current session; sign in to save supported scenario and triage history.
               </p>
             </div>
 
@@ -397,44 +401,33 @@ export default function LandingPage() {
 
       <section id="demo" className="bg-slate-950 py-16 text-white sm:py-20">
         <Container>
-          <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
-            <div>
-              <SectionIntro
-                eyebrow="Scenario flow"
-                title="Every rep ends with a clearer next decision."
-                subtitle="The trainer keeps the patient story, answer choice, and rationale close together so students can connect field details to care priorities."
-                tone="dark"
-              />
+          <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+            <SectionIntro
+              eyebrow="Scenario flow"
+              title="Every rep ends with a clearer next decision."
+              subtitle="The trainer keeps the patient story, answer choice, and rationale close together so students can connect field details to care priorities."
+              tone="dark"
+            />
 
-              <div className="mt-8 space-y-4">
-                {workflow.map((step, index) => (
-                  <motion.div
-                    key={step}
-                    initial={{ opacity: 0, x: -12 }}
-                    whileInView={{ opacity: 1, x: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 0.35, delay: index * 0.05 }}
-                    className="flex gap-4 border-l border-slate-700 pl-4"
-                  >
-                    <div className="font-mono text-sm text-cyan-200">
-                      0{index + 1}
-                    </div>
-                    <p className="max-w-md text-sm leading-6 text-slate-300">
-                      {step}
-                    </p>
-                  </motion.div>
-                ))}
-              </div>
+            <div className="space-y-4">
+              {workflow.map((step, index) => (
+                <motion.div
+                  key={step}
+                  initial={{ opacity: 0, x: -12 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.35, delay: index * 0.05 }}
+                  className="flex gap-4 border-l border-slate-700 pl-4"
+                >
+                  <div className="font-mono text-sm text-cyan-200">
+                    0{index + 1}
+                  </div>
+                  <p className="max-w-md text-sm leading-6 text-slate-300">
+                    {step}
+                  </p>
+                </motion.div>
+              ))}
             </div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 18 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5 }}
-            >
-              <HeroScreenshot />
-            </motion.div>
           </div>
         </Container>
       </section>

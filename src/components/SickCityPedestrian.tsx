@@ -44,7 +44,7 @@ export default function SickCityPedestrian({
   maxX = 25,
   ...props
 }: SickCityPedestrianProps) {
-  const source = useGLTF(url);
+  const source = useGLTF(url, "/draco/");
   const model = useMemo(() => clone(source.scene), [source.scene]);
   const animations = useMemo(
     () => source.animations.map((clip) => prepareClip(clip, walking)),

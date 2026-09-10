@@ -12,7 +12,7 @@ type SickCityMedicProps = React.JSX.IntrinsicElements["group"] & {
 const MEDIC_MODEL_URL = "/models/sickcity/medic-walking.glb";
 
 export default function SickCityMedic({ movementRef, ...props }: SickCityMedicProps) {
-  const source = useGLTF(MEDIC_MODEL_URL);
+  const source = useGLTF(MEDIC_MODEL_URL, "/draco/");
   const model = useMemo(() => clone(source.scene), [source.scene]);
   const animations = useMemo(
     () =>
@@ -79,4 +79,4 @@ export default function SickCityMedic({ movementRef, ...props }: SickCityMedicPr
   );
 }
 
-useGLTF.preload(MEDIC_MODEL_URL);
+useGLTF.preload(MEDIC_MODEL_URL, "/draco/");

@@ -9,6 +9,7 @@ import { isGarageWall, advanceAmbulance, AMBULANCE_START_YAW, HOSPITAL_AMBULANCE
 
 type Props = {
   occupied: boolean;
+  initialPose?: VehiclePose;
   inputEnabled: boolean;
   movementRef: React.MutableRefObject<SickCityMovement>;
   resetToken: number;
@@ -17,7 +18,7 @@ type Props = {
   onMove: (pose: VehiclePose) => void;
 };
 
-export default function SickCityAmbulance({ occupied, inputEnabled, movementRef, resetToken, showMarker, onEnter, onMove }: Props) {
+export default function SickCityAmbulance({ initialPose, occupied, inputEnabled, movementRef, resetToken, showMarker, onEnter, onMove }: Props) {
   const root = useRef<THREE.Group>(null);
   const blue = useRef<THREE.PointLight>(null);
   const red = useRef<THREE.PointLight>(null);
@@ -27,13 +28,13 @@ export default function SickCityAmbulance({ occupied, inputEnabled, movementRef,
   const look = useRef(new THREE.Vector3());
   const lastReport = useRef(0);
   useEffect(() => {
-    pose.current = { position: [...HOSPITAL_AMBULANCE_START], yaw: AMBULANCE_START_YAW, speed: 0 };
+    pose.current = initialPose ? { ...initialPose, position: [...initialPose.position], speed: 0 } : { position: [...HOSPITAL_AMBULANCE_START], yaw: AMBULANCE_START_YAW, speed: 0 };
     if (root.current) {
       root.current.position.set(...pose.current.position);
       root.current.rotation.y = pose.current.yaw;
     }
     onMove(pose.current);
-  // onMove reports telemetry; its identity must not reset the parked vehicle.
+  // Restore the parked pose on mount/reset, not on every telemetry update.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resetToken]);
 

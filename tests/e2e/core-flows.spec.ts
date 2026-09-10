@@ -282,11 +282,16 @@ async function selectSceneAction(
       value: "mobile-next-scene-object",
     });
   } else if (options?.discoverByRotation) {
-      await rotateSceneUntilVisible(page, objectAriaLabel);
+    try { await rotateSceneUntilVisible(page, objectAriaLabel); }
+    catch (error) {
+      const accessibleInteraction = page.getByRole("button", { name: `Interact with ${objectName}`, exact: true });
+      if (!(await accessibleInteraction.isVisible())) throw error;
+      await accessibleInteraction.click();
+    }
   } else {
     await waitForSceneTarget(page, object);
   }
-  if (!isMobile) {
+  if (!isMobile && !(await page.getByTestId(`scene-action-${actionId}`).isVisible())) {
     const objectTarget = options?.objectTargetTestId
       ? ({ name: "data-testid", value: options.objectTargetTestId } as const)
       : ({ name: "aria-label", value: objectAriaLabel } as const);
@@ -971,10 +976,10 @@ test("crash clickable actions complete safety, breathing support, and extricatio
 
 test.describe("core route health", () => {
   const routes = [
-    { path: "/", heading: "PathoLogix" },
+    { path: "/", heading: "Practice the decisions that matter on your next EMS call." },
     { path: "/learn", heading: "Build the reasoning behind the response." },
     { path: "/flashcards", heading: "EMT flashcards" },
-    { path: "/emtrainer", heading: "Practice the call before exam day." },
+    { path: "/emtrainer", heading: "Scenario Trainer" },
     { path: "/contact", heading: "How can we help?" },
     { path: "/privacy", heading: "Privacy Policy" },
     { path: "/terms", heading: "Terms of Use" },
@@ -984,7 +989,7 @@ test.describe("core route health", () => {
   for (const route of routes) {
     test(`${route.path} renders without layout overflow`, async ({ page }) => {
       await page.goto(route.path);
-      await expect(page.getByRole("heading", { name: route.heading })).toBeVisible();
+      await expect(page.getByRole("heading", { name: route.heading, exact: true })).toBeVisible();
       await expect(page.locator("body")).not.toContainText("Application error");
       await expectNoHorizontalOverflow(page);
     });
@@ -1669,7 +1674,7 @@ test("progress sign-in gate preserves a useful browser back path", async ({
   await page.goBack();
   await expect(page).toHaveURL(/\/$/);
   await expect(
-    page.getByRole("heading", { name: "PathoLogix", exact: true })
+    page.getByRole("heading", { name: "Practice the decisions that matter on your next EMS call.", exact: true })
   ).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });

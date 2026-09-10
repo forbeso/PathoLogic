@@ -1,0 +1,57 @@
+[
+  {
+    "file": "public/models/sickcity/designed/civic-apartments.glb",
+    "before": 1109908,
+    "after": 76864
+  },
+  {
+    "file": "public/models/sickcity/designed/market-corner.glb",
+    "before": 663580,
+    "after": 52888
+  },
+  {
+    "file": "public/models/sickcity/designed/riverside-cafe.glb",
+    "before": 548216,
+    "after": 48916
+  },
+  {
+    "file": "public/models/sickcity/designed/unit-07-ambulance.glb",
+    "before": 205704,
+    "after": 26076
+  },
+  {
+    "file": "public/models/sickcity/medic-walking.glb",
+    "before": 1591260,
+    "after": 896896
+  },
+  {
+    "file": "public/models/sickcity/patients/laying-moaning.glb",
+    "before": 2234512,
+    "after": 1476108
+  },
+  {
+    "file": "public/models/sickcity/pedestrians/pedestrian-standing.glb",
+    "before": 1509124,
+    "after": 823144
+  },
+  {
+    "file": "public/models/sickcity/pedestrians/pedestrian-walking-1.glb",
+    "before": 1070344,
+    "after": 326488
+  },
+  {
+    "file": "public/models/sickcity/pedestrians/pedestrian-walking-2.glb",
+    "before": 1487868,
+    "after": 707472
+  },
+  {
+    "file": "public/models/sickcity/pedestrians/pedestrian-walking-3.glb",
+    "before": 1052756,
+    "after": 327404
+  },
+  {
+    "file": "public/models/sickcity/props/hell-slammer-a.glb",
+    "before": 1159200,
+    "after": 487388
+  }
+]

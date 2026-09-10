@@ -37,11 +37,14 @@ jobs:
       - name: Type-check
         run: npm run typecheck
 
-      - name: Check performance budgets
-        run: npm run check:budgets
+      - name: Unit tests
+        run: npm run test:unit
 
       - name: Build
         run: npm run build
+
+      - name: Check performance budgets
+        run: npm run check:budgets
 
       - name: Install Chromium
         run: npx playwright install --with-deps chromium

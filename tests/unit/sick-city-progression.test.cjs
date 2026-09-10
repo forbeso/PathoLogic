@@ -1,0 +1,156 @@
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const ts = require('typescript');
+const path = require('node:path');
+function load(file, mocks = {}) {
+  const mod = { exports: {} };
+  const compiled = ts.transpileModule(fs.readFileSync(file, 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  new Function('exports', 'require', 'module', compiled)(mod.exports, name => {
+    if (name in mocks) return mocks[name];
+    if (name.startsWith('@/')) return load(path.resolve('src', name.slice(2) + '.ts'), mocks);
+    if (name.startsWith('.')) return load(path.resolve(path.dirname(file), name + '.ts'), mocks);
+    return require(name);
+  }, mod);
+  return mod.exports;
+}
+const { SICK_CITY_CALLS } = load('src/lib/sickCity.ts');
+const { progressionAwardXp } = load('src/lib/progressionAwards.ts');
+const { shuffled } = load('src/lib/shuffle.ts');
+
+test('all SickCity objectives and completions resolve to content-defined rewards', () => {
+  for (const call of SICK_CITY_CALLS) {
+    for (const step of call.steps) {
+      assert.equal(progressionAwardXp(`sickcity:${call.id}:${step.id}:v2`, 'scenario_objective', {scenarioId:call.id, objectiveId:step.id}), 10);
+    }
+    assert.equal(progressionAwardXp(`sickcity:${call.id}:complete:v2`, 'scenario_complete', {scenarioId:call.id, objectiveId:'complete'}), call.rewardXp);
+  }
+});
+test('unknown content, mismatched metadata, and invented award IDs cannot mint SickCity XP', () => {
+  for (const [id, event, metadata] of [
+    ['sickcity:fake:complete:v2','scenario_complete',{scenarioId:'fake',objectiveId:'complete'}],
+    ['sickcity:park-fall:complete:v2','scenario_complete',{scenarioId:'market-breathing',objectiveId:'complete'}],
+    ['sickcity:park-fall:complete:v2:replay','scenario_complete',{scenarioId:'park-fall',objectiveId:'complete'}],
+    ['sickcity:park-fall:complete:v2','scenario_objective',{scenarioId:'park-fall',objectiveId:'complete'}],
+    ['sickcity:park-fall:scene:v2','toString',{scenarioId:'park-fall',objectiveId:'scene'}],
+  ]) assert.equal(progressionAwardXp(id,event,metadata),null);
+});
+test('existing EMT Scene award format remains compatible', () => {
+  assert.equal(progressionAwardXp('emt-scene:anaphylaxis:123:abc:objective:safety','scenario_objective',{}),10);
+  assert.equal(progressionAwardXp('emt-scene:anaphylaxis:123:abc:scenario-complete','scenario_complete',{}),40);
+});
+test('shuffle moves the correct answer across positions without changing source options or identities', () => {
+  const source = SICK_CITY_CALLS[0].steps[0].options;
+  const original = source.map(o=>o.id);
+  const positions = new Set();
+  for(const random of [()=>0, (()=>{let i=0;return ()=>i++ ? 0 : 0.99;})(), ()=>0.99]) {
+    const result = shuffled(source,random);
+    positions.add(result.findIndex(o=>o.correct));
+    assert.deepEqual(result.map(o=>o.id).sort(),[...original].sort());
+    assert.equal(result.filter(o=>o.correct).length,1);
+  }
+  assert.equal(positions.size,3);
+  assert.deepEqual(source.map(o=>o.id),original);
+});
+test('authenticated progression endpoint saves the configured SickCity reward, rejects forged awards, and preserves RPC deduplication', async () => {
+  const calls=[];
+  const handler=load('src/pages/api/progression.ts',{
+    '@/lib/server/apiSecurity':{requireApiUser:async()=>({id:'test-user'}),enforceRateLimit:()=>true},
+    '@/lib/server/supabaseAdmin':{getSupabaseAdmin:()=>({rpc:async(name,args)=>{calls.push({name,args});return {data:[{awarded:calls.length===1,total_xp:80,current_streak:1,longest_streak:1,last_active_date:'2026-09-09'}],error:null};}})},
+  }).default;
+  const invoke=async(body)=>{const result={};const res={status(code){result.status=code;return this;},json(data){result.data=data;return this;},setHeader(){}};await handler({method:'POST',body},res);return result;};
+  const payload={action:'award',awardId:'sickcity:park-fall:complete:v2',eventType:'scenario_complete',metadata:{scenarioId:'park-fall',objectiveId:'complete'},xp:9999};
+  const first=await invoke(payload);
+  assert.equal(first.status,200);assert.equal(first.data.awarded,true);assert.equal(calls[0].args.p_xp,80);
+  assert.equal((await invoke(payload)).data.awarded,false);
+  assert.equal((await invoke({...payload,awardId:payload.awardId+':invented'})).status,400);
+  assert.equal(calls.length,2);
+});
+
+test('SickCity offers every shared clinical case without substituting an unrelated patient', () => {
+  const { CLINICAL_SCENARIOS } = load('src/lib/clinicalScenarios.ts');
+  const { DEFAULT_SICK_CITY_CALL_INDEX } = load('src/lib/sickCity.ts');
+  const fullCalls = SICK_CITY_CALLS.filter(call => call.clinicalScenarioId);
+  assert.equal(fullCalls.length, 5);
+  assert.ok(SICK_CITY_CALLS[DEFAULT_SICK_CITY_CALL_INDEX].clinicalScenarioId);
+  for (const scenario of CLINICAL_SCENARIOS) {
+    const call = fullCalls.find(call => call.clinicalScenarioId === scenario.id);
+    assert.ok(call);
+    assert.equal(call.title, scenario.title);
+    assert.equal(call.summary, scenario.dispatch);
+    assert.equal(call.location, scenario.location);
+    assert.equal(call.initialPatientLine, scenario.patient);
+    assert.equal(call.steps.length, 0, 'full calls must use the clinical engine, not quick answer steps');
+  }
+});
+
+const shift = load('src/lib/sickCityShift.ts');
+test('career dispatch honors level eligibility, avoids repeats when possible, and always finds a call', () => {
+  for (const level of [1,2,3,5,10,15]) for (const random of [0,0.3,0.99,1]) {
+    const index=shift.assignCall(level,[],()=>random);
+    assert.ok(shift.CAREER_CALLS[index].minimumLevel<=level);
+    const next=shift.assignCall(level,[SICK_CITY_CALLS[index].id],()=>random);
+    assert.notEqual(next,index);
+  }
+  assert.ok(shift.assignCall(1,SICK_CITY_CALLS.map(c=>c.id))>=0);
+});
+test('shift scores use actual decisions and never manufacture unmeasured categories', () => {
+  const decisions=[{category:'transport',correct:false},{category:'transport',correct:true},{category:'safety',correct:true}];
+  assert.deepEqual(shift.quickScores(decisions),{transport:50,safety:100});
+  const summary=shift.summarizeShift([{scores:{transport:50,safety:100},xp:40},{scores:{safety:80,assessment:100},xp:0}]);
+  assert.deepEqual(summary.scores,{safety:90,assessment:100,transport:50});
+  assert.equal(summary.weakest,'transport');assert.equal(summary.xp,40);
+  assert.equal(shift.quickCategory('plan'),'transport');
+  assert.equal(shift.quickCategory('reassess'),'reassessment');
+});
+test('unit status reflects actual care phase without inventing hospital transport', () => {
+  assert.equal(shift.unitStatus('starting',50,false),'AVAILABLE');
+  assert.equal(shift.unitStatus('dispatch',50,false),'DISPATCHED');
+  assert.equal(shift.unitStatus('locate',50,true),'EN ROUTE');
+  assert.equal(shift.unitStatus('locate',3,false),'ON SCENE');
+  assert.equal(shift.unitStatus('clinical',3,false),'PATIENT CONTACT');
+  assert.equal(shift.unitStatus('complete',3,false),'CLEARING');
+  assert.equal(shift.unitStatus('shiftComplete',3,false),'AVAILABLE');
+});
+test('dispatch metadata resolves to real city locations without exposing clinical diagnoses', () => {
+  for (const call of shift.CAREER_CALLS) {
+    const location=shift.CITY_LOCATIONS.find(place=>place.id===call.locationId);
+    assert.ok(location);
+    const scenario=SICK_CITY_CALLS.find(item=>item.id===call.id);
+    assert.deepEqual(location.position,scenario.position);
+    assert.ok(call.objectives.length>0);
+    assert.ok(call.performanceCategories.length>0);
+    assert.ok(call.priority>=1 && call.priority<=3);
+    assert.equal(call.xpReward,scenario.rewardXp);
+    if(call.hiddenDiagnosis) assert.ok(!JSON.stringify(call.dispatchReport).includes(call.hiddenDiagnosis));
+  }
+});
+
+test('care framing targets the visible torso and is independent of medic approach distance', () => {
+  const {patientCareTarget,patientCareCamera}=load('src/lib/sickCityCareCamera.ts');
+  const crash=SICK_CITY_CALLS.find(call=>call.id==='clinical-car-accident');
+  assert.equal(crash.pose,'seated');
+  const target=patientCareTarget(crash);
+  assert.ok(target[1]>1,'seated driver must not be framed at ground level');
+  assert.deepEqual(patientCareCamera(target,[target[0]+2,0,target[2]],.5),patientCareCamera(target,[target[0]+4,0,target[2]],.5));
+  const zero=patientCareCamera(target,target,1);
+  assert.ok(zero.every(Number.isFinite));
+  for(const call of SICK_CITY_CALLS) assert.ok(patientCareTarget(call).every(Number.isFinite));
+});
+
+test('SickCity radio selection opens choices without automatically requesting crash resources', () => {
+  const {carAccidentScenario,createScenarioState,scenarioReducer}=load('src/lib/emtSceneEngine.ts');
+  let state=createScenarioState(carAccidentScenario);
+  state=scenarioReducer(carAccidentScenario,state,{type:'RUN_ACTION',objectId:'crash-vehicle',actionId:'inspect-crash-from-distance'});
+  const selected=scenarioReducer(carAccidentScenario,state,{type:'SELECT_OBJECT',objectId:'ambulance-radio',chooseAction:true});
+  assert.equal(selected.selectedObjectId,'ambulance-radio');
+  assert.ok(selected.triggeredEvents.includes('RADIO_SELECTED'));
+  assert.ok(!selected.triggeredEvents.includes('FIRE_RESCUE_CALLED'));
+  const requested=scenarioReducer(carAccidentScenario,selected,{type:'RUN_ACTION',objectId:'ambulance-radio',actionId:'request-fire-rescue'});
+  assert.ok(requested.triggeredEvents.includes('FIRE_RESCUE_CALLED'));
+  assert.ok(!requested.triggeredEvents.includes('TRAFFIC_CONTROLLED'),'resources must still secure the scene');
+  const legacy=scenarioReducer(carAccidentScenario,state,{type:'SELECT_OBJECT',objectId:'ambulance-radio'});
+  assert.ok(legacy.triggeredEvents.includes('FIRE_RESCUE_CALLED'),'standalone lab behavior remains compatible');
+});

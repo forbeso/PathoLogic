@@ -187,7 +187,7 @@ export type SceneScenarioConfig = {
 };
 
 export type ScenarioEngineAction =
-  | { type: "SELECT_OBJECT"; objectId?: string }
+  | { type: "SELECT_OBJECT"; objectId?: string; chooseAction?: boolean }
   | { type: "RUN_ACTION"; objectId: string; actionId: string }
   | { type: "APPLY_EVENT"; event: SceneEvent }
   | { type: "USE_HINT" }
@@ -3697,6 +3697,11 @@ export function scenarioReducer(
       };
       let next = action.objectId === "dog" ? applyEvent(selectedState, "DOG_SELECTED") : selectedState;
       if (action.objectId === "ambulance-radio") {
+        // In SickCity, selecting equipment opens its choices; it must not perform care automatically.
+        if (action.chooseAction) {
+          if (!object || !getObjectAvailability(object, state).enabled) return selectedState;
+          return completeObjectives(scenario, applyEvent(selectedState, "RADIO_SELECTED"));
+        }
         next = applyEvent(
           {
             ...selectedState,
