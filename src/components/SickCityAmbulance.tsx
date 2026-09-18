@@ -3,11 +3,12 @@ import { Html } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
-import { CityKitModel } from "@/components/SickCityDesignedAssets";
+import SickCityAmbulanceBody from "./SickCityAmbulanceBody";
 import type { SickCityMovement } from "@/components/SickCityScene";
 import { isGarageWall, advanceAmbulance, AMBULANCE_START_YAW, HOSPITAL_AMBULANCE_START, type VehiclePose } from "@/lib/sickCityVehicle";
 
 type Props = {
+  doorOpen?: number;
   occupied: boolean;
   initialPose?: VehiclePose;
   inputEnabled: boolean;
@@ -18,7 +19,7 @@ type Props = {
   onMove: (pose: VehiclePose) => void;
 };
 
-export default function SickCityAmbulance({ initialPose, occupied, inputEnabled, movementRef, resetToken, showMarker, onEnter, onMove }: Props) {
+export default function SickCityAmbulance({ doorOpen=0, initialPose, occupied, inputEnabled, movementRef, resetToken, showMarker, onEnter, onMove }: Props) {
   const root = useRef<THREE.Group>(null);
   const blue = useRef<THREE.PointLight>(null);
   const red = useRef<THREE.PointLight>(null);
@@ -69,7 +70,7 @@ export default function SickCityAmbulance({ initialPose, occupied, inputEnabled,
     }
   });
   return <group ref={root} userData={{careFade:true}} position={HOSPITAL_AMBULANCE_START} rotation={[0, AMBULANCE_START_YAW, 0]}>
-    <CityKitModel asset="unit-07-ambulance" position={[0, .13, 0]} />
+    <SickCityAmbulanceBody doorOpen={doorOpen}/>
     <pointLight ref={blue} position={[-.73, 2.6, -1.79]} color="#56aaff" distance={9} decay={2} />
     <pointLight ref={red} position={[.73, 2.6, -1.79]} color="#ff735d" distance={9} decay={2} />
     {showMarker && <Html position={[0, 3.8, 0]} center zIndexRange={[18, 4]}>

@@ -1,4 +1,4 @@
-import {isTransportPhase, transportDestination, readyForHospitalHandoff, HANDOFF_DURATION_MS, HOSPITAL_RECEIVING_BAY} from '@/lib/sickCityTransport';
+import {PATIENT_TRANSFER_MS, AMBULANCE_LOADING_MS, isTransportPhase, transportDestination, readyForHospitalHandoff, HANDOFF_DURATION_MS, HOSPITAL_RECEIVING_BAY} from '@/lib/sickCityTransport';
 import type { WorldCareTarget, WorldCareEquipment } from '@/lib/sickCityInteraction';
 import { patientCareTarget } from '@/lib/sickCityCareCamera';
 import SickCityXPDisplay from '@/components/SickCityXPDisplay';
@@ -29,7 +29,7 @@ const SickCityScene = dynamic(() => import("@/components/SickCityScene"), {
 
 const ClinicalSceneSession = dynamic(() => import("@/components/SickCityClinicalSession"), { ssr: false, loading: () => <div role="status" className="absolute bottom-8 left-1/2 -translate-x-1/2 rounded bg-slate-950 px-5 py-3 text-white">Preparing care controls…</div> });
 
-type GamePhase = "starting" | "available" | "shiftComplete" | "clinical" | "dispatch" | "locate" | "assessment" | "loading" | "stretcher" | "carrying" | "transport" | "handoff" | "complete";
+type GamePhase = "starting" | "available" | "shiftComplete" | "clinical" | "dispatch" | "locate" | "assessment" | "loading" | "stretcher" | "transferring" | "carrying" | "boarding" | "transport" | "handoff" | "complete";
 type Point = [number, number, number];
 
 const EMPTY_MOVEMENT: SickCityMovement = {
@@ -140,6 +140,8 @@ export default function SickCityGame() {
   const [callXp, setCallXp] = useState(0);
   const completedRef = useRef(false);
   const handoffCompletedRef = useRef(false);
+  const [transferProgress,setTransferProgress]=useState(0);
+  const transferElapsed=useRef(0);
   const radio = useDispatchRadio();
   const playRadio = radio.play;
   const [quickMenuOpen,setQuickMenuOpen]=useState(false);
@@ -169,7 +171,7 @@ export default function SickCityGame() {
   const ambulanceDistance = planarDistance(playerPosition, vehiclePose.position);
   const transportActive=isTransportPhase(phase);
   const destination=transportActive && !(phase === "loading" && inAmbulance) ? transportDestination(phase,activeCall.position,vehiclePose.position) : activeCall.position;
-  const destinationName=phase === "transport" || phase === "handoff" ? "Hospital ambulance receiving bay" : (phase === "loading" && !inAmbulance) || phase === "carrying" ? "Unit 07" : activeCall.location;
+  const destinationName=phase === "transport" || phase === "handoff" ? "Hospital ambulance receiving bay" : (phase === "loading" && !inAmbulance) || phase === "carrying" || phase === "boarding" ? "Unit 07" : activeCall.location;
   const waypointDistance = planarDistance(navigationPosition, destination);
   const patientMarkerVisible = phase === "locate";
   const deltaX = destination[0] - navigationPosition[0];
@@ -293,17 +295,34 @@ export default function SickCityGame() {
     }
     if (phase === 'stretcher') {
       if(planarDistance(playerPosition,activeCall.position)>4.2) {showToast('Move the stretcher closer to the patient.');return;}
-      clearMovement();setPhase('carrying');showToast('Patient secured on the stretcher. Return to Unit 07.');return;
+      clearMovement();transferElapsed.current=0;setTransferProgress(0);setPhase('transferring');return;
     }
     if (phase === 'carrying') {
       if(ambulanceDistance>5) {showToast('Roll the patient to Unit 07 before loading.');return;}
-      clearMovement();setPhase('transport');showToast('Patient loaded. Board Unit 07 and drive to the hospital receiving bay.');return;
+      clearMovement();transferElapsed.current=0;setTransferProgress(0);setPhase('boarding');return;
     }
     if (phase === 'transport') {enterAmbulance();return;}
     if (inAmbulance) exitAmbulance();
     else if (waypointDistance <= 4.2) selectPatient();
     else enterAmbulance();
   };
+
+  // One active-time clock drives both the animation and the phase transition.
+  // Pausing retains progress and cannot complete a transfer in the background.
+  useEffect(() => {
+    if ((phase !== 'transferring' && phase !== 'boarding') || paused || mapOpen || dispatchBoardOpen) return;
+    const duration=phase === 'transferring' ? PATIENT_TRANSFER_MS : AMBULANCE_LOADING_MS;
+    let frame=0,last=performance.now();
+    const tick=(now:number) => {
+      transferElapsed.current+=Math.min(now-last,100);last=now;
+      const progress=Math.min(1,transferElapsed.current/duration);
+      setTransferProgress(progress);
+      if(progress===1) setPhase(phase === 'transferring' ? 'carrying' : 'transport');
+      else frame=requestAnimationFrame(tick);
+    };
+    frame=requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  },[phase,paused,mapOpen,dispatchBoardOpen]);
 
   useEffect(() => {
     interactRef.current = interact;
@@ -471,7 +490,7 @@ export default function SickCityGame() {
     <main data-phase={phase} data-player-facing={playerFacing} data-vehicle-x={vehiclePose.position[0]} data-vehicle-z={vehiclePose.position[2]} data-vehicle-yaw={vehiclePose.yaw} id="main-content" tabIndex={-1} className={styles.game}>
       {phase !== "complete" && phase !== "shiftComplete" && <h1 className="sr-only">SickCity EMT training shift</h1>}
       <div className={styles.world} inert={mapOpen || paused}>
-        <SickCityScene destination={destination} destinationName={destinationName} transportPhase={transportActive ? phase : undefined} playerPosition={playerPosition} hidePatient={["starting","available","dispatch","shiftComplete","carrying","transport","handoff","complete"].includes(phase)} careEquipment={phase === "clinical" ? worldCareEquipment : undefined} worldCareTargets={phase === "clinical" ? worldCareTargets : phase === "assessment" && !paused && !mapOpen && !dispatchBoardOpen ? quickTargets : undefined} careFocus={phase === "clinical" || phase === "assessment" ? patientCareTarget(activeCall) : undefined} activeCall={activeCall} movementRef={movementRef} movementEnabled={canMove}
+        <SickCityScene transferProgress={transferProgress} destination={destination} destinationName={destinationName} transportPhase={transportActive ? phase : undefined} playerPosition={playerPosition} hidePatient={["starting","available","dispatch","shiftComplete","transferring","carrying","boarding","transport","handoff","complete"].includes(phase)} careEquipment={phase === "clinical" ? worldCareEquipment : undefined} worldCareTargets={phase === "clinical" ? worldCareTargets : phase === "assessment" && !paused && !mapOpen && !dispatchBoardOpen ? quickTargets : undefined} careFocus={phase === "clinical" || phase === "assessment" ? patientCareTarget(activeCall) : undefined} activeCall={activeCall} movementRef={movementRef} movementEnabled={canMove}
           inAmbulance={inAmbulance} ambulancePose={vehiclePose} vehicleResetToken={vehicleResetToken}
           onAmbulanceEnter={enterAmbulance} onAmbulanceMove={reportAmbulance}
           playerSpawn={playerSpawn} playerFacing={playerFacing} playerResetToken={playerResetToken}
@@ -495,11 +514,11 @@ export default function SickCityGame() {
       {phase === 'shiftComplete' && !paused && !mapOpen && <SickCityShiftSummary calls={shiftCalls} xp={shiftXp} number={shiftNumber} onStart={startShift}/>}
 
       {(phase === "locate" || transportActive) && !paused && !mapOpen && !dispatchBoardOpen && <>
-        <section className={styles.objective}><div className={styles.eyebrow}><Navigation size={14} /> {transportActive ? "PATIENT TRANSPORT" : "RESPOND TO CALL"} <span>{activeCall.code}</span></div><h2>{transportActive ? destinationName : activeCall.district}</h2><p>{phase === "loading" ? inAmbulance ? "Park near the patient, then exit to retrieve the stretcher." : "Retrieve the stretcher from Unit 07." : phase === "stretcher" ? "Roll the stretcher to the patient." : phase === "carrying" ? "Return to Unit 07 and load the patient." : phase === "transport" ? "Drive to the hospital bay and stop for handoff." : phase === "handoff" ? "Receiving team accepting patient and report…" : activeCall.location}</p><div className={styles.distance}><strong>{Math.round(waypointDistance * 12)}<small> m</small></strong><span>HEAD {waypointDirection.toUpperCase()}</span></div>{!transportActive && <button className={styles.textButton} onClick={openDispatchBoard}><Radio size={14} /> DISPATCH NOTES</button>}</section>
+        <section className={styles.objective}><div className={styles.eyebrow}><Navigation size={14} /> {transportActive ? "PATIENT TRANSPORT" : "RESPOND TO CALL"} <span>{activeCall.code}</span></div><h2>{transportActive ? destinationName : activeCall.district}</h2><p>{phase === "transferring" ? "Transferring and securing the patient on the stretcher…" : phase === "boarding" ? "Guiding the stretcher into Unit 07…" : phase === "loading" ? inAmbulance ? "Park near the patient, then exit to retrieve the stretcher." : "Retrieve the stretcher from Unit 07." : phase === "stretcher" ? "Roll the stretcher to the patient." : phase === "carrying" ? "Return to Unit 07 and load the patient." : phase === "transport" ? "Drive to the hospital bay and stop for handoff." : phase === "handoff" ? "Receiving team accepting patient and report…" : activeCall.location}</p><div className={styles.distance}><strong>{Math.round(waypointDistance * 12)}<small> m</small></strong><span>HEAD {waypointDirection.toUpperCase()}</span></div>{!transportActive && <button className={styles.textButton} onClick={openDispatchBoard}><Radio size={14} /> DISPATCH NOTES</button>}</section>
         <div className={styles.miniMap}><div className={styles.eyebrow}><Map size={13} /> DISPATCH GRID</div><CityMap playerPosition={navigationPosition} callPosition={destination} vehicleHeading={inAmbulance ? vehiclePose.yaw : undefined} /></div>
         <div className={styles.interact}>
           <span>{inAmbulance ? `${Math.round(Math.abs(vehiclePose.speed) * 3.6)} KM/H · ${vehiclePose.speed < -.1 ? "REVERSE" : "UNIT 07"}` : transportActive ? phase === "handoff" ? "RECEIVING TEAM · HANDOFF" : phase === "transport" ? "PATIENT SECURED · DESTINATION HOSPITAL" : "STRETCHER OPERATIONS" : waypointDistance <= 4.2 ? "PATIENT WITHIN REACH" : ambulanceDistance <= 5 ? "UNIT 07 · READY TO BOARD" : "FOLLOW THE PATIENT WAYPOINT"}</span>
-          <button className={styles.primary} onClick={interact} disabled={phase === "handoff"}><Ambulance size={19} />{phase === "handoff" ? "Handoff in progress…" : inAmbulance ? "Park & exit ambulance" : phase === "loading" ? "Retrieve stretcher" : phase === "stretcher" ? "Transfer patient to stretcher" : phase === "carrying" ? "Load patient into ambulance" : phase === "transport" ? "Enter ambulance" : waypointDistance <= 4.2 ? "BEGIN ASSESSMENT" : "Enter ambulance"}<kbd>E</kbd></button>
+          <button className={styles.primary} onClick={interact} disabled={phase === "handoff" || phase === "transferring" || phase === "boarding"}><Ambulance size={19} />{phase === "transferring" ? `Securing patient… ${Math.round(transferProgress*100)}%` : phase === "boarding" ? `Loading patient… ${Math.round(transferProgress*100)}%` : phase === "handoff" ? "Handoff in progress…" : inAmbulance ? "Park & exit ambulance" : phase === "loading" ? "Retrieve stretcher" : phase === "stretcher" ? "Transfer patient to stretcher" : phase === "carrying" ? "Load patient into ambulance" : phase === "transport" ? "Enter ambulance" : waypointDistance <= 4.2 ? "BEGIN ASSESSMENT" : "Enter ambulance"}<kbd>E</kbd></button>
           {!inAmbulance && ambulanceDistance <= 5 && (phase === "loading" || phase === "locate" && waypointDistance <= 4.2) && <button className={styles.secondary} onClick={enterAmbulance}>{phase === "loading" ? "Reposition ambulance" : "Re-enter ambulance"}</button>}
           {inAmbulance && <div className={styles.brakeControl}><ControlButton label="Brake" direction="brake" movementRef={movementRef} icon={<span className="text-xs font-bold">Brake</span>} /></div>}
         </div>

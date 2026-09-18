@@ -38,7 +38,7 @@ function isBuildingCollision(x: number, z: number) {
 }
 
 type SceneProps = {
-  destination:Point; destinationName:string; transportPhase?:TransportPhase; playerPosition:Point; hidePatient:boolean;
+  transferProgress:number; destination:Point; destinationName:string; transportPhase?:TransportPhase; playerPosition:Point; hidePatient:boolean;
   worldCareTargets?: WorldCareTarget[];
   careEquipment?: WorldCareEquipment;
   careFocus?: Point;
@@ -175,6 +175,7 @@ function DestinationBeacon({ position, label }: { position: Point; label: string
 }
 
 function Player({
+  transferPhase, transferProgress=0,
   careFocus,
   closeCare,
   spawnFacing,
@@ -187,6 +188,7 @@ function Player({
   onPlayerMove,
 }: {
   careFocus?: Point;
+  transferPhase?:TransportPhase; transferProgress?:number;
   closeCare?: boolean;
   spawnFacing: number;
   ambulancePose: VehiclePose;
@@ -313,7 +315,7 @@ function Player({
   return (
     <group ref={group} visible={active}>
       <group rotation={[0, Math.PI, 0]}>
-        <SickCityMedic movementRef={movementRef} scale={1.1} />
+        <SickCityMedic transferPhase={transferPhase} transferProgress={transferProgress} movementRef={movementRef} scale={1.1} />
       </group>
     </group>
   );
@@ -437,7 +439,7 @@ function World(props: SceneProps) {
         ) : null}
       </group>
 
-      {(props.transportPhase === 'stretcher' || props.transportPhase === 'carrying') && <Suspense fallback={null}><SickCityStretcher position={props.playerPosition} loaded={props.transportPhase === 'carrying'} laying={usesLayingPatient} teen={props.activeCall.clinicalScenarioId === 'anaphylaxis'}/></Suspense>}
+      {(['stretcher','transferring','carrying','boarding'].includes(props.transportPhase ?? '')) && <Suspense fallback={null}><SickCityStretcher position={props.playerPosition} loaded={props.transportPhase !== 'stretcher'} phase={props.transportPhase} progress={props.transferProgress} patientPosition={props.activeCall.position} ambulance={props.ambulancePose} laying={usesLayingPatient} teen={props.activeCall.clinicalScenarioId === 'anaphylaxis'}/></Suspense>}
       {(props.transportPhase === 'transport' || props.transportPhase === 'handoff') && <group position={HOSPITAL_RECEIVING_BAY}>
         <mesh rotation={[-Math.PI/2,0,0]} position={[0,.06,0]}><ringGeometry args={[3.7,4,48]}/><meshBasicMaterial color="#78dfbb" transparent opacity={.8}/></mesh>
         <Html center position={[0,2.5,0]}><span className="rounded bg-slate-950/90 px-3 py-2 text-xs text-teal-200 whitespace-nowrap">HOSPITAL · STOP FOR HANDOFF</span></Html>
@@ -467,11 +469,11 @@ function World(props: SceneProps) {
         animate
       />
 
-      <SickCityAmbulance initialPose={props.ambulancePose} occupied={props.inAmbulance} inputEnabled={props.movementEnabled}
+      <SickCityAmbulance doorOpen={props.transportPhase === "boarding" ? Math.min(1,props.transferProgress/.2,(1-props.transferProgress)/.15) : 0} initialPose={props.ambulancePose} occupied={props.inAmbulance} inputEnabled={props.movementEnabled}
         movementRef={props.movementRef} resetToken={props.vehicleResetToken}
         showMarker={!props.inAmbulance && props.movementEnabled && props.transportPhase !== "stretcher" && props.transportPhase !== "carrying"}
         onEnter={props.onAmbulanceEnter} onMove={props.onAmbulanceMove} />
-      <Player
+      <Player transferPhase={props.transportPhase} transferProgress={props.transferProgress}
         careFocus={props.careFocus}
         closeCare={Boolean(props.worldCareTargets)}
         ambulancePose={props.ambulancePose}

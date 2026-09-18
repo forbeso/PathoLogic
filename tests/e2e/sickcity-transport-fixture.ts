@@ -36,11 +36,21 @@ export async function transportPatientToHospital(page:Page,project:string) {
  await expect(page.locator('main')).toHaveAttribute('data-phase','stretcher');
  await walkTo(page,36,-59);await walkTo(page,36,-29);await walkTo(page,32,-28);
  await page.getByRole('button',{name:/Transfer patient to stretcher/}).click();
+ await expect(page.locator('main')).toHaveAttribute('data-phase','transferring');
+ await expect(page.getByRole('button',{name:/Securing patient/})).toBeDisabled();
+ await page.getByRole('button',{name:'Shift menu',exact:true}).click();
+ await page.waitForTimeout(2700);
+ await expect(page.locator('main')).toHaveAttribute('data-phase','transferring');
+ await page.getByRole('button',{name:/Resume shift/}).click();
  await expect(page.locator('main')).toHaveAttribute('data-phase','carrying');
  await page.waitForTimeout(750); // Let the canvas show the loaded patient before visual review.
  await page.screenshot({path:`tmp/site-audit/patient-stretcher-${project}.png`});
  await walkTo(page,36,-29);await walkTo(page,36,-59);await walkTo(page,stagingX,-59,.7);
  await page.getByRole('button',{name:/Load patient into ambulance/}).click();
+ await expect(page.locator('main')).toHaveAttribute('data-phase','boarding');
+ await expect(page.getByRole('button',{name:/Loading patient/})).toBeDisabled();
+ await page.waitForTimeout(1550);
+ await page.screenshot({path:`tmp/site-audit/patient-loading-${project}.png`});
  await expect(page.locator('main')).toHaveAttribute('data-phase','transport');
  await expect(page.getByRole('link',{name:'PathoLogix home'})).toContainText('0 / 5 CALLS');
  await page.getByRole('button',{name:/Enter ambulance/}).click();

@@ -51,7 +51,7 @@ export function unitStatus(phase: string, distance: number, inAmbulance: boolean
   if (phase === 'dispatch') return 'DISPATCHED';
   if (phase === 'locate') return distance <= 10 && !inAmbulance ? 'ON SCENE' : 'EN ROUTE';
   if (phase === 'clinical' || phase === 'assessment') return 'PATIENT CONTACT';
-  if (['loading','stretcher','carrying'].includes(phase)) return 'ON SCENE';
+  if (['loading','stretcher','transferring','carrying','boarding'].includes(phase)) return 'ON SCENE';
   if (phase === 'transport') return 'TRANSPORTING';
   if (phase === 'handoff') return 'AT HOSPITAL';
   if (phase === 'complete') return 'CLEARING';
