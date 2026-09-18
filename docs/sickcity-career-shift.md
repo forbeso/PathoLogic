@@ -1,6 +1,6 @@
 # SickCity career shift — first pass
 
-SickCity now starts with Unit 07 at the hospital garage, followed by an incoming dispatch. Career Shift assigns a level-eligible case; Training Mode exposes the existing quick and full clinical calls. An accepted assignment is locked until it is cleared or restarted from the shift menu.
+SickCity now starts with Unit 07 at the hospital garage, followed by an incoming dispatch. Dispatch assigns a level-eligible case. SickCity has one career flow; Training Mode and the manual scenario picker have been removed. An accepted assignment is locked until it is cleared or restarted from the shift menu.
 
 ## Call lifecycle
 
@@ -8,7 +8,7 @@ Starting shift / available → dispatch → en route → on scene → patient co
 
 `TRANSPORTING` and `AT HOSPITAL` are supported status values, but are not displayed merely because the player chose a transport plan. Actual patient loading and hospital delivery are not implemented in this pass.
 
-Full calls use the shared clinical logic as an in-world control overlay. SickCity keeps the same city canvas, patient location, medic, and ambulance mounted throughout care; the camera frames the patient. No EMT Scene environment is loaded. Clinical actions, scoring, progression awards, and attempt history remain shared with the standalone skills lab. Stepping back closes the care controls without counting a completed call. The care header and post-shift practice button keep players inside SickCity.
+Full calls use the shared clinical logic as an in-world control overlay. SickCity keeps the same city canvas, patient location, medic, and ambulance mounted throughout care; the camera frames the patient. No EMT Scene environment is loaded. Clinical actions, scoring, progression awards, and attempt history remain shared with the standalone skills lab. Stepping back closes the care controls without counting a completed call. The care header and next-shift action keep players inside SickCity.
 
 ## Data and progression
 
@@ -23,7 +23,7 @@ Full calls use the shared clinical logic as an in-world control overlay. SickCit
 
 Quick encounters record every chosen action by skill. Each category is correct choices divided by recorded choices, so a reconsidered answer affects that score even when the objective is ultimately completed. Full clinical encounters use the existing engine's seven category scores. Shift scores average only the calls that actually measured a category. Missing categories are omitted, never filled with sample percentages.
 
-The post-call review retains clinical explanations and the original full-scene debrief. Career quick calls defer explanatory feedback to the call review; Training retains immediate teaching feedback. Post-shift practice starts a new Training shift inside SickCity. Clinical review remains inside the care overlay.
+The post-call review retains clinical explanations and the original full-scene debrief. Quick calls defer explanatory feedback to the call review. The shift summary leads directly into the next career shift. Clinical review remains inside the care overlay.
 
 ## Presentation and audio
 
@@ -31,12 +31,33 @@ Dark neutral HUD, amber actions, red dispatch accent, compact mobile bottom shee
 
 ## Deliberately deferred
 
-Patient loading / transport driving, dynamic dispatch updates, persistent shift saves, MCI generation, random city events, and large city expansion. Existing city movement, clinical content, and backend integrations remain in use.
+Dynamic dispatch updates, persistent shift saves, MCI generation, random city events, and large city expansion. Existing city movement, clinical content, and backend integrations remain in use.
 
 ## Verification
 
-Production build, TypeScript, lint, and asset/JavaScript budgets pass. All 27 unit tests pass. The eight SickCity browser checks cover desktop/mobile dispatch, local model decoding, keyboard dialogs, the full clinical handoff, and the five-call lifecycle with duplicate-XP prevention. Two duplicate mobile lifecycle runs are intentionally skipped; full clinical integration runs at a mobile viewport. The original clinical route and scoring checks pass, including the desktop anaphylaxis walkthrough after adding a scene-interaction control for HUD-obscured targets.
+Production build, TypeScript, lint, and asset/JavaScript budgets pass. All 28 unit tests pass. Fourteen desktop/mobile browser checks cover career-only dispatch, local model decoding, keyboard dialogs, clinical care/debrief, and approaching the city teen without lab animal hazards. Duplicate-XP prevention remains covered by unit tests; the former manual-picker five-call browser loop was replaced by career dispatch checks.
 
 In-world care verification: full desktop and mobile care walkthroughs assert that the original city canvas remains connected through patient contact and debrief, that only one canvas/main exists, and that no EMT Scene navigation link is exposed. Both pass.
 
 Care consistency: quick and full encounters use a patient-focused camera and shared lettered action buttons. The crash driver uses the seated pose; action panels leave the patient visible on desktop and mobile. SickCity radio selection opens explicit authored resource choices, while the standalone lab retains its existing radio behavior. Desktop/mobile crash regression checks cover scene safety, rescue requests, driver assessment, stable action order, and preservation of the city canvas.
+
+## World interaction pilot
+
+The hypoglycemia clinical call uses the existing skinned, animated lying patient and optimized medical bag. Contextual markers attach to head, chest, and hand bones or sit above equipment; selecting them opens a compact in-world action menu using the original engine and shuffled choices. A side camera keeps the medic out of the patient's silhouette. The large selection cards are replaced by a small objective card with a patient-findings drawer. All clinical calls and quick encounters now use the same floating marker and compact action-menu presentation. Patients without skeletons use a torso-height anchor. Quick encounters keep their original scoring and continuation rules inside the menu. This reuses existing assets; it does not yet add treatment-specific animations, new patient models, or transport loading.
+
+## City-specific scene requirements
+
+The teen breathing call uses `sickCityClinicalScenarios.ts` for its sidewalk setup, inspection, and approach prerequisites. No dog or animal-control requirement is imported into this city encounter, including scoring and debrief. Clinical actions are reused without requiring lab props. The standalone EMT Scene dog encounter is unchanged. Automated career tests seed progression and dispatch randomness rather than adding a player-facing scenario picker.
+
+After the final care action, quick and full encounters enter stretcher retrieval, patient transfer, loading, ambulance transport, and hospital handoff. The call counter and shift result update once after handoff; quick-call completion XP is deferred until then. Clinical assessment XP remains awarded by the clinical engine. Clear Call remains on the debrief to return the unit to dispatch.
+
+The hypoglycemia pilot now publishes successful equipment use from the clinical engine into the city. A cuff and pulse-ox clip follow the rigged patient's arm and hand; a compact monitor beside the bag shows only measured vitals. The existing distress animation slows after successful medication. These are procedural equipment props and an animation-speed response, not new treatment animations. Equipment clears on leaving care or automatic completion. Other patient models and transport remain future work.
+
+Equipment presentation now supports all full clinical calls, with named head, chest, arm, and hand attachment points on seated/standing/supine city patients. Oxygen success reveals a cylinder and patient mask; measured BP and pulse oximetry reveal the corresponding attachments and monitor. City body markers use those same attachment points. The teen's initial visual description matches its sidewalk pose. This does not replace the remaining stylized patient meshes with new character assets or alter clinical action prerequisites.
+
+All remaining shape-based patients now use a cloned skinned character from the existing standing civilian asset. Its cloned bind skeleton is posed at the arm and leg joints for standing, seated, or supine encounters, normalized to human scale, and grounded using posed vertex bounds. The teen uses a smaller stature. The original animated lying patient remains for the park-fall and hypoglycemia encounters. Equipment and markers follow the skeleton; a side care camera frames the new torso heights. This is shared character art with procedural poses and subtle breathing, not a set of unique scanned patients or bespoke treatment clips.
+
+
+## Patient transport and hospital handoff
+
+Retrieve the stretcher within reach of the parked ambulance, roll it to the patient, transfer the patient, and return to Unit 07 to load. The stretcher follows walking movement and preserves the original patient appearance. Enter the ambulance and drive to the marked receiving bay at [22, 0, -34], on the hospital's accessible front apron. Handoff starts only when the occupied ambulance stops within five world units of that bay. It finishes automatically after 3.5 seconds; pause or map opening pauses the handoff. There is no Complete Call button. The patient is removed from the original scene once transferred, and the call remains open until hospital handoff. The map follows the current transport destination; nearby patient markers are replaced by stretcher/vehicle controls. Loading and handoff are state transitions with a visible stretcher and receiving marker; detailed lift, unloading, and receiving-staff animations remain future work.

@@ -161,7 +161,7 @@ function Crosswalk({ position }: { position: Point }) {
 
 function StreetLight({ position, rotation = 0 }: { position: Point; rotation?: number }) {
   return (
-    <group position={position} rotation={[0, rotation, 0]}>
+    <group userData={{careFade:true}} position={position} rotation={[0, rotation, 0]}>
       <mesh position={[0, 1.8, 0]} castShadow>
         <cylinderGeometry args={[0.06, 0.09, 3.6, 8]} />
         <meshStandardMaterial color="#253239" metalness={0.28} roughness={0.62} />
@@ -234,7 +234,7 @@ function MarketStall({ position, color }: { position: Point; color: string }) {
 
 function TransitShelter({ position, rotation = 0 }: { position: Point; rotation?: number }) {
   return (
-    <group position={position} rotation={[0, rotation, 0]}>
+    <group userData={{careFade:true}} position={position} rotation={[0, rotation, 0]}>
       <mesh position={[0, 1.65, 0.75]}>
         <boxGeometry args={[4.5, 3.3, 0.12]} />
         <meshStandardMaterial color="#8ec4cf" transparent opacity={0.48} metalness={0.05} roughness={0.3} />

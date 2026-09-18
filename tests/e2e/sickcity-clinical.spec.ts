@@ -1,3 +1,6 @@
+import {transportPatientToHospital} from './sickcity-transport-fixture';
+import { careerAssignment } from './sickcity-career-fixture';
+test.use({actionTimeout:15000});
 import { expect, test, type Page } from "@playwright/test";
 
 async function position(page: Page) {
@@ -20,9 +23,8 @@ async function action(page: Page, name: string, id: string) {
 test('full clinical call preserves the city assignment through care and scored debrief', async ({ page }, testInfo) => {
   test.setTimeout(480000);
   await page.setViewportSize(testInfo.project.name.startsWith('mobile') ? {width:393,height:851} : {width:1280,height:800});
+  await careerAssignment(page,7);
   await page.goto('/sickcity');
-  await page.getByRole('button',{name:'TRAINING MODE',exact:true}).click();
-  await page.getByLabel('AVAILABLE CALLS', { exact: true }).selectOption('7');
   await page.getByRole('button', {name:'ACCEPT CALL · CLIN-03',exact:true}).click();
   await expect(page.getByText('Ambulance garage · Bay 07',{exact:true})).toBeVisible({timeout:40000});
   await page.getByRole('button',{name:/Enter ambulance/}).click();
@@ -54,28 +56,43 @@ test('full clinical call preserves the city assignment through care and scored d
   await expect(page.getByRole('heading',{name:'Preparing EMT Scene'})).toBeHidden({timeout:120000});
   await expect(page.locator('main')).toHaveCount(1);
 
+  await expect(page.locator('[data-testid^=world-care-]').first()).toBeVisible();
   await action(page,'Patient Area','inspect-medical-scene');
   await action(page,'Medical Bag','open-medical-bag');
   await page.getByTestId('scene-action-equip-gloves').click();
   await action(page,'Approach Patient','approach-patient');
+  await page.getByRole('button',{name:'Interact with Patient',exact:true}).click();
+  await expect(page.getByRole('region',{name:'Patient actions'})).toBeVisible();
+  await page.screenshot({path:`tmp/site-audit/world-care-menu-${testInfo.project.name}.png`});
   await action(page,'Patient','general-impression');
   await page.getByTestId('scene-action-assess-responsiveness').click();
   await action(page,'Airway','scenario-airway-action');
   await action(page,'Chest / Breathing','scenario-breathing-action');
   await action(page,'Circulation','scenario-circulation-action');
-  // The equipment objectives open the same mobile gear panel used by the skills lab.
+  // The pilot exposes monitoring equipment as selectable world markers.
   for(const id of ['bp','pulseox']) {
-    await page.getByRole('button',{name:id==='bp'?'BP Cuff':'Pulse Ox',exact:true}).filter({visible:true}).first().click();
+    await page.getByRole('button',{name:`Interact with ${id==='bp'?'BP Cuff':'Pulse Ox'}`,exact:true}).click();
   }
+  await expect(page.getByLabel('Patient equipment readings')).toContainText('SpO₂');
+  const monitorBounds=await page.getByLabel('Patient equipment readings').boundingBox();
+  expect(monitorBounds!.x).toBeGreaterThanOrEqual(0);
+  expect(monitorBounds!.x+monitorBounds!.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+  await page.screenshot({path:`tmp/site-audit/patient-equipment-${testInfo.project.name}.png`});
+  await page.getByText('Patient findings',{exact:true}).click();
+  await expect(page.getByLabel('Assessment and care')).toContainText('BP');
+  await page.getByText('Patient findings',{exact:true}).click();
   await action(page,'Working Impression','select-correct-impression');
   await action(page,'Medication Decision','give-scenario-medication');
+  await expect(page.getByLabel('Patient equipment readings')).toContainText('97%');
   await action(page,'Transport Decision','prompt-transport');
   await action(page,'Focused History','obtain-focused-history');
   await action(page,'Focused Exam','perform-focused-exam');
   await action(page,'Reassess Patient','repeat-primary-and-vitals');
-  await page.getByRole('button',{name:'Return to Unit 07 with debrief',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Return to Unit 07 with debrief',exact:true})).toHaveCount(0);
+  await transportPatientToHospital(page,testInfo.project.name);
   await expect(page.getByRole('heading',{name:'Clinical care complete',exact:true})).toBeVisible();
   await expect(page.getByText('CLINICAL CALL XP',{exact:true})).toBeVisible();
+  await expect(page.getByLabel('Patient equipment readings')).toHaveCount(0);
   await expect(page.locator('body')).not.toContainText('Application error');
   await expect(page.locator('main')).toHaveCount(1);
   expect(await cityCanvas!.evaluate(canvas => canvas.isConnected)).toBe(true);
@@ -87,9 +104,8 @@ test('full clinical call preserves the city assignment through care and scored d
 
 test('crash care uses the same in-city choices through scene safety and driver assessment', async ({page}, info) => {
   test.setTimeout(180000);
+  await careerAssignment(page,6);
   await page.goto('/sickcity');
-  await page.getByRole('button',{name:'TRAINING MODE',exact:true}).click();
-  await page.getByLabel('AVAILABLE CALLS').selectOption('6');
   await page.getByRole('button',{name:'ACCEPT CALL · CLIN-02'}).click();
   // Walk along the open north-south street from the garage to the crash call.
   await travel(page,'w',p=>p.x>=36);
@@ -109,7 +125,7 @@ test('crash care uses the same in-city choices through scene safety and driver a
   const initialOrder=await choices.getByRole('button').allTextContents();
   await page.getByRole('button',{name:'Close action choices for Trapped Driver'}).click();
   await patientControl.click();
-  expect(await choices.getByRole('button').allTextContents()).toEqual(initialOrder);
+  await expect.poll(()=>choices.getByRole('button').allTextContents()).toEqual(initialOrder);
   await page.waitForTimeout(700);
   await page.screenshot({path:`tmp/site-audit/crash-care-${info.project.name}.png`});
   await page.getByTestId('scene-action-observe-trauma-impression').click();
@@ -120,4 +136,76 @@ test('crash care uses the same in-city choices through scene safety and driver a
   expect(await canvas!.evaluate(el=>el.isConnected)).toBe(true);
   await expect(page.locator('canvas')).toHaveCount(1);
   await expect(page).toHaveURL(/\/sickcity$/);
+});
+
+test('teen breathing call in SickCity uses the actual sidewalk scene without an animal hazard',async({page},info)=>{
+  test.setTimeout(180000);
+  await careerAssignment(page,5);
+  await page.goto('/sickcity');
+  await page.getByRole('button',{name:'ACCEPT CALL · CLIN-01'}).click();
+  await travel(page,'w',p=>p.x>=36);
+  await travel(page,'d',p=>p.z>=8);
+  await travel(page,'w',p=>p.x>=50);
+  await page.getByRole('button',{name:'BEGIN ASSESSMENT'}).click();
+  await expect(page.getByLabel('Assessment and care')).toBeVisible();
+  await expect(page.getByTestId('sickcity-patient-care')).not.toContainText(/dog|animal control|festival/i);
+  await action(page,'Patient Area','inspect-medical-scene');
+  await action(page,'Medical Bag','open-medical-bag');
+  await page.getByTestId('scene-action-equip-gloves').click();
+  await action(page,'Approach Patient','approach-patient');
+  await expect(page.getByTestId('sickcity-patient-care')).not.toContainText(/dog|animal control|festival/i);
+  await expect(page.getByLabel('Patient equipment readings')).toHaveCount(0);
+  await expect(page.getByLabel('Oxygen support active')).toHaveCount(0);
+  await action(page,'Patient','general-impression');
+  await page.getByTestId('scene-action-introduce-yourself').click();
+  await action(page,'Airway','inspect-airway');
+  await action(page,'Chest / Breathing','count-respirations');
+  await action(page,'Radial Pulse','check-radial-pulse');
+  await action(page,'Working Impression','suspect-severe-allergic-reaction');
+  await action(page,'Medication Decision','administer-im-epinephrine');
+  await action(page,'Breathing Support','apply-oxygen-anaphylaxis');
+  await expect(page.getByLabel('Oxygen support active')).toBeVisible();
+  await action(page,'Urgent Transport','urgent-transport');
+  for(const name of ['BP Cuff','Pulse Ox']) await page.getByRole('button',{name:`Interact with ${name}`,exact:true}).click();
+  await expect(page.getByLabel('Patient equipment readings')).toContainText('SpO₂');
+
+  await page.screenshot({path:`tmp/site-audit/teen-equipment-${info.project.name}.png`});
+  await page.getByRole('button',{name:'Leave patient care',exact:true}).click();
+  await page.getByRole('button',{name:'Leave care and return to unit',exact:true}).click();
+  await expect(page.getByLabel('Patient equipment readings')).toHaveCount(0);
+  await expect(page.getByLabel('Oxygen support active')).toHaveCount(0);
+});
+
+test('quick patient care uses floating markers and the same menu through completion',async({page},info)=>{
+  test.setTimeout(360000);
+  await careerAssignment(page,2);
+  await page.goto('/sickcity');
+  await page.getByRole('button',{name:'ACCEPT CALL · MED-14'}).click();
+  await travel(page,'w',p=>p.x>=36);
+  await travel(page,'d',p=>p.z>=-29);
+  await travel(page,'s',p=>p.x<=32);
+  await page.getByRole('button',{name:'BEGIN ASSESSMENT'}).click();
+  const {SICK_CITY_CALLS}=await import('../../src/lib/sickCity');
+  for(const [index,step] of SICK_CITY_CALLS[2].steps.entries()) {
+    await page.getByTestId(`world-care-${step.id}`).click();
+    const menu=page.getByRole('region',{name:/ actions$/});
+    await expect(menu).toBeVisible();
+    await expect(menu).toContainText(step.prompt);
+    if(index===0) {
+      await page.screenshot({path:`tmp/site-audit/quick-floating-${info.project.name}.png`});
+      const labels=await menu.getByTestId('sickcity-care-choices').getByRole('button').allTextContents();
+      await menu.getByRole('button',{name:/Close action choices/}).click();
+      await page.getByTestId(`world-care-${step.id}`).click();
+      await expect.poll(()=>menu.getByTestId('sickcity-care-choices').getByRole('button').allTextContents()).toEqual(labels);
+    }
+    const correct=step.options.find(option=>option.correct)!;
+    await menu.getByRole('button').filter({hasText:correct.label}).click();
+    if(index < SICK_CITY_CALLS[2].steps.length-1) await menu.getByRole('button',{name:'Continue assessment',exact:true}).click();
+  }
+  await transportPatientToHospital(page,info.project.name);
+  await expect(page.getByRole('status').filter({hasText:'CLEARING'})).toBeVisible();
+  await expect(page.getByRole('button',{name:'CLEAR CALL',exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:/Complete call/i})).toHaveCount(0);
+  await expect(page.getByRole('link',{name:'PathoLogix home'})).toContainText('1 / 5 CALLS');
+  await expect(page.getByLabel('+130 XP',{exact:true})).toHaveText('+130');
 });

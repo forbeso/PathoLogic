@@ -1,17 +1,24 @@
-import { patientCareCamera } from '@/lib/sickCityCareCamera';
+import SickCityLayingPatient from "./SickCityLayingPatient";
+import SickCityStretcher from './SickCityStretcher';
+import { HOSPITAL_RECEIVING_BAY, type TransportPhase } from '@/lib/sickCityTransport';
+import SickCityPatient from "./SickCityPatient";
+import SickCityPatientEquipment from "./SickCityPatientEquipment";
+import SickCityCareVisibility from './SickCityCareVisibility';
+import SickCityWorldCare from './SickCityWorldCare';
+import type { WorldCareTarget, WorldCareEquipment } from '@/lib/sickCityInteraction';
+import { patientCareCamera, patientCareTarget } from '@/lib/sickCityCareCamera';
 import SickCityStreets from "@/components/SickCityStreets";
 import { isCityBuilding } from "@/lib/sickCityWorld";
 import SickCityAmbulance from "@/components/SickCityAmbulance";
 import { HOSPITAL_MEDIC_START, isGarageWall, isInsideAmbulance, type VehiclePose } from "@/lib/sickCityVehicle";
-import { Html, useAnimations, useGLTF } from "@react-three/drei";
+import { Html } from "@react-three/drei";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Suspense, useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { Suspense, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
-import { clone } from "three/examples/jsm/utils/SkeletonUtils.js";
 import SickCityEnvironment from "@/components/SickCityEnvironment";
 import SickCityMedic from "@/components/SickCityMedic";
 import SickCityPedestrian from "@/components/SickCityPedestrian";
-import type { SickCityCall, SickCityPose } from "@/lib/sickCity";
+import type { SickCityCall } from "@/lib/sickCity";
 
 export type SickCityMovement = {
   forward: boolean;
@@ -25,13 +32,15 @@ type Point = [number, number, number];
 
 export const SICK_CITY_START_POSITION: Point = HOSPITAL_MEDIC_START;
 
-const LAYING_PATIENT_URL = "/models/sickcity/patients/laying-moaning.glb";
 
 function isBuildingCollision(x: number, z: number) {
   return isGarageWall(x, z) || isCityBuilding(x, z);
 }
 
 type SceneProps = {
+  destination:Point; destinationName:string; transportPhase?:TransportPhase; playerPosition:Point; hidePatient:boolean;
+  worldCareTargets?: WorldCareTarget[];
+  careEquipment?: WorldCareEquipment;
   careFocus?: Point;
   inAmbulance: boolean;
   ambulancePose: VehiclePose;
@@ -135,120 +144,6 @@ function PatientInteractionMarker({
   );
 }
 
-function Patient({ pose, color }: { pose: SickCityPose; color: string }) {
-  const upperBody = (
-    <>
-      <mesh position={[0, 1.3, 0]} castShadow>
-        <capsuleGeometry args={[0.34, 0.9, 5, 12]} />
-        <meshStandardMaterial color={color} roughness={0.84} />
-      </mesh>
-      <mesh position={[0, 2.24, 0]} castShadow>
-        <sphereGeometry args={[0.39, 16, 12]} />
-        <meshStandardMaterial color="#bd815c" roughness={0.82} />
-      </mesh>
-      <mesh position={[0, 2.43, -0.04]} scale={[1.03, 0.55, 1.02]} castShadow>
-        <sphereGeometry args={[0.39, 12, 8]} />
-        <meshStandardMaterial color="#31251f" roughness={0.95} />
-      </mesh>
-      {[-1, 1].map((side) => (
-        <mesh key={`arm-${side}`} position={[side * 0.48, 1.28, 0]} rotation={[0, 0, side * 0.08]} castShadow>
-          <capsuleGeometry args={[0.1, 0.78, 4, 8]} />
-          <meshStandardMaterial color="#bd815c" roughness={0.82} />
-        </mesh>
-      ))}
-    </>
-  );
-  const straightLegs = (
-    <>
-      {[-1, 1].map((side) => (
-        <mesh key={`leg-${side}`} position={[side * 0.19, 0.44, 0]} castShadow>
-          <capsuleGeometry args={[0.13, 0.7, 4, 8]} />
-          <meshStandardMaterial color="#273750" roughness={0.86} />
-        </mesh>
-      ))}
-    </>
-  );
-  const standingBody = <>{upperBody}{straightLegs}</>;
-
-  if (pose === "supine") {
-    return <group position={[0, 0.35, 0]} rotation={[Math.PI / 2, 0, 0]}>{standingBody}</group>;
-  }
-  if (pose === "seated") {
-    return (
-      <group>
-        <group position={[0, 0.2, 0]}>{upperBody}</group>
-        {[-1, 1].map((side) => (
-          <group key={`seated-leg-${side}`}>
-            <mesh position={[side * 0.2, 0.62, 0.42]} rotation={[Math.PI / 2, 0, 0]} castShadow>
-              <capsuleGeometry args={[0.13, 0.54, 4, 8]} />
-              <meshStandardMaterial color="#273750" roughness={0.86} />
-            </mesh>
-            <mesh position={[side * 0.2, 0.24, 0.92]} rotation={[0.16, 0, 0]} castShadow>
-              <capsuleGeometry args={[0.13, 0.52, 4, 8]} />
-              <meshStandardMaterial color="#273750" roughness={0.86} />
-            </mesh>
-          </group>
-        ))}
-      </group>
-    );
-  }
-  return <group>{standingBody}</group>;
-}
-
-function LayingMoaningPatient() {
-  const source = useGLTF(LAYING_PATIENT_URL, "/draco/");
-  const model = useMemo(() => clone(source.scene), [source.scene]);
-  const animations = useMemo(
-    () =>
-      source.animations.map((sourceClip) => {
-        const clip = sourceClip.clone();
-        clip.tracks.forEach((track) => {
-          if (!(track instanceof THREE.VectorKeyframeTrack) || !track.name.endsWith("Hips.position")) return;
-          const startX = track.values[0];
-          // Blender armature: local Z is vertical; X/Y carry planar root motion.
-          const startY = track.values[1];
-          for (let index = 0; index < track.values.length; index += 3) {
-            track.values[index] = startX;
-            track.values[index + 1] = startY;
-          }
-        });
-        return clip;
-      }),
-    [source.animations]
-  );
-  const root = useRef<THREE.Group>(null);
-  const { actions, names } = useAnimations(animations, root);
-  const action = names.length > 0 ? actions[names[0]] : undefined;
-
-  useLayoutEffect(() => {
-    model.traverse((object) => {
-      if (!(object instanceof THREE.Mesh)) return;
-      object.castShadow = true;
-      object.receiveShadow = true;
-      const materials = Array.isArray(object.material) ? object.material : [object.material];
-      materials.forEach((material) => {
-        if ("map" in material && material.map instanceof THREE.Texture) {
-          material.map.colorSpace = THREE.SRGBColorSpace;
-          material.map.needsUpdate = true;
-        }
-      });
-    });
-  }, [model]);
-
-  useEffect(() => {
-    if (!action) return;
-    action.reset().setLoop(THREE.LoopRepeat, Infinity).play();
-    return () => {
-      action.stop();
-    };
-  }, [action]);
-
-  return (
-    <group ref={root} position={[0, -0.87, 0]} scale={0.5} rotation={[0, Math.PI * 0.12, 0]}>
-      <primitive object={model} />
-    </group>
-  );
-}
 
 function DestinationBeacon({ position, label }: { position: Point; label: string }) {
   const ring = useRef<THREE.Mesh>(null);
@@ -281,6 +176,7 @@ function DestinationBeacon({ position, label }: { position: Point; label: string
 
 function Player({
   careFocus,
+  closeCare,
   spawnFacing,
   ambulancePose,
   active,
@@ -291,6 +187,7 @@ function Player({
   onPlayerMove,
 }: {
   careFocus?: Point;
+  closeCare?: boolean;
   spawnFacing: number;
   ambulancePose: VehiclePose;
   active: boolean;
@@ -396,7 +293,12 @@ function Player({
     lookGoal.current.y = player.position.y + 1.45;
     if (careFocus) {
       const point = patientCareCamera(careFocus, [player.position.x,0,player.position.z], camera instanceof THREE.PerspectiveCamera ? camera.aspect : 1);
-      cameraGoal.current.set(...point);
+      if (closeCare) {
+        const dx=point[0]-careFocus[0], dz=point[2]-careFocus[2];
+        const distance=Math.hypot(dx,dz) || 1;
+        // A side view keeps the attending medic out of the patient's silhouette.
+        cameraGoal.current.set(careFocus[0]-dz/distance*5.5,careFocus[1]+3.5,careFocus[2]+dx/distance*5.5);
+      } else cameraGoal.current.set(...point);
       lookGoal.current.set(...careFocus);
     }
     camera.position.lerp(cameraGoal.current, 1 - Math.exp(-delta * 5.2));
@@ -495,7 +397,8 @@ function CitySun() {
 }
 
 function World(props: SceneProps) {
-  const usesLayingPatient = props.activeCall.id === "park-fall";
+  const patientRef=useRef<THREE.Group>(null);
+  const usesLayingPatient = props.activeCall.id === "park-fall" || props.activeCall.clinicalScenarioId === "hypoglycemia";
   const pedestrianPlacements = useMemo(() => [
     { url: "/models/sickcity/pedestrians/pedestrian-walking-1.glb", position: [-58, 0.1, -6.2] as Point, speed: 1.2, minX: -58, maxX: 25 },
     { url: "/models/sickcity/pedestrians/pedestrian-walking-2.glb", position: [-34, 0.1, 28.6] as Point, speed: 0.95, minX: -34, maxX: 32 },
@@ -511,26 +414,34 @@ function World(props: SceneProps) {
       <hemisphereLight args={["#a1bafa", "#414d3d", 1.25]} />
       <ambientLight intensity={0.6} />
       <CitySun />
+      <SickCityCareVisibility focus={props.careFocus}/>
       <SickCityStreets />
       <SickCityEnvironment />
       <CloudBank />
       <directionalLight position={[24, 14, 18]} color="#91b9ff" intensity={0.8} />
 
-      {props.showDestinationMarker ? <DestinationBeacon position={props.activeCall.position} label={props.activeCall.location} /> : null}
+      {props.showDestinationMarker ? <DestinationBeacon position={props.destination} label={props.destinationName} /> : null}
 
-      <group position={props.activeCall.position}>
-        {usesLayingPatient ? <LayingMoaningPatient /> : <Patient pose={props.activeCall.pose} color={props.activeCall.shirtColor} />}
+      <group position={props.activeCall.position} visible={!props.hidePatient}>
+        {usesLayingPatient ? <SickCityLayingPatient patientRef={patientRef} treated={props.careEquipment?.treated} /> : <SickCityPatient key={props.activeCall.id} patientRef={patientRef} pose={props.activeCall.pose} teen={props.activeCall.clinicalScenarioId === "anaphylaxis"} />}
+        {props.careEquipment && <SickCityPatientEquipment patientRef={patientRef} equipment={props.careEquipment}/>}
+        {props.worldCareTargets && <Suspense fallback={null}><SickCityWorldCare fallback={patientCareTarget(props.activeCall).map((value,index)=>value-props.activeCall.position[index]) as Point} patientRef={patientRef} targets={props.worldCareTargets}/></Suspense>}
         {props.showPatientMarker ? (
           <PatientInteractionMarker
             label={props.activeCall.code}
             detail={props.activeCall.patientLabel}
-            height={usesLayingPatient ? 1.1 : props.activeCall.pose === "supine" ? 1.9 : 3.3}
+            height={usesLayingPatient ? 1.1 : props.activeCall.pose === "supine" ? .9 : props.activeCall.pose === "seated" ? 1.5 : 2.1}
             interactive={props.patientMarkerInteractive}
             onClick={props.onPatientSelect}
           />
         ) : null}
       </group>
 
+      {(props.transportPhase === 'stretcher' || props.transportPhase === 'carrying') && <Suspense fallback={null}><SickCityStretcher position={props.playerPosition} loaded={props.transportPhase === 'carrying'} laying={usesLayingPatient} teen={props.activeCall.clinicalScenarioId === 'anaphylaxis'}/></Suspense>}
+      {(props.transportPhase === 'transport' || props.transportPhase === 'handoff') && <group position={HOSPITAL_RECEIVING_BAY}>
+        <mesh rotation={[-Math.PI/2,0,0]} position={[0,.06,0]}><ringGeometry args={[3.7,4,48]}/><meshBasicMaterial color="#78dfbb" transparent opacity={.8}/></mesh>
+        <Html center position={[0,2.5,0]}><span className="rounded bg-slate-950/90 px-3 py-2 text-xs text-teal-200 whitespace-nowrap">HOSPITAL · STOP FOR HANDOFF</span></Html>
+      </group>}
       {pedestrianPlacements.map((pedestrian, index) => (
         <SickCityPedestrian
           key={`${pedestrian.url}-${index}`}
@@ -558,10 +469,11 @@ function World(props: SceneProps) {
 
       <SickCityAmbulance initialPose={props.ambulancePose} occupied={props.inAmbulance} inputEnabled={props.movementEnabled}
         movementRef={props.movementRef} resetToken={props.vehicleResetToken}
-        showMarker={!props.inAmbulance && props.movementEnabled}
+        showMarker={!props.inAmbulance && props.movementEnabled && props.transportPhase !== "stretcher" && props.transportPhase !== "carrying"}
         onEnter={props.onAmbulanceEnter} onMove={props.onAmbulanceMove} />
       <Player
         careFocus={props.careFocus}
+        closeCare={Boolean(props.worldCareTargets)}
         ambulancePose={props.ambulancePose}
         active={!props.inAmbulance}
         movementEnabled={props.movementEnabled}
@@ -575,7 +487,7 @@ function World(props: SceneProps) {
   );
 }
 
-useGLTF.preload(LAYING_PATIENT_URL, "/draco/");
+
 
 function SceneLoading() {
   return (

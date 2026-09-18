@@ -50,3 +50,7 @@
 /* Leave the patient visible between the case report and care controls. */
 .careLayout{grid-template-columns:250px minmax(0,360px);pointer-events:none}.careLayout>*{pointer-events:auto}
 @media(max-width:640px){.careLayout{display:block}.careLayout .patientCard{padding:10px 12px}.careLayout .patientCard h2{margin:5px 0}.careLayout .patientCard blockquote{margin-top:4px}.careLayout .careCard{position:absolute;bottom:0;left:0;right:0;max-height:42%;overflow:auto}.careCard .cardBody h2{font-size:17px}.careCard .cardTop{padding:10px 14px}}
+
+.clinicalOverlay{pointer-events:none}.clinicalOverlay button,.clinicalOverlay a,.clinicalOverlay input,.clinicalOverlay select,.clinicalOverlay summary,.clinicalOverlay [role=dialog]{pointer-events:auto}
+
+.quickCareStatus{position:absolute;top:100px;right:24px;width:260px;background:#141618e8;border:1px solid #ffffff26;border-radius:10px;padding:16px}.quickCareStatus h2{font-size:17px;margin:12px 0}.quickCareStatus details{font-size:11px;color:#c6d3dc;line-height:1.7}.quickCareStatus summary{cursor:pointer;color:#f4b85d}.quickCareStatus details p{margin-top:10px}@media(max-width:900px){.quickCareStatus{top:80px;left:12px;right:12px;width:auto;max-height:22%;overflow:auto}}

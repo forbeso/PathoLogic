@@ -362,16 +362,17 @@ const clinicalLocations: Record<ClinicalScenarioId, string> = {
   anaphylaxis: 'park-east', 'car-accident': 'cycle-crossing', hypoglycemia: 'civic-plaza',
   'opioid-overdose': 'market-corner', 'chest-pain': 'transit-shelter',
 };
-// Full clinical calls use the same case metadata and care engine as the skills lab.
+// Clinical call locations come from the city map; care setup is owned separately.
 
 for (const [index, scenario] of CLINICAL_SCENARIOS.entries()) {
   const clinicalScenarioId = scenario.id as ClinicalScenarioId;
+  const cityLocation = getCityLocation(clinicalLocations[clinicalScenarioId]);
   SICK_CITY_CALLS.push({
     id: `clinical-${clinicalScenarioId}`, clinicalScenarioId, locationId: clinicalLocations[clinicalScenarioId],
     code: `CLIN-${String(index + 1).padStart(2, "0")}`,
-    title: scenario.title, summary: scenario.dispatch,
-    district: index === 1 ? "Station Quarter" : "Riverside Park",
-    location: scenario.location, distanceLabel: "", position: getCityLocation(clinicalLocations[clinicalScenarioId]).position,
+    title: scenario.title, summary: clinicalScenarioId === "anaphylaxis" ? "Teen with shortness of breath near Maple Street and 4th Avenue." : scenario.dispatch,
+    district: cityLocation.district,
+    location: cityLocation.name, distanceLabel: "", position: cityLocation.position,
     priority: scenario.priority === "Unstable" ? "High priority" : "Urgent",
     pose: clinicalScenarioId === "car-accident" ? "seated" : "supine", shirtColor: "#334155", patientLabel: clinicalScenarioId === "car-accident" ? "Injured driver" : "Patient",
     initialPatientLine: scenario.patient, completionTitle: "Clinical care complete",

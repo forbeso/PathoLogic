@@ -68,7 +68,7 @@ export default function SickCityAmbulance({ initialPose, occupied, inputEnabled,
       onMove(pose.current);
     }
   });
-  return <group ref={root} position={HOSPITAL_AMBULANCE_START} rotation={[0, AMBULANCE_START_YAW, 0]}>
+  return <group ref={root} userData={{careFade:true}} position={HOSPITAL_AMBULANCE_START} rotation={[0, AMBULANCE_START_YAW, 0]}>
     <CityKitModel asset="unit-07-ambulance" position={[0, .13, 0]} />
     <pointLight ref={blue} position={[-.73, 2.6, -1.79]} color="#56aaff" distance={9} decay={2} />
     <pointLight ref={red} position={[.73, 2.6, -1.79]} color="#ff735d" distance={9} decay={2} />

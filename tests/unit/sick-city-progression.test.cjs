@@ -69,7 +69,7 @@ test('authenticated progression endpoint saves the configured SickCity reward, r
   assert.equal(calls.length,2);
 });
 
-test('SickCity offers every shared clinical case without substituting an unrelated patient', () => {
+test('SickCity keeps clinical patient profiles while owning its dispatch locations', () => {
   const { CLINICAL_SCENARIOS } = load('src/lib/clinicalScenarios.ts');
   const { DEFAULT_SICK_CITY_CALL_INDEX } = load('src/lib/sickCity.ts');
   const fullCalls = SICK_CITY_CALLS.filter(call => call.clinicalScenarioId);
@@ -79,8 +79,10 @@ test('SickCity offers every shared clinical case without substituting an unrelat
     const call = fullCalls.find(call => call.clinicalScenarioId === scenario.id);
     assert.ok(call);
     assert.equal(call.title, scenario.title);
-    assert.equal(call.summary, scenario.dispatch);
-    assert.equal(call.location, scenario.location);
+    const {getCityLocation}=load('src/lib/sickCityLocations.ts');
+    assert.equal(call.location,getCityLocation(call.locationId).name);
+    assert.equal(call.district,getCityLocation(call.locationId).district);
+    if(scenario.id==='anaphylaxis') assert.doesNotMatch(call.summary,/festival|dog|animal/i);
     assert.equal(call.initialPatientLine, scenario.patient);
     assert.equal(call.steps.length, 0, 'full calls must use the clinical engine, not quick answer steps');
   }
@@ -133,7 +135,7 @@ test('care framing targets the visible torso and is independent of medic approac
   const crash=SICK_CITY_CALLS.find(call=>call.id==='clinical-car-accident');
   assert.equal(crash.pose,'seated');
   const target=patientCareTarget(crash);
-  assert.ok(target[1]>1,'seated driver must not be framed at ground level');
+  assert.ok(target[1]>.5 && target[1]<1.2,'seated driver target must match the human-scale torso');
   assert.deepEqual(patientCareCamera(target,[target[0]+2,0,target[2]],.5),patientCareCamera(target,[target[0]+4,0,target[2]],.5));
   const zero=patientCareCamera(target,target,1);
   assert.ok(zero.every(Number.isFinite));
@@ -153,4 +155,70 @@ test('SickCity radio selection opens choices without automatically requesting cr
   assert.ok(!requested.triggeredEvents.includes('TRAFFIC_CONTROLLED'),'resources must still secure the scene');
   const legacy=scenarioReducer(carAccidentScenario,state,{type:'SELECT_OBJECT',objectId:'ambulance-radio'});
   assert.ok(legacy.triggeredEvents.includes('FIRE_RESCUE_CALLED'),'standalone lab behavior remains compatible');
+});
+
+test('SickCity teen call has no lab animal hazard, and inspection unlocks PPE without rescue', () => {
+  const {sickCityTeenBreathingScenario:scenario}=load('src/lib/sickCityClinicalScenarios.ts');
+  const engine=load('src/lib/emtSceneEngine.ts');
+  assert.doesNotMatch(JSON.stringify([scenario.objectives,scenario.interactiveObjects,scenario.sceneReport]),/dog|animal.control/i);
+  let state=engine.createScenarioState(scenario);
+  state=engine.scenarioReducer(scenario,state,{type:'RUN_ACTION',objectId:'patient-area',actionId:'inspect-medical-scene'});
+  assert.ok(state.completedObjectives.includes('scene-size-up'));
+  const bag=scenario.interactiveObjects.find(object=>object.id==='medical-bag');
+  assert.equal(engine.getObjectAvailability(bag,state).enabled,true);
+  const review=engine.buildScenarioDebrief(state);
+  assert.doesNotMatch(JSON.stringify(review),/dog|animal hazard|animal control/i);
+  assert.doesNotMatch(state.feedback ?? '',/dog|smoke|vehicle/i);
+  assert.equal(engine.getScenarioScoreBreakdown(state).safety,100);
+  const {getCityLocation}=load('src/lib/sickCityLocations.ts');
+  const {isCityBuilding}=load('src/lib/sickCityWorld.ts');
+  const [x,,z]=getCityLocation('park-east').position;
+  assert.equal(isCityBuilding(x,z),false);
+});
+
+test('care fades only nearby props and restores original shared materials and shadows',()=>{
+  const THREE=require('three');
+  const {createCareVisibility}=load('src/lib/sickCityCareVisibility.ts');
+  const material=new THREE.MeshStandardMaterial({opacity:.48,transparent:true,depthWrite:true});
+  const near=new THREE.Group(),far=new THREE.Group();far.position.x=30;
+  const a=new THREE.Mesh(new THREE.BoxGeometry(),material),b=new THREE.Mesh(new THREE.BoxGeometry(),material);
+  a.castShadow=true;near.add(a);far.add(b);
+  const visibility=createCareVisibility();
+  visibility.update([near,far],new THREE.Vector3());
+  assert.notEqual(a.material,material);assert.equal(b.material,material);
+  assert.equal(material.opacity,.48);assert.equal(a.material.opacity,.48*.12);
+  assert.equal(a.material.depthWrite,false);assert.equal(a.castShadow,false);
+  visibility.update([near,far]);
+  assert.equal(a.material,material);assert.equal(a.castShadow,true);assert.equal(a.material.depthWrite,true);
+  visibility.update([near],new THREE.Vector3());visibility.restoreAll();assert.equal(a.material,material);
+  visibility.update([near],new THREE.Vector3());near.position.x=30;
+  visibility.update([near],new THREE.Vector3());assert.equal(a.material,material);
+});
+
+
+test('patient joint aiming respects parent rotation and preserves limb length',()=>{
+  const THREE=require('three');
+  const {aimPatientBone}=load('src/lib/sickCityPatientRig.ts');
+  const root=new THREE.Group();root.rotation.set(.4,.8,-.2);root.scale.setScalar(.01);
+  const upper=new THREE.Bone();upper.name='mixamorig12RightArm';
+  const lower=new THREE.Bone();lower.name='mixamorig12RightForeArm';lower.position.set(0,40,0);
+  root.add(upper);upper.add(lower);root.updateMatrixWorld(true);
+  const desired=new THREE.Vector3(.1,-1,.3).normalize();
+  aimPatientBone(root,'RightArm','RightForeArm',desired);
+  const actual=lower.getWorldPosition(new THREE.Vector3()).sub(upper.getWorldPosition(new THREE.Vector3()));
+  assert.ok(Math.abs(actual.length()-.4)<1e-6);
+  assert.ok(actual.normalize().distanceTo(desired)<1e-6);
+});
+
+
+test('hospital handoff requires a loaded transport driven to the bay and stopped',()=>{
+ const {readyForHospitalHandoff,HOSPITAL_RECEIVING_BAY,transportDestination}=load('src/lib/sickCityTransport.ts');
+ const pose={position:HOSPITAL_RECEIVING_BAY,yaw:0,speed:0};
+ assert.equal(readyForHospitalHandoff(pose,true),true);
+ assert.equal(readyForHospitalHandoff(pose,false),false);
+ assert.equal(readyForHospitalHandoff({...pose,speed:2},true),false);
+ assert.equal(readyForHospitalHandoff({...pose,position:[22,0,-62]},true),false);
+ assert.deepEqual(transportDestination('transport',[30,0,-28],[22,0,-62]),HOSPITAL_RECEIVING_BAY);
+ assert.deepEqual(transportDestination('stretcher',[30,0,-28],[22,0,-62]),[30,0,-28]);
+ assert.deepEqual(transportDestination('carrying',[30,0,-28],[22,0,-62]),[22,0,-62]);
 });

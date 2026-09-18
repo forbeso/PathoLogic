@@ -3079,6 +3079,10 @@ function feedbackForEvent(event: SceneEvent, state: ScenarioState): string {
       state.scenarioId as AdditionalMedicalScenarioId
     ];
 
+  if (state.scenarioId === "sickcity-teen-breathing") {
+    if (event === "AMBULANCE_EXITED") return "Scan the sidewalk and safe access to the patient.";
+    if (event === "CRASH_SCENE_INSPECTED") return "Patient area assessed. Prepare PPE before making patient contact.";
+  }
   if (medicalProfile) {
     switch (event) {
       case "CRASH_SCENE_INSPECTED":
@@ -3840,9 +3844,9 @@ export function getScenarioScoreBreakdown(state: ScenarioState): ScenarioScoreBr
   const unsafeDog = state.failedObjectives.includes("dog-hazard");
   const unsafeCrash = state.failedObjectives.includes("crash-hazard");
   const sceneInspected = state.triggeredEvents.includes(
-    isCrash || medicalProfile ? "CRASH_SCENE_INSPECTED" : "DOG_INSPECTED"
+    isCrash || medicalProfile || state.scenarioId === "sickcity-teen-breathing" ? "CRASH_SCENE_INSPECTED" : "DOG_INSPECTED"
   );
-  const resourcesRequested = medicalProfile
+  const resourcesRequested = medicalProfile || state.scenarioId === "sickcity-teen-breathing"
     ? true
     : state.triggeredEvents.includes(
         isCrash ? "FIRE_RESCUE_CALLED" : "ANIMAL_CONTROL_CALLED"
@@ -3944,7 +3948,7 @@ export function buildScenarioDebrief(state: ScenarioState) {
     } else {
       missed.push("Additional collision resources were not requested.");
     }
-  } else if (medicalProfile) {
+  } else if (medicalProfile || state.scenarioId === "sickcity-teen-breathing") {
     if (state.triggeredEvents.includes("CRASH_SCENE_INSPECTED")) {
       correct.push("Completed a scene size-up before approaching the medical patient.");
     } else {

@@ -1,3 +1,4 @@
+import { careerAssignment } from './sickcity-career-fixture';
 import { expect, test } from "@playwright/test";
 
 test("landing shows one cue preview and offers all training paths", async ({ page }) => {
@@ -39,14 +40,14 @@ test("SickCity loads local compressed assets and supports keyboard map and menu 
   await expect(menu).toBeFocused();
 });
 
-test("career dispatch starts muted, training keeps calls accessible, and an accepted assignment stays locked", async ({ page }) => {
+test("career dispatch starts muted, has no training mode, and an accepted assignment stays locked", async ({ page }) => {
   test.setTimeout(120000);
+  await careerAssignment(page,7);
   await page.goto('/sickcity');
   await expect(page.getByRole('button', {name: /ACCEPT CALL/})).toBeVisible();
   await expect(page.getByLabel('AVAILABLE CALLS')).toHaveCount(0);
   await expect(page.getByRole('button', {name:'Enable radio audio'})).toHaveAttribute('aria-pressed','false');
-  await page.getByRole('button', {name:'TRAINING MODE',exact:true}).click();
-  await page.getByLabel('AVAILABLE CALLS').selectOption('7');
+  await expect(page.getByRole('button', {name:'TRAINING MODE',exact:true})).toHaveCount(0);
   await expect(page.getByRole('heading',{name:'Adult confused and weak',exact:true})).toBeVisible();
   await expect(page.getByRole('region',{name:'Patient dispatch board'})).not.toContainText('hypoglycemia');
   await page.getByRole('button',{name:'ACCEPT CALL · CLIN-03'}).click();

@@ -1,3 +1,5 @@
+import type { SceneScenarioConfig } from '@/lib/emtSceneEngine';
+import { careAnchor, type WorldCareTarget, type WorldCareEquipment } from '@/lib/sickCityInteraction';
 import { shuffled } from '@/lib/shuffle';
 import { CLINICAL_SCENARIOS as SCENARIOS, type Scenario, type VitalSet, type ClinicalScenarioId, type ClinicalCallResult } from "@/lib/clinicalScenarios";
 import Seo from "@/components/Seo";
@@ -474,7 +476,7 @@ function SceneTopBar({
   if (clinicalReturn) return <header className="relative z-50 flex h-16 items-center justify-between gap-3 border-b border-white/15 bg-[#141618] px-4 text-white">
     <div><strong className="text-lg font-black">SICK<span className="text-amber-300">CITY</span></strong><small className="block text-[9px]">SHIFT {String(clinicalReturn.shiftNumber).padStart(2,'0')} · {clinicalReturn.callsCompleted}/5 CALLS</small></div>
     <div className="text-right text-[9px]"><strong>UNIT 07 · {clinicalReturn.completed ? 'CLEARING' : 'PATIENT CONTACT'}</strong><span className="block">LVL {level} · {totalXp} XP</span></div>
-    <button type="button" onClick={clinicalReturn.onClick} aria-label={clinicalReturn.completed ? 'Return to Unit 07 with debrief' : 'Leave patient care'} className="min-h-11 rounded border border-amber-300/50 bg-amber-300 px-3 text-xs font-bold text-slate-950">{clinicalReturn.completed ? 'Complete call' : 'Step back'}</button>
+    <button type="button" hidden={clinicalReturn.completed} onClick={clinicalReturn.onClick} aria-label="Leave patient care" className="min-h-11 rounded border border-amber-300/50 bg-amber-300 px-3 text-xs font-bold text-slate-950">Step back</button>
   </header>;
 
 
@@ -626,7 +628,7 @@ function makeOpeningLog(scenario: Scenario): LogEntry[] {
 
 export default function ClinicalSceneSession({ initialScenarioId, sickCity }: {
   initialScenarioId?: ClinicalScenarioId;
-  sickCity?: { shiftNumber: number; callsCompleted: number; code: string; onComplete: (result: ClinicalCallResult) => void; onLeave: (xp: number) => void };
+  sickCity?: { location?: string; sceneConfig?: SceneScenarioConfig; onWorldTargets?: (targets: WorldCareTarget[]) => void; onWorldEquipment?: (equipment: WorldCareEquipment) => void; shiftNumber: number; callsCompleted: number; code: string; onComplete: (result: ClinicalCallResult) => void; onLeave: (xp: number) => void };
 }) {
   const router = useRouter();
   const [scenarioId, setScenarioId] = useState(initialScenarioId ?? SCENARIOS[0].id);
@@ -634,7 +636,7 @@ export default function ClinicalSceneSession({ initialScenarioId, sickCity }: {
     () => SCENARIOS.find((item) => item.id === scenarioId) ?? SCENARIOS[0],
     [scenarioId]
   );
-  const sceneScenario = SCENE_SCENARIOS[scenario.id as keyof typeof SCENE_SCENARIOS];
+  const sceneScenario = sickCity?.sceneConfig ?? SCENE_SCENARIOS[scenario.id as keyof typeof SCENE_SCENARIOS];
   const [gameState, dispatchGame] = useReducer(
     (state: ReturnType<typeof createScenarioState>, action: Parameters<typeof scenarioReducer>[2]) =>
       scenarioReducer(sceneScenario, state, sickCity && action.type === "SELECT_OBJECT" ? { ...action, chooseAction: true } : action),
@@ -756,6 +758,7 @@ export default function ClinicalSceneSession({ initialScenarioId, sickCity }: {
 
   const isCrashScenario = scenario.id === "car-accident";
   const isDogScenario = scenario.id === "anaphylaxis";
+  const hasDogHazard = isDogScenario && !sickCity;
   const isAdditionalMedicalScenario = [
     "hypoglycemia",
     "opioid-overdose",
@@ -768,12 +771,12 @@ export default function ClinicalSceneSession({ initialScenarioId, sickCity }: {
   const crashResponseFinished = hasEvents(gameState, ["TRAFFIC_CONTROLLED"]);
   const sceneSecured = isCrashScenario
     ? crashResponseFinished
-    : isDogScenario
+    : hasDogHazard
       ? animalControlResponseFinished
       : hasEvents(gameState, ["CRASH_SCENE_INSPECTED"]);
 
   useEffect(() => {
-    if (!isDogScenario || !animalControlResponseRequested || animalControlResponseFinished) {
+    if (!hasDogHazard || !animalControlResponseRequested || animalControlResponseFinished) {
       setAnimalControlResponseActive(false);
       return;
     }
@@ -784,7 +787,7 @@ export default function ClinicalSceneSession({ initialScenarioId, sickCity }: {
     }, 3300);
 
     return () => window.clearTimeout(secureDogTimer);
-  }, [animalControlResponseFinished, animalControlResponseRequested, isDogScenario]);
+  }, [animalControlResponseFinished, animalControlResponseRequested, hasDogHazard]);
 
   useEffect(() => {
     if (!isCrashScenario || !crashResponseRequested || crashResponseFinished) return;
@@ -981,6 +984,15 @@ export default function ClinicalSceneSession({ initialScenarioId, sickCity }: {
     []
   );
   const debrief = useMemo(() => buildScenarioDebrief(gameState), [gameState]);
+  const completedCityRun = useRef<string | null>(null);
+  useEffect(() => {
+    if (!sickCity || !scenarioComplete || completedCityRun.current === progressionRunId) return;
+    // The XP/persistence effect above runs first, so the final objective and bonus are included.
+    completedCityRun.current = progressionRunId;
+    sickCity.onComplete({objectives:scenarioCompletedCount,mistakes:debrief.unsafe.length,xp:sessionXp.current,
+      summary:debrief.summary,takeaway:debrief.priorityTakeaway,score:debrief.score});
+  }, [sickCity,scenarioComplete,progressionRunId,scenarioCompletedCount,debrief]);
+
   const stageIndex = STAGES.findIndex((item) => item.key === stage);
   const relevantActions = QUICK_ACTIONS.filter((action) => action.stage === stage);
   const revealedVitals = gameState.patient.vitalsRevealed;
@@ -1290,7 +1302,7 @@ export default function ClinicalSceneSession({ initialScenarioId, sickCity }: {
   const resetScene = useCallback(
     (
       nextScenario = scenario,
-      nextSceneScenario = SCENE_SCENARIOS[
+      nextSceneScenario = sickCity?.sceneConfig ?? SCENE_SCENARIOS[
         nextScenario.id as keyof typeof SCENE_SCENARIOS
       ]
     ) => {
@@ -1312,7 +1324,7 @@ export default function ClinicalSceneSession({ initialScenarioId, sickCity }: {
       setAnimalControlResponseActive(false);
       setEndScenarioConfirmOpen(false);
     },
-    [progressionRunId, scenario]
+    [progressionRunId, scenario, sickCity?.sceneConfig]
   );
 
   const runSceneAction = (object: InteractiveObjectConfig, actionId: string) => {
@@ -1858,6 +1870,39 @@ export default function ClinicalSceneSession({ initialScenarioId, sickCity }: {
     </>
   );
 
+  const publishWorldEquipment = sickCity?.onWorldEquipment;
+  useEffect(() => {
+    if (!publishWorldEquipment) return;
+    const events = gameState.triggeredEvents;
+    const vitals = gameState.patient.vitals;
+    publishWorldEquipment({
+      bagOpen: events.includes('MEDICAL_BAG_OPENED'),
+      oxygenApplied: gameState.patient.oxygenApplied,
+      bloodPressure: events.includes('BLOOD_PRESSURE_OBTAINED') ? `${vitals.systolicBP}/${vitals.diastolicBP}` : undefined,
+      spo2: events.includes('SPO2_OBTAINED') ? vitals.spo2 : undefined,
+      pulse: events.includes('SPO2_OBTAINED') ? vitals.heartRate : undefined,
+      treated: events.includes('SCENARIO_MEDICATION_ADMINISTERED'),
+    });
+  }, [publishWorldEquipment, gameState.triggeredEvents, gameState.patient.vitals, gameState.patient.oxygenApplied]);
+
+  const publishWorldTargets = sickCity?.onWorldTargets;
+  useEffect(() => {
+    if (!publishWorldTargets) return;
+    if (scenarioComplete || resourceResponsePending) { publishWorldTargets([]); return; }
+    const object = selectedObject ?? nextSceneObject;
+    if (object) {
+      const choices=object.actions.filter(action => hasEvents(gameState,action.requires) && !(getActionSuccessEvents(action).length && hasEvents(gameState,getActionSuccessEvents(action))));
+      publishWorldTargets([{id:object.id,label:object.name,anchor:careAnchor(object.id),selected:gameState.selectedObjectId===object.id,
+        onSelect:() => dispatchGame({type:"SELECT_OBJECT",objectId:object.id}),onClose:() => dispatchGame({type:"SELECT_OBJECT",objectId:undefined}),
+        choices:(careActionOrder[object.id] ?? choices).filter(action => choices.includes(action)).map(action => ({id:action.id,label:action.label,testId:`scene-action-${action.id}`})),
+        onChoose:id => runSceneAction(object,id),feedback:sceneFinding}]);
+    } else if (currentObjectiveUsesEquipment) {
+      publishWorldTargets((currentObjective.id === 'oxygen-support' ? ['oxygen'] : ['bp','pulseox']).map(id => ({id,label:id==='oxygen'?'Oxygen':id==='bp'?'BP Cuff':'Pulse Ox',anchor:'bag',choices:[],onClose:()=>{},onSelect:()=>runEquipmentDockAction(id),onChoose:()=>{}})));
+    } else publishWorldTargets([]);
+    // The callbacks capture this engine snapshot and are replaced with every care decision.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [publishWorldTargets,gameState,sceneObjects,sceneFinding,scenarioComplete,resourceResponsePending,currentObjectiveUsesEquipment]);
+
   const SessionShell = sickCity ? "div" : AppShell;
   const SceneContainer = sickCity ? "section" : "main";
   return (
@@ -1898,9 +1943,7 @@ export default function ClinicalSceneSession({ initialScenarioId, sickCity }: {
           shiftNumber: sickCity.shiftNumber, callsCompleted: sickCity.callsCompleted,
           code: sickCity.code,
           completed: scenarioComplete,
-          onClick: () => {
-            if (!scenarioComplete) { setEndScenarioConfirmOpen(true); return; }
-            sickCity.onComplete({ objectives: scenarioCompletedCount, mistakes: debrief.unsafe.length, xp: sessionXp.current, summary: debrief.summary, takeaway: debrief.priorityTakeaway, score: debrief.score });
+          onClick: () => { if (!scenarioComplete) setEndScenarioConfirmOpen(true);
           },
         } : undefined}
         totalXp={learnerProgress.totalXp}
@@ -1967,7 +2010,7 @@ export default function ClinicalSceneSession({ initialScenarioId, sickCity }: {
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-slate-950/35" />
 
         {sickCity && !scenarioComplete && <SickCityClinicalHud
-          title={scenario.title} location={scenario.location} report={sceneScenario.sceneReport}
+          worldInteraction={Boolean(sickCity.onWorldTargets)} title={scenario.title} location={sickCity.location ?? scenario.location} report={sceneScenario.sceneReport}
           goal={currentObjective.label} prompt={currentObjective.subtleGoal}
           completed={scenarioCompletedCount} total={scenarioTasks.length} phases={phaseProgressItems}
           target={selectedObject?.name ?? nextSceneObject?.name}

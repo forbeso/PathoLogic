@@ -4,12 +4,11 @@ import { CLINICAL_SCENARIOS } from './clinicalScenarios';
 
 export const SHIFT_CALL_LIMIT = 5;
 export type UnitStatus = 'AVAILABLE' | 'DISPATCHED' | 'EN ROUTE' | 'ON SCENE' | 'PATIENT CONTACT' | 'TRANSPORTING' | 'AT HOSPITAL' | 'CLEARING';
-export type ShiftMode = 'career' | 'training';
 export type PerformanceCategory = 'safety' | 'airway' | 'breathing' | 'circulation' | 'assessment' | 'history' | 'vitals' | 'treatment' | 'medication' | 'transport' | 'triage' | 'clinicalDecisions' | 'reassessment' | 'communication' | 'efficiency';
 export type SkillScores = Partial<Record<PerformanceCategory, number>>;
 export interface ClinicalDecision { objectiveId: string; category: PerformanceCategory; choice: string; correct: boolean; rationale: string }
 export interface ShiftCallResult { callId: SickCityCallId; scores: SkillScores; xp: number; review: string; decisions: ClinicalDecision[] }
-export interface Shift { number: number; mode: ShiftMode; calls: ShiftCallResult[] }
+export interface Shift { number: number; calls: ShiftCallResult[] }
 export interface PlayerProgress { level: number; totalXp: number }
 export interface DispatchReport { title: string; lines: string[]; reliability: 'caller-report' | 'limited' }
 export interface CareerCall {
@@ -52,6 +51,9 @@ export function unitStatus(phase: string, distance: number, inAmbulance: boolean
   if (phase === 'dispatch') return 'DISPATCHED';
   if (phase === 'locate') return distance <= 10 && !inAmbulance ? 'ON SCENE' : 'EN ROUTE';
   if (phase === 'clinical' || phase === 'assessment') return 'PATIENT CONTACT';
+  if (['loading','stretcher','carrying'].includes(phase)) return 'ON SCENE';
+  if (phase === 'transport') return 'TRANSPORTING';
+  if (phase === 'handoff') return 'AT HOSPITAL';
   if (phase === 'complete') return 'CLEARING';
   return 'AVAILABLE';
 }

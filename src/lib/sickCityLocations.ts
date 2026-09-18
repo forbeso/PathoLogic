@@ -1,6 +1,6 @@
-export interface CityLocation { id: string; name: string; district: string; position: [number, number, number] }
+export interface CityLocation { id: string; name: string; district: "Riverside Park" | "Maple Market" | "Civic Center" | "Station Quarter"; position: [number, number, number] }
 export const CITY_LOCATIONS: CityLocation[] = [
-  {id:'park-east',name:'Maple Street and 4th Avenue',district:'Riverside Park',position:[53,0,13]},
+  {id:'park-east',name:'Maple Street and 4th Avenue',district:'Riverside Park',position:[53,0,8.5]},
   {id:'market-corner',name:'Corner Market, Grant Avenue',district:'Maple Market',position:[-29,0,-6.2]},
   {id:'civic-plaza',name:'City Plaza transit stop',district:'Civic Center',position:[30,0,-28]},
   {id:'cycle-crossing',name:'River Trail at East 4th Street',district:'Riverside Park',position:[36,0,5.8]},

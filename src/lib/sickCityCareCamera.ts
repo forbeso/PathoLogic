@@ -3,9 +3,9 @@ export type CarePoint = [number, number, number];
 /** Match the visible patient's torso, rather than the ground-level dispatch waypoint. */
 export function patientCareTarget(call: SickCityCall): CarePoint {
   const [x,y,z] = call.position;
-  if (call.id === 'park-fall') return [x,y + .45,z];
-  if (call.pose === 'supine') return [x,y + .6,z + 1.3];
-  return [x,y + 1.45,z];
+  if (call.id === 'park-fall' || call.clinicalScenarioId === 'hypoglycemia') return [x,y + .45,z];
+  if (call.pose === 'supine') return [x,y + .25,z];
+  return [x,y + (call.pose === 'seated' ? .8 : 1.15),z];
 }
 export function patientCareCamera(patient: CarePoint, medic: CarePoint, aspect: number): CarePoint {
   const dx=medic[0]-patient[0], dz=medic[2]-patient[2];
