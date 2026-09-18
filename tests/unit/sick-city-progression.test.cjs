@@ -222,3 +222,21 @@ test('hospital handoff requires a loaded transport driven to the bay and stopped
  assert.deepEqual(transportDestination('stretcher',[30,0,-28],[22,0,-62]),[30,0,-28]);
  assert.deepEqual(transportDestination('carrying',[30,0,-28],[22,0,-62]),[22,0,-62]);
 });
+
+
+test('hospital unloading starts inside the ambulance, clears the rear, and reaches receiving',()=>{
+ const {hospitalStretcherPose,HOSPITAL_RECEIVING_ENTRANCE}=load('src/lib/sickCityTransport.ts');
+ for(const yaw of [0,Math.PI/2,Math.PI,-Math.PI/2]) {
+  const pose={position:[22,0,-34],yaw,speed:0};
+  const start=hospitalStretcherPose(pose,0);
+  assert.ok(Math.abs(Math.hypot(start.position[0]-22,start.position[2]+34)-1)<1e-8);
+  const rear=hospitalStretcherPose(pose,.4);
+  assert.ok(Math.abs(Math.hypot(rear.position[0]-22,rear.position[2]+34)-5)<1e-8);
+  assert.deepEqual(hospitalStretcherPose(pose,1).position,HOSPITAL_RECEIVING_ENTRANCE);
+  for(const boundary of [.12,.4,.55,.82]) {
+   const a=hospitalStretcherPose(pose,boundary-1e-6).position;
+   const b=hospitalStretcherPose(pose,boundary+1e-6).position;
+   assert.ok(Math.hypot(...a.map((value,index)=>value-b[index]))<.001);
+  }
+ }
+});

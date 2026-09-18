@@ -409,12 +409,18 @@ export default function SickCityGame() {
   useEffect(()=>{
     if(phase !== 'transport' || paused || mapOpen || !readyForHospitalHandoff(vehiclePose,inAmbulance)) return;
     movementRef.current={...EMPTY_MOVEMENT};
+    transferElapsed.current=0;setTransferProgress(0);
     setPhase('handoff');
   },[phase,paused,mapOpen,vehiclePose,inAmbulance]);
 
   useEffect(()=>{
-    if(phase !== 'handoff' || paused || mapOpen || handoffCompletedRef.current) return;
-    const timer=window.setTimeout(()=>{
+    if(phase !== 'handoff' || paused || mapOpen || dispatchBoardOpen || handoffCompletedRef.current) return;
+    let frame=0,last=performance.now();
+    const tick=(now:number)=>{
+      transferElapsed.current+=Math.min(100,now-last);last=now;
+      const progress=Math.min(1,transferElapsed.current/HANDOFF_DURATION_MS);
+      setTransferProgress(progress);
+      if(progress<1) {frame=requestAnimationFrame(tick);return;}
       if(handoffCompletedRef.current) return;
       handoffCompletedRef.current=true;
       let earned=clinicalResult?.xp ?? callXp;
@@ -426,9 +432,10 @@ export default function SickCityGame() {
       setShiftCalls(calls=>[...calls,{callId:activeCall.id,scores:clinicalResult?.score ?? quickScores(decisions),xp:earned,review:clinicalResult?.takeaway ?? activeCall.learningPearl,decisions}]);
       setCallsCompleted(count=>count+1);
       playRadio('complete');setToast(null);setPhase('complete');
-    },HANDOFF_DURATION_MS);
-    return()=>window.clearTimeout(timer);
-  },[phase,paused,mapOpen,clinicalResult,callXp,activeCall,decisions,playRadio]);
+    };
+    frame=requestAnimationFrame(tick);
+    return()=>cancelAnimationFrame(frame);
+  },[phase,paused,mapOpen,dispatchBoardOpen,clinicalResult,callXp,activeCall,decisions,playRadio]);
 
   const prepareNextCall = (nextIndex: number) => {
     clearMovement();
@@ -518,7 +525,7 @@ export default function SickCityGame() {
         <div className={styles.miniMap}><div className={styles.eyebrow}><Map size={13} /> DISPATCH GRID</div><CityMap playerPosition={navigationPosition} callPosition={destination} vehicleHeading={inAmbulance ? vehiclePose.yaw : undefined} /></div>
         <div className={styles.interact}>
           <span>{inAmbulance ? `${Math.round(Math.abs(vehiclePose.speed) * 3.6)} KM/H · ${vehiclePose.speed < -.1 ? "REVERSE" : "UNIT 07"}` : transportActive ? phase === "handoff" ? "RECEIVING TEAM · HANDOFF" : phase === "transport" ? "PATIENT SECURED · DESTINATION HOSPITAL" : "STRETCHER OPERATIONS" : waypointDistance <= 4.2 ? "PATIENT WITHIN REACH" : ambulanceDistance <= 5 ? "UNIT 07 · READY TO BOARD" : "FOLLOW THE PATIENT WAYPOINT"}</span>
-          <button className={styles.primary} onClick={interact} disabled={phase === "handoff" || phase === "transferring" || phase === "boarding"}><Ambulance size={19} />{phase === "transferring" ? `Securing patient… ${Math.round(transferProgress*100)}%` : phase === "boarding" ? `Loading patient… ${Math.round(transferProgress*100)}%` : phase === "handoff" ? "Handoff in progress…" : inAmbulance ? "Park & exit ambulance" : phase === "loading" ? "Retrieve stretcher" : phase === "stretcher" ? "Transfer patient to stretcher" : phase === "carrying" ? "Load patient into ambulance" : phase === "transport" ? "Enter ambulance" : waypointDistance <= 4.2 ? "BEGIN ASSESSMENT" : "Enter ambulance"}<kbd>E</kbd></button>
+          <button className={styles.primary} onClick={interact} disabled={phase === "handoff" || phase === "transferring" || phase === "boarding"}><Ambulance size={19} />{phase === "transferring" ? `Securing patient… ${Math.round(transferProgress*100)}%` : phase === "boarding" ? `Loading patient… ${Math.round(transferProgress*100)}%` : phase === "handoff" ? `Hospital handoff… ${Math.round(transferProgress*100)}%` : inAmbulance ? "Park & exit ambulance" : phase === "loading" ? "Retrieve stretcher" : phase === "stretcher" ? "Transfer patient to stretcher" : phase === "carrying" ? "Load patient into ambulance" : phase === "transport" ? "Enter ambulance" : waypointDistance <= 4.2 ? "BEGIN ASSESSMENT" : "Enter ambulance"}<kbd>E</kbd></button>
           {!inAmbulance && ambulanceDistance <= 5 && (phase === "loading" || phase === "locate" && waypointDistance <= 4.2) && <button className={styles.secondary} onClick={enterAmbulance}>{phase === "loading" ? "Reposition ambulance" : "Re-enter ambulance"}</button>}
           {inAmbulance && <div className={styles.brakeControl}><ControlButton label="Brake" direction="brake" movementRef={movementRef} icon={<span className="text-xs font-bold">Brake</span>} /></div>}
         </div>

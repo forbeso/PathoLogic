@@ -1,7 +1,7 @@
 import {useMemo,useRef} from 'react';
 import {useFrame} from '@react-three/fiber';
 import * as THREE from 'three';
-import type {TransportPhase} from '@/lib/sickCityTransport';
+import {hospitalStretcherPose,type TransportPhase} from '@/lib/sickCityTransport';
 import type {CityPoint,VehiclePose} from '@/lib/sickCityVehicle';
 import SickCityPatient from './SickCityPatient';
 
@@ -31,6 +31,11 @@ export default function SickCityStretcher({position,loaded,teen,laying,phase,pro
       root.current.position.lerp(localPatient.set(targetX,.04+slide*.35,targetZ),approach*approach*(3-2*approach));
       const turn=Math.atan2(Math.sin(ambulance.yaw-heading.current),Math.cos(ambulance.yaw-heading.current));
       root.current.rotation.y=heading.current+turn*approach;
+    }
+    if(phase==='handoff') {
+      const handoff=hospitalStretcherPose(ambulance,progress);
+      root.current.position.set(...handoff.position);
+      root.current.rotation.y=handoff.yaw;
     }
     if(passenger.current) {
       passenger.current.position.set(0,.93,0);

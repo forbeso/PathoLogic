@@ -1,6 +1,6 @@
 import SickCityLayingPatient from "./SickCityLayingPatient";
 import SickCityStretcher from './SickCityStretcher';
-import { HOSPITAL_RECEIVING_BAY, type TransportPhase } from '@/lib/sickCityTransport';
+import { hospitalStretcherPose, HOSPITAL_RECEIVING_BAY, type TransportPhase } from '@/lib/sickCityTransport';
 import SickCityPatient from "./SickCityPatient";
 import SickCityPatientEquipment from "./SickCityPatientEquipment";
 import SickCityCareVisibility from './SickCityCareVisibility';
@@ -321,6 +321,20 @@ function Player({
   );
 }
 
+function HospitalHandoffCamera({pose,progress}:{pose:VehiclePose;progress:number}) {
+  const look=useMemo(()=>new THREE.Vector3(),[]);
+  const goal=useMemo(()=>new THREE.Vector3(),[]);
+  useFrame(({camera},delta)=>{
+    const patient=hospitalStretcherPose(pose,progress).position;
+    look.set((patient[0]+pose.position[0])/2,1.1,(patient[2]+pose.position[2])/2);
+    // View from the open apron, above the ambulance roof and below the hospital sign.
+    goal.set(look.x+9,9,look.z+11);
+    camera.position.lerp(goal,1-Math.exp(-delta*4));
+    camera.lookAt(look);
+  });
+  return null;
+}
+
 function CloudBank() {
   const clouds = useRef<THREE.Group>(null);
   useFrame((_, delta) => {
@@ -439,7 +453,7 @@ function World(props: SceneProps) {
         ) : null}
       </group>
 
-      {(['stretcher','transferring','carrying','boarding'].includes(props.transportPhase ?? '')) && <Suspense fallback={null}><SickCityStretcher position={props.playerPosition} loaded={props.transportPhase !== 'stretcher'} phase={props.transportPhase} progress={props.transferProgress} patientPosition={props.activeCall.position} ambulance={props.ambulancePose} laying={usesLayingPatient} teen={props.activeCall.clinicalScenarioId === 'anaphylaxis'}/></Suspense>}
+      {(['stretcher','transferring','carrying','boarding','handoff'].includes(props.transportPhase ?? '')) && <Suspense fallback={null}><SickCityStretcher position={props.playerPosition} loaded={props.transportPhase !== 'stretcher'} phase={props.transportPhase} progress={props.transferProgress} patientPosition={props.activeCall.position} ambulance={props.ambulancePose} laying={usesLayingPatient} teen={props.activeCall.clinicalScenarioId === 'anaphylaxis'}/></Suspense>}
       {(props.transportPhase === 'transport' || props.transportPhase === 'handoff') && <group position={HOSPITAL_RECEIVING_BAY}>
         <mesh rotation={[-Math.PI/2,0,0]} position={[0,.06,0]}><ringGeometry args={[3.7,4,48]}/><meshBasicMaterial color="#78dfbb" transparent opacity={.8}/></mesh>
         <Html center position={[0,2.5,0]}><span className="rounded bg-slate-950/90 px-3 py-2 text-xs text-teal-200 whitespace-nowrap">HOSPITAL · STOP FOR HANDOFF</span></Html>
@@ -469,7 +483,7 @@ function World(props: SceneProps) {
         animate
       />
 
-      <SickCityAmbulance doorOpen={props.transportPhase === "boarding" ? Math.min(1,props.transferProgress/.2,(1-props.transferProgress)/.15) : 0} initialPose={props.ambulancePose} occupied={props.inAmbulance} inputEnabled={props.movementEnabled}
+      <SickCityAmbulance cameraEnabled={props.transportPhase !== "handoff"} doorOpen={props.transportPhase === "boarding" ? Math.min(1,props.transferProgress/.2,(1-props.transferProgress)/.15) : props.transportPhase === "handoff" ? Math.min(1,props.transferProgress/.12,(1-props.transferProgress)/.15) : 0} initialPose={props.ambulancePose} occupied={props.inAmbulance} inputEnabled={props.movementEnabled}
         movementRef={props.movementRef} resetToken={props.vehicleResetToken}
         showMarker={!props.inAmbulance && props.movementEnabled && props.transportPhase !== "stretcher" && props.transportPhase !== "carrying"}
         onEnter={props.onAmbulanceEnter} onMove={props.onAmbulanceMove} />
@@ -485,6 +499,7 @@ function World(props: SceneProps) {
         resetToken={props.playerResetToken}
         onPlayerMove={props.onPlayerMove}
       />
+      {props.transportPhase === "handoff" && <HospitalHandoffCamera pose={props.ambulancePose} progress={props.transferProgress}/>}
     </>
   );
 }

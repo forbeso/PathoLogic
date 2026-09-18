@@ -67,6 +67,8 @@ export async function transportPatientToHospital(page:Page,project:string) {
  await page.waitForTimeout(4000);
  await expect(page.locator('main')).toHaveAttribute('data-phase','handoff');
  await page.getByRole('button',{name:/Resume shift/}).click();
+ await page.waitForTimeout(3800);
+ await page.screenshot({path:`tmp/site-audit/hospital-handoff-${project}.png`});
  await expect(page.locator('main')).toHaveAttribute('data-phase','complete',{timeout:15000});
  await expect(page.getByText('Patient delivered to SickCity Medical. Hospital handoff complete.')).toBeVisible();
  await expect(page.getByRole('link',{name:'PathoLogix home'})).toContainText('1 / 5 CALLS');

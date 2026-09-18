@@ -358,6 +358,13 @@ function Hospital() {
           <meshStandardMaterial color="#7fb4c5" metalness={0.08} roughness={0.36} />
         </mesh>
       )))}
+      <mesh position={[0,1.6,-5.64]}><boxGeometry args={[3.8,3.2,.12]}/><meshStandardMaterial color="#24444e"/></mesh>
+      {[-.91,.91].map(x=><group key={`receiving-${x}`}>
+        <mesh position={[x,1.6,-5.73]}><boxGeometry args={[1.74,2.95,.06]}/><meshStandardMaterial color="#73afb8" metalness={.2} roughness={.25}/></mesh>
+        <mesh position={[x*.18,1.45,-5.8]}><boxGeometry args={[.05,.6,.06]}/><meshStandardMaterial color="#e8efed"/></mesh>
+      </group>)}
+      <mesh position={[0,3.55,-7]} castShadow><boxGeometry args={[6,.22,3.3]}/><meshStandardMaterial color="#294a54"/></mesh>
+      <DistrictSign position={[0,4.2,-6.4]} title="Patient receiving" subtitle="EMERGENCY · HOSPITAL HANDOFF"/>
       <mesh position={[0, .08, 10]} receiveShadow><boxGeometry args={[20, .14, 16]} /><meshStandardMaterial color="#566272" roughness={.8} /></mesh>
       <mesh position={[0, 3.4, 7.3]} castShadow><boxGeometry args={[12, .35, 5]} /><meshStandardMaterial color="#294a54" /></mesh>
       {[-5.5, 5.5].map(x => <mesh key={x} position={[x, 1.7, 9.4]}><boxGeometry args={[.22, 3.4, .22]} /><meshStandardMaterial color="#d9e2e0" /></mesh>)}

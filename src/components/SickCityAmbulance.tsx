@@ -8,6 +8,7 @@ import type { SickCityMovement } from "@/components/SickCityScene";
 import { isGarageWall, advanceAmbulance, AMBULANCE_START_YAW, HOSPITAL_AMBULANCE_START, type VehiclePose } from "@/lib/sickCityVehicle";
 
 type Props = {
+  cameraEnabled?:boolean;
   doorOpen?: number;
   occupied: boolean;
   initialPose?: VehiclePose;
@@ -19,7 +20,7 @@ type Props = {
   onMove: (pose: VehiclePose) => void;
 };
 
-export default function SickCityAmbulance({ doorOpen=0, initialPose, occupied, inputEnabled, movementRef, resetToken, showMarker, onEnter, onMove }: Props) {
+export default function SickCityAmbulance({ cameraEnabled=true, doorOpen=0, initialPose, occupied, inputEnabled, movementRef, resetToken, showMarker, onEnter, onMove }: Props) {
   const root = useRef<THREE.Group>(null);
   const blue = useRef<THREE.PointLight>(null);
   const red = useRef<THREE.PointLight>(null);
@@ -49,7 +50,7 @@ export default function SickCityAmbulance({ doorOpen=0, initialPose, occupied, i
     const pulse = (Math.sin(clock.elapsedTime * Math.PI) + 1) / 2;
     if (blue.current) blue.current.intensity = 1 + pulse * 5;
     if (red.current) red.current.intensity = 1 + (1 - pulse) * 5;
-    if (occupied) {
+    if (occupied && cameraEnabled) {
       // Trace back from the vehicle so nearby buildings cannot hide the camera.
       let cameraDistance = 1;
       for (let distance = 1; distance <= 11; distance += .4) {
