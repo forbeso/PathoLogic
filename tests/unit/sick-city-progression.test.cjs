@@ -240,3 +240,24 @@ test('hospital unloading starts inside the ambulance, clears the rear, and reach
   }
  }
 });
+
+test('a blocked ambulance turn preserves safe travel out of the garage',()=>{
+ const {advanceAmbulance,canPlaceAmbulance}=load('src/lib/sickCityVehicle.ts');
+ const pose={position:[30.25,0,-60.25],yaw:-2.7,speed:3};
+ const next=advanceAmbulance(pose,{forward:true,backward:false,left:false,right:true},.05);
+ assert.equal(next.yaw,pose.yaw);
+ assert.ok(next.speed>0);
+ assert.notDeepEqual(next.position,pose.position);
+ assert.ok(canPlaceAmbulance(next.position[0],next.position[2],next.yaw));
+});
+
+test('ambulance recovery never permits driving through the garage walls',()=>{
+ const {advanceAmbulance,canPlaceAmbulance}=load('src/lib/sickCityVehicle.ts');
+ for(const right of [false,true]) {
+  let pose={position:[22,0,-62],yaw:Math.PI/2,speed:0};
+  for(let frame=0;frame<600;frame++) {
+   pose=advanceAmbulance(pose,{forward:true,backward:false,left:false,right},1/60);
+   assert.ok(canPlaceAmbulance(pose.position[0],pose.position[2],pose.yaw));
+  }
+ }
+});

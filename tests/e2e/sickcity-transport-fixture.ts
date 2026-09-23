@@ -4,8 +4,8 @@ async function telemetry(page:Page) {
  return {x:Number(await main.getAttribute('data-vehicle-x')),z:Number(await main.getAttribute('data-vehicle-z')),yaw:Number(await main.getAttribute('data-vehicle-yaw'))};
 }
 async function walkTo(page:Page,x:number,z:number,tolerance=1) {
- const facing=Number(await page.locator('main').getAttribute('data-player-facing'));
  for(let i=0;i<400;i++) {
+  const facing=Number(await page.locator('main').getAttribute('data-player-facing'));
   const marker=page.locator('[data-world-x]').first();
   const dx=x-Number(await marker.getAttribute('data-world-x')),dz=z-Number(await marker.getAttribute('data-world-z'));
   if(Math.hypot(dx,dz)<tolerance) return;

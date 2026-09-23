@@ -69,3 +69,7 @@ Patient transfer takes 2.4 seconds with a visible lift onto the cot. Ambulance l
 ### Visible hospital handoff
 
 The seven-second hospital handoff opens the rear doors, unloads the patient on the cot, and moves it toward receiving. An elevated apron camera follows the sequence. The shared active-time clock freezes animation and completion in the shift menu or map, then resumes from the same point. Completion and XP remain guarded against duplicate awards. Receiving staff and coordinated pushing animations remain future work.
+
+### Driving and handoff visibility
+
+If steering would clip the ambulance footprint into a boundary, safe travel at the existing heading is preserved; if neither path fits, the ambulance still stops. The collision footprint and drivable boundaries are unchanged. During hospital handoff, the existing temporary-material fading follows the stretcher, then restores nearby ambulance/street objects when handoff ends. This keeps shared model materials intact.

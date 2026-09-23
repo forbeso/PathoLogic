@@ -59,6 +59,15 @@ export function advanceAmbulance(pose: VehiclePose, input: {
   const yaw = pose.yaw + turn;
   const x = pose.position[0] - Math.sin(yaw) * speed * dt;
   const z = pose.position[2] - Math.cos(yaw) * speed * dt;
-  if (!canPlaceAmbulance(x, z, yaw)) return { ...pose, speed: 0 };
+  if (!canPlaceAmbulance(x, z, yaw)) {
+    // A blocked corner rotation should not discard safe forward/reverse travel.
+    // Keep the existing heading until there is room to turn the whole vehicle.
+    const straightX=pose.position[0]-Math.sin(pose.yaw)*speed*dt;
+    const straightZ=pose.position[2]-Math.cos(pose.yaw)*speed*dt;
+    if(turn !== 0 && canPlaceAmbulance(straightX,straightZ,pose.yaw)) {
+      return {position:[straightX,0,straightZ],yaw:pose.yaw,speed};
+    }
+    return { ...pose, speed: 0 };
+  }
   return { position: [x, 0, z], yaw, speed };
 }

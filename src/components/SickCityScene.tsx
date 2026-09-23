@@ -56,7 +56,7 @@ type SceneProps = {
   showDestinationMarker: boolean;
   showPatientMarker: boolean;
   patientMarkerInteractive: boolean;
-  onPlayerMove: (position: Point) => void;
+  onPlayerMove: (position: Point, viewYaw:number) => void;
   onPatientSelect: () => void;
 };
 
@@ -197,7 +197,7 @@ function Player({
   movementRef: React.MutableRefObject<SickCityMovement>;
   spawnPosition: Point;
   resetToken: number;
-  onPlayerMove: (position: Point) => void;
+  onPlayerMove: (position: Point, viewYaw:number) => void;
 }) {
   const group = useRef<THREE.Group>(null);
   const { camera, gl } = useThree();
@@ -308,7 +308,7 @@ function Player({
 
     if (state.clock.elapsedTime - lastReported.current > 0.12) {
       lastReported.current = state.clock.elapsedTime;
-      onPlayerMove([player.position.x, 0, player.position.z]);
+      onPlayerMove([player.position.x, 0, player.position.z],yaw.current);
     }
   });
 
@@ -430,7 +430,7 @@ function World(props: SceneProps) {
       <hemisphereLight args={["#a1bafa", "#414d3d", 1.25]} />
       <ambientLight intensity={0.6} />
       <CitySun />
-      <SickCityCareVisibility focus={props.careFocus}/>
+      <SickCityCareVisibility focus={props.careFocus ?? (props.transportPhase === "handoff" ? hospitalStretcherPose(props.ambulancePose,props.transferProgress).position : undefined)}/>
       <SickCityStreets />
       <SickCityEnvironment />
       <CloudBank />

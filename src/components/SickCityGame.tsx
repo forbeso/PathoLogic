@@ -125,6 +125,7 @@ export default function SickCityGame() {
   const [phase, setPhase] = useState<GamePhase>("starting");
   const [playerPosition, setPlayerPosition] = useState<Point>(SICK_CITY_START_POSITION);
   const [playerSpawn, setPlayerSpawn] = useState<Point>(SICK_CITY_START_POSITION);
+  const [playerViewYaw,setPlayerViewYaw]=useState(Math.PI/2);
   const [playerFacing, setPlayerFacing] = useState(Math.PI / 2);
   const [playerResetToken, setPlayerResetToken] = useState(0);
   const [inAmbulance, setInAmbulance] = useState(false);
@@ -494,7 +495,7 @@ export default function SickCityGame() {
     }} /> : null;
 
   return (
-    <main data-phase={phase} data-player-facing={playerFacing} data-vehicle-x={vehiclePose.position[0]} data-vehicle-z={vehiclePose.position[2]} data-vehicle-yaw={vehiclePose.yaw} id="main-content" tabIndex={-1} className={styles.game}>
+    <main data-phase={phase} data-player-facing={playerViewYaw} data-vehicle-x={vehiclePose.position[0]} data-vehicle-z={vehiclePose.position[2]} data-vehicle-yaw={vehiclePose.yaw} id="main-content" tabIndex={-1} className={styles.game}>
       {phase !== "complete" && phase !== "shiftComplete" && <h1 className="sr-only">SickCity EMT training shift</h1>}
       <div className={styles.world} inert={mapOpen || paused}>
         <SickCityScene transferProgress={transferProgress} destination={destination} destinationName={destinationName} transportPhase={transportActive ? phase : undefined} playerPosition={playerPosition} hidePatient={["starting","available","dispatch","shiftComplete","transferring","carrying","boarding","transport","handoff","complete"].includes(phase)} careEquipment={phase === "clinical" ? worldCareEquipment : undefined} worldCareTargets={phase === "clinical" ? worldCareTargets : phase === "assessment" && !paused && !mapOpen && !dispatchBoardOpen ? quickTargets : undefined} careFocus={phase === "clinical" || phase === "assessment" ? patientCareTarget(activeCall) : undefined} activeCall={activeCall} movementRef={movementRef} movementEnabled={canMove}
@@ -503,7 +504,7 @@ export default function SickCityGame() {
           playerSpawn={playerSpawn} playerFacing={playerFacing} playerResetToken={playerResetToken}
           showDestinationMarker={(phase === "locate" || transportActive) && waypointDistance > 5}
           showPatientMarker={patientMarkerVisible} patientMarkerInteractive={phase === "locate" && !paused && !mapOpen && !dispatchBoardOpen && !inAmbulance}
-          onPlayerMove={setPlayerPosition} onPatientSelect={selectPatient} />
+          onPlayerMove={(position,viewYaw)=>{setPlayerPosition(position);setPlayerViewYaw(viewYaw);}} onPatientSelect={selectPatient} />
       </div>
       <div className={styles.vignette} />
       {clinicalCare && <div className={styles.clinicalOverlay} data-testid="sickcity-patient-care">{clinicalCare}</div>}
