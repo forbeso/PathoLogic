@@ -1,21 +1,26 @@
+import {walkingKeys} from './sickcity-navigation';
 import {expect,type Page} from '@playwright/test';
-async function telemetry(page:Page) {
+export async function telemetry(page:Page) {
  const main=page.locator('main');
  return {x:Number(await main.getAttribute('data-vehicle-x')),z:Number(await main.getAttribute('data-vehicle-z')),yaw:Number(await main.getAttribute('data-vehicle-yaw'))};
 }
-async function walkTo(page:Page,x:number,z:number,tolerance=1) {
+export async function walkTo(page:Page,x:number,z:number,tolerance=1) {
  for(let i=0;i<400;i++) {
-  const facing=Number(await page.locator('main').getAttribute('data-player-facing'));
-  const marker=page.locator('[data-world-x]').first();
-  const dx=x-Number(await marker.getAttribute('data-world-x')),dz=z-Number(await marker.getAttribute('data-world-z'));
+  const current=await page.locator('main').evaluate(element=>({
+   facing:Number(element.getAttribute('data-player-facing')),
+   x:Number(element.getAttribute('data-player-x')),z:Number(element.getAttribute('data-player-z')),
+  }));
+  const facing=current.facing,dx=x-current.x,dz=z-current.z;
   if(Math.hypot(dx,dz)<tolerance) return;
-  const forward=dx*Math.sin(facing)-dz*Math.cos(facing),right=dx*Math.cos(facing)+dz*Math.sin(facing);
-  const keys=[...(Math.abs(forward)>.35?[forward>0?'w':'s']:[]),...(Math.abs(right)>.35?[right>0?'d':'a']:[])];
+  const keys=walkingKeys(dx,dz,facing);
   for(const key of keys) await page.keyboard.down(key);
   await page.waitForTimeout(100);
   for(const key of keys) await page.keyboard.up(key);
+  // The scene reports at 120ms intervals; wait for that report before steering again.
+  await page.waitForTimeout(140);
  }
- throw new Error(`Could not walk stretcher to ${x},${z}`);
+ const stopped=await page.locator('main').evaluate(element=>({x:element.getAttribute('data-player-x'),z:element.getAttribute('data-player-z'),yaw:element.getAttribute('data-player-facing')}));
+ throw new Error(`Could not walk stretcher to ${x},${z}: ${JSON.stringify(stopped)}`);
 }
 async function driveUntil(page:Page,keys:string[],done:(p:{x:number;z:number;yaw:number})=>boolean) {
  for(const key of keys) await page.keyboard.down(key);

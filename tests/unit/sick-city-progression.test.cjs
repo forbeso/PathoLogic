@@ -300,3 +300,18 @@ test('hand IK reaches rotated and scaled grips without stretching either arm seg
   }
  }
 });
+
+
+test('walking helper selects the nearest keyboard direction across camera headings',()=>{
+ const {walkingKeys}=load('tests/e2e/sickcity-navigation.ts');
+ assert.deepEqual(walkingKeys(36-27.8894,-59+40.2879,-1.15371),['d']);
+ assert.deepEqual(walkingKeys(0,0,1),[]);
+ for(let yaw=-Math.PI;yaw<Math.PI;yaw+=.17) for(let angle=-Math.PI;angle<Math.PI;angle+=.13) {
+  const dx=Math.cos(angle),dz=Math.sin(angle),keys=walkingKeys(dx,dz,yaw);
+  const f=Number(keys.includes('w'))-Number(keys.includes('s'));
+  const r=Number(keys.includes('d'))-Number(keys.includes('a'));
+  const x=f*Math.sin(yaw)+r*Math.cos(yaw),z=-f*Math.cos(yaw)+r*Math.sin(yaw);
+  const agreement=(x*dx+z*dz)/Math.hypot(x,z);
+  assert.ok(agreement>=Math.cos(Math.PI/8)-1e-8);
+ }
+});

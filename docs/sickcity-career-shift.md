@@ -85,3 +85,7 @@ During handoff, a receiving medic waits outside the rear-door area and then walk
 ### Handle targeting
 
 A two-bone arm solver targets world-space cot grips after the walking animation. It preserves upper-arm and forearm length, clamps unreachable targets, and supports rotated/scaled rigs. Rear handles are used when pushing, front handles during loading, and side rails during transfer and receiving. Receiving staff use a relaxed handling pose while waiting outside the doors.
+
+### Consecutive-call stability
+
+Accepting a dispatch clears prior care targets, equipment, menus, and transport animation progress. Clearing a completed call also clears those transient values while retaining the parked unit, shift totals, and earned progression. The consecutive-call regression uses three different quick calls in one session, with real care and transport controls, and checks fresh care menus, increasing call counts, and exact XP totals. Navigation chooses the nearest of eight keyboard directions relative to the current camera (rather than treating a tiny secondary component as full diagonal input), reads position and view heading atomically, and allows the scene's 120ms telemetry interval to settle. Routes go around the parked ambulance after exiting rather than through its collision footprint.

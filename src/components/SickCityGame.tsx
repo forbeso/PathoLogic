@@ -225,6 +225,8 @@ export default function SickCityGame() {
     setCallIndex(index);
     completedRef.current = false;
     handoffCompletedRef.current=false;
+    transferElapsed.current=0;setTransferProgress(0);
+    setWorldCareTargets([]);setWorldCareEquipment(undefined);setQuickMenuOpen(false);
     setDecisions([]); setCallXp(0);
     radio.play('acknowledge');
     setCallOptions(Object.fromEntries(getSickCityCall(index).steps.map(step => [step.id, shuffled(step.options)])));
@@ -462,6 +464,8 @@ export default function SickCityGame() {
 
   const clearCall = () => {
     clearMovement(); setDispatchBoardOpen(false); setClinicalResult(null); setToast(null);
+    setWorldCareTargets([]);setWorldCareEquipment(undefined);setQuickMenuOpen(false);
+    transferElapsed.current=0;setTransferProgress(0);
     completedRef.current = false;
     setPhase(callsCompleted >= SHIFT_CALL_LIMIT ? 'shiftComplete' : 'available');
   };
@@ -495,7 +499,7 @@ export default function SickCityGame() {
     }} /> : null;
 
   return (
-    <main data-phase={phase} data-player-facing={playerViewYaw} data-vehicle-x={vehiclePose.position[0]} data-vehicle-z={vehiclePose.position[2]} data-vehicle-yaw={vehiclePose.yaw} id="main-content" tabIndex={-1} className={styles.game}>
+    <main data-phase={phase} data-player-x={playerPosition[0]} data-player-z={playerPosition[2]} data-player-facing={playerViewYaw} data-vehicle-x={vehiclePose.position[0]} data-vehicle-z={vehiclePose.position[2]} data-vehicle-yaw={vehiclePose.yaw} id="main-content" tabIndex={-1} className={styles.game}>
       {phase !== "complete" && phase !== "shiftComplete" && <h1 className="sr-only">SickCity EMT training shift</h1>}
       <div className={styles.world} inert={mapOpen || paused}>
         <SickCityScene transferProgress={transferProgress} destination={destination} destinationName={destinationName} transportPhase={transportActive ? phase : undefined} playerPosition={playerPosition} hidePatient={["starting","available","dispatch","shiftComplete","transferring","carrying","boarding","transport","handoff","complete"].includes(phase)} careEquipment={phase === "clinical" ? worldCareEquipment : undefined} worldCareTargets={phase === "clinical" ? worldCareTargets : phase === "assessment" && !paused && !mapOpen && !dispatchBoardOpen ? quickTargets : undefined} careFocus={phase === "clinical" || phase === "assessment" ? patientCareTarget(activeCall) : undefined} activeCall={activeCall} movementRef={movementRef} movementEnabled={canMove}
