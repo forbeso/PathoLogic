@@ -261,3 +261,42 @@ test('ambulance recovery never permits driving through the garage walls',()=>{
   }
  }
 });
+
+
+test('hospital receiver stays grounded and clear of the ambulance while unloading',()=>{
+ const {hospitalReceiverOffset,hospitalStretcherPose}=load('src/lib/sickCityTransport.ts');
+ const {isInsideAmbulance}=load('src/lib/sickCityVehicle.ts');
+ for(const yaw of [0,Math.PI/2,Math.PI,-Math.PI/2]) {
+  const pose={position:[22,0,-34],yaw,speed:0};
+  for(let step=0;step<=100;step++) {
+   const progress=step/100;
+   const cot=hospitalStretcherPose(pose,progress),offset=hospitalReceiverOffset(pose,progress);
+   assert.ok(Math.abs(cot.position[1]+offset[1])<1e-9);
+   if(progress<.4) {
+    const x=cot.position[0]+Math.cos(cot.yaw)*offset[0]+Math.sin(cot.yaw)*offset[2];
+    const z=cot.position[2]-Math.sin(cot.yaw)*offset[0]+Math.cos(cot.yaw)*offset[2];
+    assert.equal(isInsideAmbulance(x,z,pose),false);
+   }
+  }
+ }
+});
+
+test('hand IK reaches rotated and scaled grips without stretching either arm segment',()=>{
+ const THREE=require('three');
+ const {reachPatientHand}=load('src/lib/sickCityPatientRig.ts');
+ for(const scale of [1,.01]) {
+  const root=new THREE.Group();root.rotation.set(.3,.8,-.2);root.scale.setScalar(scale);
+  const arm=new THREE.Bone();arm.name='rigRightArm';
+  const elbow=new THREE.Bone();elbow.name='rigRightForeArm';elbow.position.y=.4/scale;
+  const hand=new THREE.Bone();hand.name='rigRightHand';hand.position.y=.35/scale;
+  root.add(arm);arm.add(elbow);elbow.add(hand);root.updateMatrixWorld(true);
+  for(const target of [new THREE.Vector3(.3,.25,.2),new THREE.Vector3(4,2,1)]) {
+   reachPatientHand(root,'Right',target,new THREE.Vector3(0,-1,0));
+   const a=arm.getWorldPosition(new THREE.Vector3()),b=elbow.getWorldPosition(new THREE.Vector3()),c=hand.getWorldPosition(new THREE.Vector3());
+   assert.ok(Math.abs(a.distanceTo(b)-.4)<1e-6);
+   assert.ok(Math.abs(b.distanceTo(c)-.35)<1e-6);
+   if(target.length()<.75) assert.ok(c.distanceTo(target)<1e-6);
+   else assert.ok(c.distanceTo(a)<=.75);
+  }
+ }
+});

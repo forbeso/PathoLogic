@@ -37,3 +37,13 @@ export function hospitalStretcherPose(pose:VehiclePose,progress:number) {
   const position:CityPoint=[a[0]+(b[0]-a[0])*blend,a[1]+(b[1]-a[1])*blend,a[2]+(b[2]-a[2])*blend];
   return {position,yaw:segment<2?pose.yaw:Math.atan2(b[0]-a[0],b[2]-a[2])};
 }
+
+/** Receiving staff wait clear of the doors, then guide the cot along its side. */
+export function hospitalReceiverOffset(pose:VehiclePose,progress:number):CityPoint {
+  const cot=hospitalStretcherPose(pose,progress);
+  const rearDistance=(cot.position[0]-pose.position[0])*Math.sin(pose.yaw)+(cot.position[2]-pose.position[2])*Math.cos(pose.yaw);
+  if(progress<.4) return [1.9,-cot.position[1],Math.max(0,5-rearDistance)];
+  const t=Math.min(1,(progress-.4)/.15);
+  const blend=t*t*(3-2*t);
+  return [1.9-1.05*blend,-cot.position[1],-.65*blend];
+}

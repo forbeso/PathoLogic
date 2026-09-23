@@ -32,3 +32,32 @@ export function posePatientRig(root:THREE.Group,pose:SickCityPose) {
   if(pose==='supine') root.rotation.x=-Math.PI/2;
   root.updateMatrixWorld(true);
 }
+
+/** Two-bone reach in world space; unreachable grips clamp without stretching bones. */
+export function reachPatientHand(root:THREE.Object3D,side:'Left'|'Right',target:THREE.Vector3,pole:THREE.Vector3) {
+  const upper=patientBone(root,`${side}Arm`),elbow=patientBone(root,`${side}ForeArm`),hand=patientBone(root,`${side}Hand`);
+  if(!upper || !elbow || !hand) return;
+  root.updateMatrixWorld(true);
+  const shoulder=upper.getWorldPosition(new THREE.Vector3());
+  const joint=elbow.getWorldPosition(new THREE.Vector3());
+  const wrist=hand.getWorldPosition(new THREE.Vector3());
+  const a=shoulder.distanceTo(joint),b=joint.distanceTo(wrist);
+  if(a<1e-6 || b<1e-6) return;
+  const direction=target.clone().sub(shoulder);
+  const requested=direction.length();
+  if(requested<1e-6) return;
+  direction.divideScalar(requested);
+  const distance=THREE.MathUtils.clamp(requested,Math.abs(a-b)+1e-6,a+b-1e-6);
+  const bend=pole.clone().addScaledVector(direction,-pole.dot(direction));
+  if(bend.lengthSq()<1e-8) {
+    bend.set(Math.abs(direction.y)<.9?0:1,Math.abs(direction.y)<.9?1:0,0);
+    bend.addScaledVector(direction,-bend.dot(direction));
+  }
+  bend.normalize();
+  const along=(a*a-b*b+distance*distance)/(2*distance);
+  const height=Math.sqrt(Math.max(0,a*a-along*along));
+  const elbowTarget=shoulder.clone().addScaledVector(direction,along).addScaledVector(bend,height);
+  const wristTarget=shoulder.clone().addScaledVector(direction,distance);
+  aimPatientBone(root,`${side}Arm`,`${side}ForeArm`,elbowTarget.sub(shoulder));
+  aimPatientBone(root,`${side}ForeArm`,`${side}Hand`,wristTarget.sub(elbow.getWorldPosition(new THREE.Vector3())));
+}

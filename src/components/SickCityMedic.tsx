@@ -1,4 +1,4 @@
-import {aimPatientBone,patientBone} from "@/lib/sickCityPatientRig";
+import {aimPatientBone,patientBone,reachPatientHand} from "@/lib/sickCityPatientRig";
 import type {TransportPhase} from "@/lib/sickCityTransport";
 import { useAnimations, useGLTF } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
@@ -8,6 +8,8 @@ import { clone } from "three/examples/jsm/utils/SkeletonUtils.js";
 import type { SickCityMovement } from "@/components/SickCityScene";
 
 type SickCityMedicProps = React.JSX.IntrinsicElements["group"] & {
+  handTargets?:()=>{left:THREE.Vector3;right:THREE.Vector3}|undefined;
+  handlingStretcher?:boolean;
   transferPhase?:TransportPhase;
   transferProgress?:number;
   movementRef: React.MutableRefObject<SickCityMovement>;
@@ -15,9 +17,17 @@ type SickCityMedicProps = React.JSX.IntrinsicElements["group"] & {
 
 const MEDIC_MODEL_URL = "/models/sickcity/medic-walking.glb";
 
-export default function SickCityMedic({ movementRef, transferPhase, transferProgress=0, ...props }: SickCityMedicProps) {
+export default function SickCityMedic({ movementRef, handTargets, handlingStretcher=false, transferPhase, transferProgress=0, ...props }: SickCityMedicProps) {
   const source = useGLTF(MEDIC_MODEL_URL, "/draco/");
-  const model = useMemo(() => clone(source.scene), [source.scene]);
+  const model = useMemo(() => {
+    const copy=clone(source.scene);
+    if(handlingStretcher) {
+      copy.updateMatrixWorld(true);
+      const hips=patientBone(copy,'Hips')?.getWorldPosition(new THREE.Vector3());
+      if(hips) {copy.position.x-=hips.x;copy.position.z-=hips.z;copy.updateMatrixWorld(true);}
+    }
+    return copy;
+  }, [source.scene,handlingStretcher]);
   const animations = useMemo(
     () =>
       source.animations.map((sourceClip) => {
@@ -53,8 +63,8 @@ export default function SickCityMedic({ movementRef, transferPhase, transferProg
   const { actions, names } = useAnimations(animations, root);
   useFrame(()=>{
     originalPose.current=posedBones.map(bone=>bone.quaternion.clone());
-    if(transferPhase!=='transferring' && transferPhase!=='boarding') return;
-    const reach=Math.sin(Math.PI*transferProgress);
+    if(!handlingStretcher && transferPhase!=='transferring' && transferPhase!=='boarding') return;
+    const reach=handlingStretcher ? 1 : Math.sin(Math.PI*transferProgress);
     posedBones.forEach(bone=>{
       if(bone.name.endsWith('Spine') || bone.name.endsWith('Spine1')) bone.rotateX(reach*.18);
     });
@@ -70,6 +80,11 @@ export default function SickCityMedic({ movementRef, transferPhase, transferProg
         aimPatientBone(model,`${side}${joint}`,`${side}${child}`,direction.applyQuaternion(orientation));
         bone.quaternion.slerp(base,1-reach);
       }
+    }
+    const grips=handTargets?.();
+    if(grips) for(const [side,sign] of [['Left',1],['Right',-1]] as const) {
+      const pole=new THREE.Vector3(sign*.4,-1,-.2).applyQuaternion(orientation);
+      reachPatientHand(model,side,side==='Left'?grips.left:grips.right,pole);
     }
   });
   const walkAction = names.length > 0 ? actions[names[0]] : undefined;

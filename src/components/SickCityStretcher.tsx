@@ -1,9 +1,10 @@
 import {useMemo,useRef} from 'react';
 import {useFrame} from '@react-three/fiber';
 import * as THREE from 'three';
-import {hospitalStretcherPose,type TransportPhase} from '@/lib/sickCityTransport';
+import {hospitalReceiverOffset,hospitalStretcherPose,type TransportPhase} from '@/lib/sickCityTransport';
 import type {CityPoint,VehiclePose} from '@/lib/sickCityVehicle';
 import SickCityPatient from './SickCityPatient';
+import SickCityMedic from './SickCityMedic';
 
 export default function SickCityStretcher({position,loaded,teen,laying,phase,progress,patientPosition,ambulance}:{position:CityPoint;loaded:boolean;teen:boolean;laying:boolean;phase?:TransportPhase;progress:number;patientPosition:CityPoint;ambulance:VehiclePose}) {
   const root=useRef<THREE.Group>(null),patient=useRef<THREE.Group>(null);
@@ -12,7 +13,13 @@ export default function SickCityStretcher({position,loaded,teen,laying,phase,pro
   const localPatient=useMemo(()=>new THREE.Vector3(),[]);
   const mattress=useMemo(()=>new THREE.Vector3(0,.93,0),[]);
   const heading=useRef(0);
-  useFrame(()=>{
+  const partner=useRef<THREE.Group>(null);
+  const partnerInput=useRef({forward:false,backward:false,left:false,right:false});
+  const walkingUntil=useRef(0);
+  const lastPartner=useRef<THREE.Vector3 | null>(null);
+  const partnerWorld=useMemo(()=>new THREE.Vector3(),[]);
+
+  useFrame(({clock})=>{
     if(!root.current) return;
     const dx=previous.current ? position[0]-previous.current.x : 0,dz=previous.current ? position[2]-previous.current.z : 0;
     if(Math.hypot(dx,dz)>.015) heading.current=Math.atan2(dx,dz);
@@ -37,6 +44,30 @@ export default function SickCityStretcher({position,loaded,teen,laying,phase,pro
       root.current.position.set(...handoff.position);
       root.current.rotation.y=handoff.yaw;
     }
+    if(partner.current) {
+      partner.current.position.set(0,-root.current.position.y,-1.65);
+      partner.current.rotation.y=0;
+      if(phase==='transferring') {
+        partner.current.position.set(.9,-root.current.position.y,0);
+        partner.current.rotation.y=-Math.PI/2;
+      } else if(phase==='boarding') {
+        const slide=Math.max(0,(progress-.55)/.45);
+        // Remain outside the rear doors while the cot slides into the compartment.
+        partner.current.position.z=1.65+slide*2;
+        partner.current.rotation.y=Math.PI;
+      } else if(phase==='handoff') {
+        const offset=hospitalReceiverOffset(ambulance,progress);
+        partner.current.position.set(...offset);
+        partner.current.rotation.y=-Math.PI/4;
+      }
+      root.current.updateMatrixWorld(true);
+      partner.current.getWorldPosition(partnerWorld);
+      const moving=lastPartner.current ? lastPartner.current.distanceToSquared(partnerWorld)>.000001 : false;
+      if(moving) walkingUntil.current=clock.elapsedTime+.16;
+      partnerInput.current.forward=clock.elapsedTime<walkingUntil.current;
+      if(!lastPartner.current) lastPartner.current=new THREE.Vector3();
+      lastPartner.current.copy(partnerWorld);
+    }
     if(passenger.current) {
       passenger.current.position.set(0,.93,0);
       if(phase==='transferring') {
@@ -48,7 +79,18 @@ export default function SickCityStretcher({position,loaded,teen,laying,phase,pro
       }
     }
   });
+  const handTargets=()=>{
+    if(!root.current || phase==='handoff' && progress<.4) return;
+    const sideGrip=phase==='transferring' || phase==='handoff';
+    const boarding=phase==='boarding';
+    const left=sideGrip ? new THREE.Vector3(.38,.99,.25) : new THREE.Vector3(boarding?-.27:.27,.98,boarding?1.12:-1.12);
+    const right=sideGrip ? new THREE.Vector3(.38,.99,-.25) : new THREE.Vector3(boarding?.27:-.27,.98,boarding?1.12:-1.12);
+    root.current.updateMatrixWorld(true);
+    return {left:root.current.localToWorld(left),right:root.current.localToWorld(right)};
+  };
   return <group ref={root}>
+    {<group ref={partner}><SickCityMedic movementRef={partnerInput} handTargets={handTargets} handlingStretcher scale={1.1}/></group>}
+    {[-1,1].flatMap(end=>[-.27,.27].map(x=><mesh key={`handle-${end}-${x}`} position={[x,.98,end*1.12]}><boxGeometry args={[.055,.055,.32]}/><meshStandardMaterial color="#293d43"/></mesh>))}
     <mesh position={[0,.74,0]} castShadow><boxGeometry args={[.72,.1,2.05]}/><meshStandardMaterial color="#dba332" metalness={.3}/></mesh>
     <mesh position={[0,.85,0]} castShadow><boxGeometry args={[.63,.15,1.95]}/><meshStandardMaterial color="#173f50" roughness={.85}/></mesh>
     {[-1,1].map(side=><group key={side}>

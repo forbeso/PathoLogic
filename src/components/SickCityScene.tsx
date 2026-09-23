@@ -284,14 +284,16 @@ function Player({
     const desiredRotation = isMoving ? Math.atan2(-velocity.current.x, -velocity.current.z) : -yaw.current;
     const rotationDelta = Math.atan2(Math.sin(desiredRotation - player.rotation.y), Math.cos(desiredRotation - player.rotation.y));
     player.rotation.y += rotationDelta * (1 - Math.exp(-delta * 13));
-    cameraGoal.current.copy(player.position).addScaledVector(forward.current, -5.3).addScaledVector(right.current, -1.25);
+    const withStretcher=["stretcher","transferring","carrying","boarding"].includes(transferPhase ?? "");
+    const chaseDistance=withStretcher?8.5:5.3;
+    cameraGoal.current.copy(player.position).addScaledVector(forward.current, -chaseDistance).addScaledVector(right.current, -1.25);
     // Shorten the chase camera before it enters a wall or parked ambulance.
-    for (let distance = 5.3; distance >= .5; distance -= .4) {
+    for (let distance = chaseDistance; distance >= .5; distance -= .4) {
       cameraGoal.current.copy(player.position).addScaledVector(forward.current, -distance).addScaledVector(right.current, -Math.min(.8, distance / 2));
       if (!isBuildingCollision(cameraGoal.current.x, cameraGoal.current.z) && !isInsideAmbulance(cameraGoal.current.x, cameraGoal.current.z, ambulancePose)) break;
     }
-    cameraGoal.current.y = player.position.y + 2.9;
-    lookGoal.current.copy(player.position).addScaledVector(forward.current, 4.6);
+    cameraGoal.current.y = player.position.y + (withStretcher?4.8:2.9);
+    lookGoal.current.copy(player.position).addScaledVector(forward.current, withStretcher?-1:4.6);
     lookGoal.current.y = player.position.y + 1.45;
     if (careFocus) {
       const point = patientCareCamera(careFocus, [player.position.x,0,player.position.z], camera instanceof THREE.PerspectiveCamera ? camera.aspect : 1);

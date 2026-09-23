@@ -68,8 +68,20 @@ Patient transfer takes 2.4 seconds with a visible lift onto the cot. Ambulance l
 
 ### Visible hospital handoff
 
-The seven-second hospital handoff opens the rear doors, unloads the patient on the cot, and moves it toward receiving. An elevated apron camera follows the sequence. The shared active-time clock freezes animation and completion in the shift menu or map, then resumes from the same point. Completion and XP remain guarded against duplicate awards. Receiving staff and coordinated pushing animations remain future work.
+The seven-second hospital handoff opens the rear doors, unloads the patient on the cot, and moves it toward receiving. An elevated apron camera follows the sequence. The shared active-time clock freezes animation and completion in the shift menu or map, then resumes from the same point. Completion and XP remain guarded against duplicate awards. A receiving medic now accompanies the cot; finger wrapping and coordinated lifting remain future work.
 
 ### Driving and handoff visibility
 
 If steering would clip the ambulance footprint into a boundary, safe travel at the existing heading is preserved; if neither path fits, the ambulance still stops. The collision footprint and drivable boundaries are unchanged. During hospital handoff, the existing temporary-material fading follows the stretcher, then restores nearby ambulance/street objects when handoff ends. This keeps shared model materials intact.
+
+### Stretcher partner
+
+A second rigged medic accompanies the cot during retrieval and transport, reaches beside it during patient transfer, and stays outside the ambulance as loading finishes. Walking follows cot movement, with a wider transport camera framing both medics and the patient. Finger wrapping and partner approach/exit transitions remain future work.
+
+### Hospital receiver
+
+During handoff, a receiving medic waits outside the rear-door area and then walks alongside the stretcher to receiving. The receiver shares the rigged medic asset, uses the handling pose, stays grounded as the cot lowers, and stops walking when the cot stops. Placement is checked across ambulance headings. Wrist targets now follow the side rails and end handles. Finger wrapping and full-body lifting remain future work.
+
+### Handle targeting
+
+A two-bone arm solver targets world-space cot grips after the walking animation. It preserves upper-arm and forearm length, clamps unreachable targets, and supports rotated/scaled rigs. Rear handles are used when pushing, front handles during loading, and side rails during transfer and receiving. Receiving staff use a relaxed handling pose while waiting outside the doors.
