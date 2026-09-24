@@ -1,10 +1,11 @@
+import type { CityPatientResponse } from '@/lib/sickCityPatientResponse';
 import {useGLTF,useAnimations} from '@react-three/drei';
 import {useFrame} from '@react-three/fiber';
 import {useMemo,useRef,useLayoutEffect,useEffect} from 'react';
 import * as THREE from 'three';
 import {clone} from 'three/examples/jsm/utils/SkeletonUtils.js';
 const LAYING_PATIENT_URL='/models/sickcity/patients/laying-moaning.glb';
-export default function SickCityLayingPatient({patientRef, treated=false}: {patientRef?: React.RefObject<THREE.Group | null>; treated?:boolean}) {
+export default function SickCityLayingPatient({patientRef, response}: {patientRef?: React.RefObject<THREE.Group | null>; response?:CityPatientResponse}) {
   const source = useGLTF(LAYING_PATIENT_URL, "/draco/");
   const model = useMemo(() => clone(source.scene), [source.scene]);
   const animations = useMemo(
@@ -29,7 +30,7 @@ export default function SickCityLayingPatient({patientRef, treated=false}: {pati
   const { actions, names } = useAnimations(animations, root);
   const action = names.length > 0 ? actions[names[0]] : undefined;
   useFrame((_, delta) => {
-    if (action) action.timeScale = THREE.MathUtils.damp(action.timeScale, treated ? .3 : 1, 2, delta);
+    if (action) action.timeScale = THREE.MathUtils.damp(action.timeScale, response?.stage === 'reassessed' && response.condition !== 'worsening' ? .3 : 1, 2, delta);
   });
 
   useLayoutEffect(() => {

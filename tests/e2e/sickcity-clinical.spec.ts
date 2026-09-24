@@ -83,11 +83,14 @@ test('full clinical call preserves the city assignment through care and scored d
   await page.getByText('Patient findings',{exact:true}).click();
   await action(page,'Working Impression','select-correct-impression');
   await action(page,'Medication Decision','give-scenario-medication');
+  await expect(page.getByLabel('Patient response')).toHaveAttribute('data-response-stage','treated');
   await expect(page.getByLabel('Patient equipment readings')).toContainText('97%');
   await action(page,'Transport Decision','prompt-transport');
   await action(page,'Focused History','obtain-focused-history');
   await action(page,'Focused Exam','perform-focused-exam');
   await action(page,'Reassess Patient','repeat-primary-and-vitals');
+  await expect(page.getByLabel('Patient response')).toHaveAttribute('data-response-stage','reassessed');
+  await expect(page.getByLabel('Patient response')).toContainText('Alert, improving');
   await expect(page.getByRole('button',{name:'Return to Unit 07 with debrief',exact:true})).toHaveCount(0);
   await transportPatientToHospital(page,testInfo.project.name);
   await expect(page.getByRole('heading',{name:'Clinical care complete',exact:true})).toBeVisible();
@@ -163,17 +166,25 @@ test('teen breathing call in SickCity uses the actual sidewalk scene without an 
   await action(page,'Radial Pulse','check-radial-pulse');
   await action(page,'Working Impression','suspect-severe-allergic-reaction');
   await action(page,'Medication Decision','administer-im-epinephrine');
+  await expect(page.getByLabel('Patient response')).toHaveAttribute('data-response-stage','treated');
+  await expect(page.getByLabel('Patient response')).toContainText('Reassess');
   await action(page,'Breathing Support','apply-oxygen-anaphylaxis');
   await expect(page.getByLabel('Oxygen support active')).toBeVisible();
   await action(page,'Urgent Transport','urgent-transport');
   for(const name of ['BP Cuff','Pulse Ox']) await page.getByRole('button',{name:`Interact with ${name}`,exact:true}).click();
   await expect(page.getByLabel('Patient equipment readings')).toContainText('SpO₂');
 
-  await page.screenshot({path:`tmp/site-audit/teen-equipment-${info.project.name}.png`});
-  await page.getByRole('button',{name:'Leave patient care',exact:true}).click();
-  await page.getByRole('button',{name:'Leave care and return to unit',exact:true}).click();
-  await expect(page.getByLabel('Patient equipment readings')).toHaveCount(0);
-  await expect(page.getByLabel('Oxygen support active')).toHaveCount(0);
+  await expect(page.getByLabel('Patient response')).toContainText('RR 28/min');
+  await action(page,'Focused History','obtain-focused-allergy-history');
+  await action(page,'Focused Exam','perform-focused-anaphylaxis-exam');
+  await action(page,'Reassess Patient','repeat-abcs-and-vitals-anaphylaxis');
+  await expect(page.locator('main')).toHaveAttribute('data-phase','loading');
+  await expect(page.getByLabel('Patient response')).toHaveAttribute('data-response-stage','reassessed');
+  await expect(page.getByLabel('Patient response')).toContainText('RR 22/min');
+  await expect(page.getByLabel('Patient response')).toContainText('speaking in longer phrases');
+  await expect(page.getByLabel('Patient equipment readings')).toContainText('95%');
+  await page.screenshot({path:`tmp/site-audit/teen-response-${info.project.name}.png`});
+
 });
 
 test('quick patient care uses floating markers and the same menu through completion',async({page},info)=>{

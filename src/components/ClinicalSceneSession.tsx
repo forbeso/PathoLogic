@@ -1,3 +1,4 @@
+import { cityPatientResponse } from '@/lib/sickCityPatientResponse';
 import type { SceneScenarioConfig } from '@/lib/emtSceneEngine';
 import { careAnchor, type WorldCareTarget, type WorldCareEquipment } from '@/lib/sickCityInteraction';
 import { shuffled } from '@/lib/shuffle';
@@ -1881,9 +1882,10 @@ export default function ClinicalSceneSession({ initialScenarioId, sickCity }: {
       bloodPressure: events.includes('BLOOD_PRESSURE_OBTAINED') ? `${vitals.systolicBP}/${vitals.diastolicBP}` : undefined,
       spo2: events.includes('SPO2_OBTAINED') ? vitals.spo2 : undefined,
       pulse: events.includes('SPO2_OBTAINED') ? vitals.heartRate : undefined,
-      treated: events.includes('SCENARIO_MEDICATION_ADMINISTERED'),
+      treated: events.includes('SCENARIO_MEDICATION_ADMINISTERED') || events.includes('EPINEPHRINE_ADMINISTERED'),
+      response: cityPatientResponse(gameState),
     });
-  }, [publishWorldEquipment, gameState.triggeredEvents, gameState.patient.vitals, gameState.patient.oxygenApplied]);
+  }, [publishWorldEquipment, gameState]);
 
   const publishWorldTargets = sickCity?.onWorldTargets;
   useEffect(() => {

@@ -1,3 +1,4 @@
+import type { CityPatientResponse } from './sickCityPatientResponse';
 export type WorldCareTarget = {
   id: string; label: string; anchor: 'head' | 'chest' | 'hand' | 'bag' | 'patient';
   selected?: boolean; onSelect: () => void; onClose: () => void;
@@ -21,4 +22,5 @@ export type WorldCareEquipment = {
   spo2?: number;
   pulse?: number;
   treated: boolean;
+  response?: CityPatientResponse;
 };

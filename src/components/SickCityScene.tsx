@@ -441,8 +441,8 @@ function World(props: SceneProps) {
       {props.showDestinationMarker ? <DestinationBeacon position={props.destination} label={props.destinationName} /> : null}
 
       <group position={props.activeCall.position} visible={!props.hidePatient}>
-        {usesLayingPatient ? <SickCityLayingPatient patientRef={patientRef} treated={props.careEquipment?.treated} /> : <SickCityPatient key={props.activeCall.id} patientRef={patientRef} pose={props.activeCall.pose} teen={props.activeCall.clinicalScenarioId === "anaphylaxis"} />}
-        {props.careEquipment && <SickCityPatientEquipment patientRef={patientRef} equipment={props.careEquipment}/>}
+        {usesLayingPatient ? <SickCityLayingPatient patientRef={patientRef} response={props.careEquipment?.response} /> : <SickCityPatient key={props.activeCall.id} patientRef={patientRef} pose={props.activeCall.pose} response={props.careEquipment?.response} teen={props.activeCall.clinicalScenarioId === "anaphylaxis"} />}
+        {!props.hidePatient && props.careEquipment && <SickCityPatientEquipment patientRef={patientRef} equipment={props.careEquipment}/>}
         {props.worldCareTargets && <Suspense fallback={null}><SickCityWorldCare fallback={patientCareTarget(props.activeCall).map((value,index)=>value-props.activeCall.position[index]) as Point} patientRef={patientRef} targets={props.worldCareTargets}/></Suspense>}
         {props.showPatientMarker ? (
           <PatientInteractionMarker
@@ -455,7 +455,7 @@ function World(props: SceneProps) {
         ) : null}
       </group>
 
-      {(['stretcher','transferring','carrying','boarding','handoff'].includes(props.transportPhase ?? '')) && <Suspense fallback={null}><SickCityStretcher position={props.playerPosition} loaded={props.transportPhase !== 'stretcher'} phase={props.transportPhase} progress={props.transferProgress} patientPosition={props.activeCall.position} ambulance={props.ambulancePose} laying={usesLayingPatient} teen={props.activeCall.clinicalScenarioId === 'anaphylaxis'}/></Suspense>}
+      {(['stretcher','transferring','carrying','boarding','handoff'].includes(props.transportPhase ?? '')) && <Suspense fallback={null}><SickCityStretcher equipment={props.careEquipment} position={props.playerPosition} loaded={props.transportPhase !== 'stretcher'} phase={props.transportPhase} progress={props.transferProgress} patientPosition={props.activeCall.position} ambulance={props.ambulancePose} laying={usesLayingPatient} teen={props.activeCall.clinicalScenarioId === 'anaphylaxis'}/></Suspense>}
       {(props.transportPhase === 'transport' || props.transportPhase === 'handoff') && <group position={HOSPITAL_RECEIVING_BAY}>
         <mesh rotation={[-Math.PI/2,0,0]} position={[0,.06,0]}><ringGeometry args={[3.7,4,48]}/><meshBasicMaterial color="#78dfbb" transparent opacity={.8}/></mesh>
         <Html center position={[0,2.5,0]}><span className="rounded bg-slate-950/90 px-3 py-2 text-xs text-teal-200 whitespace-nowrap">HOSPITAL · STOP FOR HANDOFF</span></Html>

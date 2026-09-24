@@ -32,6 +32,7 @@ async function driveUntil(page:Page,keys:string[],done:(p:{x:number;z:number;yaw
 }
 export async function transportPatientToHospital(page:Page,project:string) {
  await expect(page.locator('main')).toHaveAttribute('data-phase','loading');
+ const hasResponse=await page.getByLabel('Patient response').count()>0;
  await expect(page.getByRole('button',{name:'CLEAR CALL',exact:true})).toHaveCount(0);
  await expect(page.getByRole('link',{name:'PathoLogix home'})).toContainText('0 / 5 CALLS');
  const vehicle=await telemetry(page);
@@ -48,6 +49,10 @@ export async function transportPatientToHospital(page:Page,project:string) {
  await expect(page.locator('main')).toHaveAttribute('data-phase','transferring');
  await page.getByRole('button',{name:/Resume shift/}).click();
  await expect(page.locator('main')).toHaveAttribute('data-phase','carrying');
+ if(hasResponse) {
+  await expect(page.getByLabel('Patient response')).toHaveCount(1);
+  await expect(page.getByLabel('Patient response')).toHaveAttribute('data-response-stage','reassessed');
+ }
  await page.waitForTimeout(750); // Let the canvas show the loaded patient before visual review.
  await page.screenshot({path:`tmp/site-audit/patient-stretcher-${project}.png`});
  await walkTo(page,36,-29);await walkTo(page,36,-59);await walkTo(page,stagingX,-59,.7);
@@ -57,6 +62,7 @@ export async function transportPatientToHospital(page:Page,project:string) {
  await page.waitForTimeout(1550);
  await page.screenshot({path:`tmp/site-audit/patient-loading-${project}.png`});
  await expect(page.locator('main')).toHaveAttribute('data-phase','transport');
+ if(hasResponse) await expect(page.getByLabel('Transport patient update')).toContainText('Last reassessment');
  await expect(page.getByRole('link',{name:'PathoLogix home'})).toContainText('0 / 5 CALLS');
  await page.getByRole('button',{name:/Enter ambulance/}).click();
  // Set up the turn at the east end of the garage driveway.
@@ -75,6 +81,7 @@ export async function transportPatientToHospital(page:Page,project:string) {
  await page.waitForTimeout(3800);
  await page.screenshot({path:`tmp/site-audit/hospital-handoff-${project}.png`});
  await expect(page.locator('main')).toHaveAttribute('data-phase','complete',{timeout:15000});
+ await expect(page.getByLabel('Patient response')).toHaveCount(0);
  await expect(page.getByText('Patient delivered to SickCity Medical. Hospital handoff complete.')).toBeVisible();
  await expect(page.getByRole('link',{name:'PathoLogix home'})).toContainText('1 / 5 CALLS');
 }

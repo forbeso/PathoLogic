@@ -315,3 +315,60 @@ test('walking helper selects the nearest keyboard direction across camera headin
   assert.ok(agreement>=Math.cos(Math.PI/8)-1e-8);
  }
 });
+
+test('teen response follows recorded treatment and reassessment, without assuming recovery',()=>{
+  const {sickCityTeenBreathingScenario:scenario}=load('src/lib/sickCityClinicalScenarios.ts');
+  const {createScenarioState,scenarioReducer,hypoglycemiaScenario}=load('src/lib/emtSceneEngine.ts');
+  const {cityPatientResponse}=load('src/lib/sickCityPatientResponse.ts');
+  let state=createScenarioState(scenario);
+  const apply=event=>{state=scenarioReducer(scenario,state,{type:'APPLY_EVENT',event});};
+  assert.equal(cityPatientResponse(state).stage,'assessment');
+  assert.equal(cityPatientResponse(state).respiratoryRateObserved,false);
+  // Selecting an object (including treatment) is not a successful intervention.
+  state=scenarioReducer(scenario,state,{type:'SELECT_OBJECT',objectId:'epinephrine-treatment'});
+  assert.equal(cityPatientResponse(state).stage,'assessment');
+  apply('EPINEPHRINE_ADMINISTERED');
+  assert.equal(cityPatientResponse(state).stage,'treated');
+  assert.equal(cityPatientResponse(state).respiratoryRate,28);
+  apply('OXYGEN_APPLIED');
+  assert.equal(cityPatientResponse(state).stage,'treated');
+  apply('REASSESSMENT_COMPLETED');
+  const response=cityPatientResponse(state);
+  assert.equal(response.stage,'reassessed');
+  assert.equal(response.respiratoryRate,22);
+  assert.equal(response.respiratoryRateObserved,true);
+  assert.match(response.responsiveness,/longer phrases/);
+  assert.equal(cityPatientResponse(createScenarioState(scenario)).stage,'assessment');
+  assert.equal(cityPatientResponse(createScenarioState(hypoglycemiaScenario)).stage,'assessment');
+});
+
+
+test('clinical responses preserve scenario-specific reassessment and do not calm an injured driver',()=>{
+  const engine=load('src/lib/emtSceneEngine.ts');
+  const {cityPatientResponse}=load('src/lib/sickCityPatientResponse.ts');
+  for(const [scenario,events] of [
+    [engine.carAccidentScenario,['OXYGEN_APPLIED','SPINAL_PRECAUTIONS_MAINTAINED','EXTRICATION_COORDINATED']],
+    [engine.hypoglycemiaScenario,['SCENARIO_MEDICATION_ADMINISTERED']],
+    [engine.opioidOverdoseScenario,['OXYGEN_APPLIED','SCENARIO_MEDICATION_ADMINISTERED']],
+    [engine.chestPainScenario,['OXYGEN_APPLIED','SCENARIO_MEDICATION_ADMINISTERED']],
+  ]) {
+    let state=engine.createScenarioState(scenario);
+    const initial=cityPatientResponse(state);
+    assert.equal(initial.condition,'unconfirmed');
+    for(const event of events) state=engine.scenarioReducer(scenario,state,{type:'APPLY_EVENT',event});
+    assert.equal(cityPatientResponse(state).stage,'treated');
+    assert.equal(cityPatientResponse(state).condition,'unconfirmed');
+    state=engine.scenarioReducer(scenario,state,{type:'APPLY_EVENT',event:'REASSESSMENT_COMPLETED'});
+    const response=cityPatientResponse(state);
+    assert.equal(response.stage,'reassessed');
+    assert.equal(response.respiratoryRate,state.patient.vitals.respiratoryRate);
+    assert.equal(response.responsiveness,state.patient.responsiveness);
+    if(scenario===engine.carAccidentScenario) {
+      assert.equal(response.condition,'worsening');
+      assert.match(response.responsiveness,/increasingly confused/);
+      assert.equal(response.breathingEffort,initial.breathingEffort);
+      assert.ok(response.respiratoryRate>initial.respiratoryRate);
+    } else assert.equal(response.condition,'reassessed');
+    assert.equal(cityPatientResponse(engine.createScenarioState(scenario)).stage,'assessment');
+  }
+});

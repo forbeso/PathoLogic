@@ -1,3 +1,5 @@
+import type { WorldCareEquipment } from '@/lib/sickCityInteraction';
+import SickCityPatientEquipment from './SickCityPatientEquipment';
 import {useMemo,useRef} from 'react';
 import {useFrame} from '@react-three/fiber';
 import * as THREE from 'three';
@@ -6,7 +8,7 @@ import type {CityPoint,VehiclePose} from '@/lib/sickCityVehicle';
 import SickCityPatient from './SickCityPatient';
 import SickCityMedic from './SickCityMedic';
 
-export default function SickCityStretcher({position,loaded,teen,laying,phase,progress,patientPosition,ambulance}:{position:CityPoint;loaded:boolean;teen:boolean;laying:boolean;phase?:TransportPhase;progress:number;patientPosition:CityPoint;ambulance:VehiclePose}) {
+export default function SickCityStretcher({equipment,position,loaded,teen,laying,phase,progress,patientPosition,ambulance}:{equipment?:WorldCareEquipment;position:CityPoint;loaded:boolean;teen:boolean;laying:boolean;phase?:TransportPhase;progress:number;patientPosition:CityPoint;ambulance:VehiclePose}) {
   const root=useRef<THREE.Group>(null),patient=useRef<THREE.Group>(null);
   const previous=useRef<THREE.Vector3 | null>(null);
   const passenger=useRef<THREE.Group>(null);
@@ -100,7 +102,7 @@ export default function SickCityStretcher({position,loaded,teen,laying,phase,pro
         <mesh position={[side*.3,.13,z]} rotation={[0,0,Math.PI/2]}><cylinderGeometry args={[.13,.13,.07,12]}/><meshStandardMaterial color="#20252b"/></mesh>
       </group>)}
     </group>)}
-    {loaded && <group ref={passenger} position={[0,.93,0]}><SickCityPatient pose="supine" patientRef={patient} teen={teen} modelUrl={laying ? "/models/sickcity/patients/laying-moaning.glb" : undefined}/></group>}
+    {loaded && <group ref={passenger} position={[0,.93,0]}><SickCityPatient pose="supine" patientRef={patient} response={equipment?.response} teen={teen} modelUrl={laying ? "/models/sickcity/patients/laying-moaning.glb" : undefined}/>{equipment && <SickCityPatientEquipment onStretcher patientRef={patient} equipment={equipment}/>}</group>}
     {loaded && phase !== 'transferring' && [-.3,.45].map(z=><mesh key={z} position={[0,1.14,z]}><boxGeometry args={[.63,.025,.07]}/><meshStandardMaterial color="#d5b54b"/></mesh>)}
   </group>;
 }

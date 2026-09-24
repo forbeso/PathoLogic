@@ -40,7 +40,17 @@ export default function SickCityWorldCare({targets,patientRef,fallback}: {fallba
       return <group key={target.id} position={target.anchor==='bag'?anchor:[0,0,0]}><BodyAnchor anchor={target.anchor} patientRef={patientRef} fallback={target.anchor==='bag'?[0,0,0]:fallback}><Html center zIndexRange={[60,50]} calculatePosition={(object,camera,size)=> {
           const projected=new THREE.Vector3().setFromMatrixPosition(object.matrixWorld).project(camera);
           const x=(projected.x+1)*size.width/2, y=(1-projected.y)*size.height/2;
-          if (!target.selected) return [x,y];
+          if (!target.selected) {
+            if(size.width<640 && target.anchor==='bag') {
+              // Keep equipment controls below the mobile findings panel, in separate rows.
+              const base=new THREE.Vector3().setFromMatrixPosition(object.matrixWorld);
+              base.y-=index*.85;
+              base.project(camera);
+              const baseY=Math.max(275,Math.min(size.height-120-(targets.length-1)*56,(1-base.y)*size.height/2));
+              return [Math.max(90,Math.min(size.width-90,x)),baseY+index*56];
+            }
+            return [x,y];
+          }
           // Keep the menu beside the patient and inside the viewport at every approach angle.
           return [Math.max(155,Math.min(size.width-155,x-(size.width>900?310:0))),Math.max(170,Math.min(size.height-170,y+(size.width>900?0:200)))];
         }}>
